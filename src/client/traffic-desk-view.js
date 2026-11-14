@@ -304,14 +304,14 @@ export function handleCategoryRowDragOver(e) {
   e.stopPropagation();
   const row = e.currentTarget;
   if (row && row.classList) {
-    row.classList.add('bg-white/[0.12]', 'ring-1', 'ring-amber-500/50');
+    row.classList.add('bg-white/[0.12]', 'ring-1', 'ring-sky-500/50');
   }
 }
 
 export function handleCategoryRowDragLeave(e) {
   const row = e.currentTarget;
   if (row && row.classList) {
-    row.classList.remove('bg-white/[0.12]', 'ring-1', 'ring-amber-500/50');
+    row.classList.remove('bg-white/[0.12]', 'ring-1', 'ring-sky-500/50');
   }
 }
 
@@ -319,7 +319,7 @@ export function handleCategoryRowDrop(e, groupKey, viewContext) {
   e.preventDefault();
   e.stopPropagation();
   if (e.currentTarget && e.currentTarget.classList) {
-    e.currentTarget.classList.remove('bg-white/[0.12]', 'ring-1', 'ring-amber-500/50');
+    e.currentTarget.classList.remove('bg-white/[0.12]', 'ring-1', 'ring-sky-500/50');
   }
   clearStripDropIndicators();
 
@@ -742,7 +742,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
   ` : '';
 
   const gripHtml = isStripboard ? `
-    <span class="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-amber-400 transition-colors select-none p-0.5 shrink-0" title="Arrastrar para reorganizar">
+    <span class="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-sky-400 transition-colors select-none p-0.5 shrink-0" title="Arrastrar para reorganizar">
       ${icon('grip-vertical', 'w-[15px] h-[15px]')}
     </span>
   ` : '';
@@ -753,7 +753,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
   const isSubOt = Boolean(ot.parentOtId || /^OT-\d{2}-\d+-\d+$/.test(ot.id || ''));
   const isDeliveryLocked = state.memberRole !== 'owner' && Boolean(routeDelivery && String(routeDelivery).trim());
   const subOtBtnHtml = !isSubOt && !isStripboard
-    ? `<button type="button" onclick="event.stopPropagation(); createSubOtAction('${ot.id}')" title="Crear Sub-OT hija" class="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-amber-500/20 text-zinc-400 hover:text-amber-300 border border-resolve-border hover:border-amber-500/40 text-[9px] font-semibold transition-colors shrink-0">+ Sub-OT</button>`
+    ? `<button type="button" onclick="event.stopPropagation(); createSubOtAction('${ot.id}')" title="Crear Sub-OT hija" class="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-sky-500/20 text-zinc-400 hover:text-sky-300 border border-resolve-border hover:border-sky-500/40 text-[9px] font-semibold transition-colors shrink-0">+ Sub-OT</button>`
     : '';
 
   return `
@@ -766,8 +766,8 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
       <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
         <div class="flex items-center gap-1.5 ${isSubOt ? 'pl-3' : ''}">
           ${gripHtml}
-          ${isSubOt ? `<span class="text-amber-400/80 font-mono text-[11px] shrink-0" title="Sub-OT de ${escapeHtml(ot.parentOtId || '')}">↳</span>` : ''}
-          <span class="font-mono font-bold text-white px-2 py-0.5 bg-black/50 rounded-md border border-resolve-border group-hover:border-amber-400/60 text-[11px] whitespace-nowrap">
+          ${isSubOt ? `<span class="text-sky-400/80 font-mono text-[11px] shrink-0" title="Sub-OT de ${escapeHtml(ot.parentOtId || '')}">↳</span>` : ''}
+          <span class="font-mono font-bold text-white px-2 py-0.5 bg-black/50 rounded-md border border-resolve-border group-hover:border-sky-400/60 text-[11px] whitespace-nowrap">
             ${ot.id}
           </span>
           ${ot.urgent ? `<span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Urgente"></span>` : ''}
@@ -796,13 +796,13 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
 
       <!-- 5. Referencia -->
       <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
-        <span class="font-mono font-semibold text-amber-300 text-[11px] px-1.5 py-0.5 bg-amber-500/10 rounded border border-amber-500/20 truncate block max-w-[120px]" title="Referencia: ${escapeHtml(safeRef)}">
+        <span class="font-mono font-semibold text-sky-300 text-[11px] px-1.5 py-0.5 bg-sky-500/10 rounded border border-sky-500/20 truncate block max-w-[120px]" title="Referencia: ${escapeHtml(safeRef)}">
           ${escapeHtml(safeRef)}
         </span>
       </td>
 
       <!-- 6. Descripción -->
-      <td class="p-2 border-r border-resolve-border align-middle text-[11px] font-normal text-zinc-100 group-hover:text-amber-300 transition-colors truncate max-w-[220px]" title="${escapeHtml(safeDesc)}">
+      <td class="p-2 border-r border-resolve-border align-middle text-[11px] font-normal text-zinc-100 group-hover:text-sky-300 transition-colors truncate max-w-[220px]" title="${escapeHtml(safeDesc)}">
         ${escapeHtml(safeDesc)}
       </td>
 
@@ -814,7 +814,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
           onchange="handleTableOtDateChange('${ot.id}', 'entryDate', this.value)" 
           onclick="try { this.showPicker(); } catch(e) {}"
           style="color-scheme: dark;"
-          class="w-full bg-black/40 hover:bg-black/60 border border-resolve-border hover:border-amber-400/50 rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none cursor-pointer"
+          class="w-full bg-black/40 hover:bg-black/60 border border-resolve-border hover:border-sky-400/50 rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-sky-500/60 focus:outline-none cursor-pointer"
         />
       </td>
 
@@ -825,7 +825,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
           value="${toIsoDateTime(routeDelivery)}" 
           ${isDeliveryLocked ? 'disabled title="Solo el Dueño puede modificar una fecha límite comprometida"' : `onchange="handleTableOtDateChange('${ot.id}', 'deliveryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}"`}
           style="color-scheme: dark;"
-          class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none ${isDeliveryLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-black/60 hover:border-amber-400/50 cursor-pointer'}"
+          class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-sky-500/60 focus:outline-none ${isDeliveryLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-black/60 hover:border-sky-400/50 cursor-pointer'}"
         />
       </td>
 
@@ -833,7 +833,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
       <td class="p-2 border-r border-resolve-border align-middle" onclick="event.stopPropagation()">
         <select 
           onchange="handleTableOtStatusChange('${ot.id}', this.value)" 
-          class="w-full bg-black/50 border border-resolve-border hover:border-amber-400/50 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-300 focus:border-amber-500/60 focus:outline-none cursor-pointer"
+          class="w-full bg-black/50 border border-resolve-border hover:border-sky-400/50 rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-300 focus:border-sky-500/60 focus:outline-none cursor-pointer"
         >
           ${getStatusOptionsHtml(ot.responsibleDept || 'Tráfico')}
         </select>
@@ -856,7 +856,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
           value="${escapeHtml(routeNotes)}" 
           onchange="handleTableOtNotesChange('${ot.id}', this.value)" 
           placeholder="Notas..." 
-          class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-amber-500 focus:ring-0 text-[11px] text-zinc-300 px-1 py-0.5 leading-tight"
+          class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-sky-500 focus:ring-0 text-[11px] text-zinc-300 px-1 py-0.5 leading-tight"
         />
       </td>
     </tr>
@@ -947,7 +947,7 @@ export function renderUnifiedTableRows(ordersList, viewContext = 'trafico') {
         ondrop="handleCategoryRowDrop(event, '${escapeHtml(groupKey)}', '${viewContext}')"
     ` : '';
 
-    let groupTitleHtml = `<span class="text-amber-300 font-semibold">${escapeHtml(groupKey)}</span>`;
+    let groupTitleHtml = `<span class="text-sky-300 font-semibold">${escapeHtml(groupKey)}</span>`;
     if (state.currentTableGroup === 'client') {
       const clientColor = getClientColorClasses(groupKey);
       groupTitleHtml = `
@@ -965,7 +965,7 @@ export function renderUnifiedTableRows(ordersList, viewContext = 'trafico') {
       >
         <td colspan="11" class="px-3 py-1.5 font-bold text-[11px] text-white" onclick="toggleGroupCollapse('${escapeHtml(groupKey)}')">
           <div class="flex items-center gap-2">
-            <span class="text-amber-400 font-mono text-[11px] inline-block transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}">▶</span>
+            <span class="text-sky-400 font-mono text-[11px] inline-block transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}">▶</span>
             <span class="text-zinc-400 text-[10px] uppercase tracking-wider">${label}:</span>
             ${groupTitleHtml}
             <span class="text-[10px] font-mono text-zinc-400 font-normal ml-1">(${items.length} ${items.length === 1 ? 'OT' : 'OTs'})</span>
@@ -1083,9 +1083,9 @@ export function renderBinTree() {
                 type="button" 
                 onclick="event.stopPropagation(); toggleClientTreeCollapse('${client.id}')" 
                 title="${isCollapsed ? 'Desplegar marcas' : 'Colapsar marcas'}"
-                class="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer shrink-0"
+                class="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-sky-400 transition-colors cursor-pointer shrink-0"
               >
-                ${icon(isCollapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-3 h-3', isCollapsed ? '' : 'text-amber-400')}
+                ${icon(isCollapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-3 h-3', isCollapsed ? '' : 'text-sky-400')}
               </button>
             ` : `
               <span class="w-4 h-4 shrink-0"></span>
@@ -1112,11 +1112,11 @@ export function renderBinTree() {
               return `
                 <div 
                   onclick="selectTreeFilter('brand', '${escapeHtml(client.name)}', '${escapeHtml(brand)}')" 
-                  class="flex items-center px-1.5 py-0.5 rounded-md cursor-pointer group hover:bg-white/[0.05] transition-colors text-[11px] ${isBrandActive ? 'bin-active text-amber-300' : 'text-resolve-dimText'}"
+                  class="flex items-center px-1.5 py-0.5 rounded-md cursor-pointer group hover:bg-white/[0.05] transition-colors text-[11px] ${isBrandActive ? 'bin-active text-sky-300' : 'text-resolve-dimText'}"
                   title="Clic para filtrar por esta marca"
                 >
                   <div class="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                    ${icon('tag', 'w-3 h-3', 'text-zinc-500 group-hover:text-amber-400')}
+                    ${icon('tag', 'w-3 h-3', 'text-zinc-500 group-hover:text-sky-400')}
                     <span class="truncate font-medium text-[11px] text-resolve-dimText group-hover:text-zinc-300">${escapeHtml(brand)}</span>
                     <!-- Badge numérico inmediatamente al lado de la marca -->
                     <span class="bin-tree-badge text-[10px] font-medium text-zinc-400 bg-white/[0.04] px-1.5 py-0.2 rounded-full shrink-0">${brandOrders.length}</span>
@@ -1497,7 +1497,7 @@ export function renderTrafficDesk() {
       let statusClass = getStatusBadgeClass(ot.responsibleDept || 'Tráfico');
 
       return `
-      <div class="bg-white/[0.025] hover:bg-white/[0.05] border ${ot.urgent ? 'border-rose-500/60 shadow-lg shadow-rose-950/20' : 'border-resolve-border hover:border-amber-400/50 hover:shadow-xl hover:shadow-black/60'} rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 group">
+      <div class="bg-white/[0.025] hover:bg-white/[0.05] border ${ot.urgent ? 'border-rose-500/60 shadow-lg shadow-rose-950/20' : 'border-resolve-border hover:border-sky-400/50 hover:shadow-xl hover:shadow-black/60'} rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 group">
         <div>
           <!-- Cabecera de la Tarjeta OT -->
           <div class="flex items-center justify-between pb-2.5 border-b border-resolve-border/60">
@@ -1506,7 +1506,7 @@ export function renderTrafficDesk() {
                 ${ot.id}
               </span>
               ${ot.ref ? `
-                <span class="font-mono text-[11px] font-semibold text-amber-300 px-2 py-0.5 bg-amber-500/10 rounded-full border border-amber-500/25 truncate max-w-[120px]" title="Referencia: ${escapeHtml(ot.ref)}">
+                <span class="font-mono text-[11px] font-semibold text-sky-300 px-2 py-0.5 bg-sky-500/10 rounded-full border border-sky-500/25 truncate max-w-[120px]" title="Referencia: ${escapeHtml(ot.ref)}">
                   ${escapeHtml(ot.ref)}
                 </span>
               ` : ''}
@@ -1531,7 +1531,7 @@ export function renderTrafficDesk() {
               ${ot.brand ? `<span class="text-[11px] font-medium text-resolve-dimText uppercase tracking-wide truncate">• ${escapeHtml(ot.brand)}</span>` : ''}
               ${ot.product && ot.product !== ot.brand ? `<span class="text-[11px] font-medium text-zinc-500 uppercase tracking-wide truncate">• ${escapeHtml(ot.product)}</span>` : ''}
             </div>
-            <h3 class="font-semibold text-sm text-zinc-100 mt-1 group-hover:text-amber-400 transition-colors leading-snug tracking-tight">
+            <h3 class="font-semibold text-sm text-zinc-100 mt-1 group-hover:text-sky-400 transition-colors leading-snug tracking-tight">
               ${escapeHtml(ot.title || ot.description || '')}
             </h3>
             <div class="text-[11px] text-zinc-400 mt-1 flex items-center justify-between gap-1.5">
@@ -1542,12 +1542,12 @@ export function renderTrafficDesk() {
             <!-- Último Relevo -->
             <div class="mt-3 bg-black/25 p-3 rounded-xl border border-white/[0.06] text-xs">
               <div class="flex items-center justify-between text-[10px] text-resolve-dimText mb-1">
-                <span class="font-semibold text-amber-400 tracking-wider">ÚLTIMO RELEVO</span>
+                <span class="font-semibold text-sky-400 tracking-wider">ÚLTIMO RELEVO</span>
                 <span class="font-mono text-zinc-500 text-[10px]">${lastRoute ? (lastRoute.deliveryDate || lastRoute.entryDate || '--') : '--'}</span>
               </div>
               ${lastRoute ? `
                 <div class="font-semibold text-white text-[11px] flex items-center gap-1.5">
-                  <span class="text-amber-300">${escapeHtml(lastRoute.from || 'Tráfico')}</span>
+                  <span class="text-sky-300">${escapeHtml(lastRoute.from || 'Tráfico')}</span>
                   <span class="text-zinc-600">→</span>
                   <span class="text-sky-300">${escapeHtml(lastRoute.to || 'Sin Asignar')}</span>
                 </div>
@@ -1564,12 +1564,12 @@ export function renderTrafficDesk() {
         <!-- Footer Tarjeta (Media Pool Preview & Abrir) -->
         <div class="mt-4 pt-2.5 border-t border-resolve-border/60 flex items-center justify-between text-xs">
           <div class="flex items-center gap-1.5 text-zinc-400 text-[11px] font-medium">
-            ${icon('paperclip', 'w-[15px] h-[15px]', 'text-amber-400')}
+            ${icon('paperclip', 'w-[15px] h-[15px]', 'text-sky-400')}
             <span>${totalFiles} items en Media Pool</span>
           </div>
           <button onclick="handleTableRowClick(event, '${ot.id}')" class="px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-200 hover:text-white rounded-lg border border-resolve-border font-medium text-xs flex items-center gap-1.5 transition-all active:scale-[0.98]">
             <span>Inspeccionar</span>
-            <span class="text-amber-400">→</span>
+            <span class="text-sky-400">→</span>
           </button>
         </div>
       </div>

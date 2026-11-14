@@ -523,7 +523,7 @@ function bindEnvelopeResizer(resizerId, axis, getInitialSize, onResize, storageK
     const startSize = getInitialSize();
     let latestSize = startSize;
 
-    resizer.classList.add('bg-amber-400');
+    resizer.classList.add('bg-sky-400');
     document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
     document.body.style.userSelect = 'none';
 
@@ -537,7 +537,7 @@ function bindEnvelopeResizer(resizerId, axis, getInitialSize, onResize, storageK
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
-      resizer.classList.remove('bg-amber-400');
+      resizer.classList.remove('bg-sky-400');
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       try {
@@ -663,12 +663,12 @@ export function renderEnvelopeTaskTree() {
       <div
         onclick="selectEnvelopeTreeTask('${escapeHtml(rootOt.id)}')"
         title="${escapeHtml(rootOt.id)} — ${escapeHtml(rootOt.title || rootOt.description || 'OT Madre')} (${escapeHtml(rootOt.responsibleDept || 'Tráfico')})"
-        class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${rootSelected ? 'bin-active bg-white/[0.08] text-amber-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
+        class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${rootSelected ? 'bin-active bg-white/[0.08] text-sky-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
       >
         <div class="flex items-center gap-1.5 min-w-0 flex-1">
-          ${hasSubs ? lucideIcon('collapse-diagonal', 'w-3 h-3', 'text-amber-400') : `<span class="w-3 shrink-0"></span>`}
-          ${lucideIcon('module-ot', 'w-[15px] h-[15px]', 'text-amber-400')}
-          <span class="font-mono font-bold truncate ${rootSelected ? 'text-amber-300' : 'text-zinc-200'}">${escapeHtml(rootOt.id)}</span>
+          ${hasSubs ? lucideIcon('collapse-diagonal', 'w-3 h-3', 'text-sky-400') : `<span class="w-3 shrink-0"></span>`}
+          ${lucideIcon('module-ot', 'w-[15px] h-[15px]', 'text-sky-400')}
+          <span class="font-mono font-bold truncate ${rootSelected ? 'text-sky-300' : 'text-zinc-200'}">${escapeHtml(rootOt.id)}</span>
         </div>
         <span class="text-[9px] text-zinc-400 shrink-0 truncate max-w-[68px]">${escapeHtml(rootOt.responsibleDept || 'Tráfico')}</span>
       </div>
@@ -686,11 +686,11 @@ export function renderEnvelopeTaskTree() {
         <div
           onclick="selectEnvelopeTreeTask('${escapeHtml(sub.id)}')"
           title="${escapeHtml(sub.id)} • ${escapeHtml(subLabel)} (${escapeHtml(sub.responsibleDept || 'Tráfico')})"
-          class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${subSel ? 'bin-active bg-white/[0.08] text-amber-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
+          class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${subSel ? 'bin-active bg-white/[0.08] text-sky-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
         >
           <div class="flex items-center gap-1.5 min-w-0 flex-1">
-            ${lucideIcon('file-text', 'w-3 h-3', subSel ? 'text-amber-400' : 'text-zinc-500 group-hover:text-amber-400')}
-            <span class="font-mono text-[10px] shrink-0 ${subSel ? 'text-amber-300 font-bold' : 'text-zinc-400'}">${escapeHtml(subSuffix)}</span>
+            ${lucideIcon('file-text', 'w-3 h-3', subSel ? 'text-sky-400' : 'text-zinc-500 group-hover:text-sky-400')}
+            <span class="font-mono text-[10px] shrink-0 ${subSel ? 'text-sky-300 font-bold' : 'text-zinc-400'}">${escapeHtml(subSuffix)}</span>
             <span class="truncate text-[11px] ${subSel ? 'text-white font-semibold' : 'text-zinc-300 group-hover:text-white'}">${escapeHtml(subLabel)}</span>
           </div>
           <span class="text-[9px] text-zinc-500 shrink-0 truncate max-w-[56px]">${escapeHtml(sub.responsibleDept || 'Tráfico')}</span>
@@ -850,8 +850,8 @@ export function renderModalStripboardWitness(otId) {
 
   container.innerHTML = scheduledDays.map(d => {
     return d.matched.map(m => {
-      let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-amber-400/50';
-      if (m.strip.shiftStatus === 'En Mesa') pillColor = 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+      let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-sky-400/50';
+      if (m.strip.shiftStatus === 'En Mesa') pillColor = 'bg-sky-500/10 text-sky-300 border-sky-500/25';
       else if (m.strip.shiftStatus === 'Entregado') pillColor = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
       else if (m.strip.shiftStatus === 'Detenido') pillColor = 'bg-rose-500/10 text-rose-300 border-rose-500/25';
 
@@ -992,7 +992,7 @@ function renderSingleRouteRowHtml(row, index, taskOt) {
   const isOdd = (index % 2 === 1);
   const zebraClass = isOdd ? 'bg-white/[0.055]' : 'bg-black/25';
   const isInspected = Boolean(taskOt?.id && activeInspectorRow.otId === taskOt.id && activeInspectorRow.index === index);
-  const inspectedClass = isInspected ? 'ring-1 ring-inset ring-amber-400/60 bg-amber-500/[0.08]' : '';
+  const inspectedClass = isInspected ? 'ring-1 ring-inset ring-sky-400/60 bg-sky-500/[0.08]' : '';
   const rowSign = String(row.sign || '').trim();
   const respColors = rowSign ? getResponsibleColorClasses(rowSign) : { text: 'text-zinc-400', border: 'border-resolve-border' };
 
@@ -1008,7 +1008,7 @@ function renderSingleRouteRowHtml(row, index, taskOt) {
               onchange="updateRouteDateCell(${index}, 'entryDate', this.value, ${otIdArg})" 
               onclick="if(!this.disabled) try { this.showPicker(); } catch(e) {}"
               style="color-scheme: dark;"
-              class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:bg-black/60 hover:border-amber-400/50 cursor-pointer'}"
+              class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-sky-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:bg-black/60 hover:border-sky-400/50 cursor-pointer'}"
             />
             <button 
               type="button" 
@@ -1027,7 +1027,7 @@ function renderSingleRouteRowHtml(row, index, taskOt) {
           <select 
             ${lockAttr}
             onchange="handleRouteDeptChange(${index}, 'from', this.value, ${otIdArg})" 
-            class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-300 focus:border-amber-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-amber-400/50 cursor-pointer'}"
+            class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-300 focus:border-sky-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-sky-400/50 cursor-pointer'}"
           >
             ${getDepartmentOptionsHtml(row.from || 'Tráfico')}
           </select>
@@ -1055,7 +1055,7 @@ function renderSingleRouteRowHtml(row, index, taskOt) {
             oninput="updateRouteCell(${index}, 'task', this.value, ${otIdArg})"
             onchange="updateRouteCell(${index}, 'task', this.value, ${otIdArg})" 
             placeholder="Instrucción del relevo..." 
-            class="w-full bg-transparent border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 text-[11px] font-sans text-zinc-100 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
+            class="w-full bg-transparent border-0 border-b border-transparent focus:border-sky-500 focus:ring-0 text-[11px] font-sans text-zinc-100 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
           />
         </td>
 
@@ -1081,13 +1081,13 @@ function renderSingleRouteRowHtml(row, index, taskOt) {
             oninput="updateRouteCell(${index}, 'notes', this.value, ${otIdArg})"
             onchange="updateRouteCell(${index}, 'notes', this.value, ${otIdArg})" 
             placeholder="Notas..." 
-            class="w-full bg-transparent border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 text-[11px] font-sans text-zinc-300 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
+            class="w-full bg-transparent border-0 border-b border-transparent focus:border-sky-500 focus:ring-0 text-[11px] font-sans text-zinc-300 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
           />
         </td>
 
         <!-- 7. CANDADO -->
         <td class="p-2 align-middle text-center">
-          <button type="button" ${lockState.canToggle ? `onclick="event.stopPropagation(); toggleRouteRowLock(${index}, ${otIdArg})"` : 'disabled'} title="${escapeHtml(lockState.title)}" class="w-7 h-7 inline-flex items-center justify-center rounded transition-colors ${!lockState.canToggle ? 'bg-black/40 text-zinc-400 border border-white/[0.06] cursor-not-allowed' : (isRowLocked ? 'bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25 cursor-pointer' : 'bg-white/[0.04] text-emerald-400 border border-resolve-border hover:text-amber-300 hover:border-amber-500/40 cursor-pointer')}">
+          <button type="button" ${lockState.canToggle ? `onclick="event.stopPropagation(); toggleRouteRowLock(${index}, ${otIdArg})"` : 'disabled'} title="${escapeHtml(lockState.title)}" class="w-7 h-7 inline-flex items-center justify-center rounded transition-colors ${!lockState.canToggle ? 'bg-black/40 text-zinc-400 border border-white/[0.06] cursor-not-allowed' : (isRowLocked ? 'bg-sky-500/15 text-sky-300 border border-sky-500/40 hover:bg-sky-500/25 cursor-pointer' : 'bg-white/[0.04] text-emerald-400 border border-resolve-border hover:text-sky-300 hover:border-sky-500/40 cursor-pointer')}">
             ${lucideIcon(isRowLocked ? 'lock' : 'lock-open', 'w-[15px] h-[15px]')}
           </button>
         </td>
@@ -1431,7 +1431,7 @@ export function renderEnvelopeInspector() {
   const defaultAssignee = firstMatch?.strip?.assignee || ot.sign || getActiveUserShortName() || 'Creativos';
   const schedPillsHtml = scheduledDays.length > 0
     ? `<div class="flex flex-wrap gap-1 pt-1">${scheduledDays.map(d => d.matched.map(m => `
-        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] text-amber-300 font-mono">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-[9px] text-sky-300 font-mono">
           <button type="button" onclick="jumpFromModalToStripboardDate('${d.dateStr}')" title="Ir al Stripboard" class="hover:underline cursor-pointer">${d.shortLabel} • ${escapeHtml(m.strip.timeSlot || '')}</button>
           <button type="button" onclick="removeStripFromModalWitness('${d.dateStr}', ${m.idx})" title="Quitar turno" class="text-zinc-400 hover:text-red-400 inline-flex items-center justify-center cursor-pointer">${lucideIcon('x', 'w-3 h-3')}</button>
         </span>
@@ -1483,7 +1483,7 @@ export function renderEnvelopeInspector() {
         <button type="button" onclick="closeInspectorTaskAsDone(${otIdArg}, ${row ? index : 'null'})" title="Cerrar tarea (Terminada / Entregada)" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-emerald-500/20 border border-resolve-border hover:border-emerald-500/40 text-emerald-300 cursor-pointer transition-colors">
           ${lucideIcon('check', 'w-3 h-3')}
         </button>
-        <button type="button" onclick="cancelInspectorTask(${otIdArg})" title="Cancelar / Detener tarea" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-amber-500/20 border border-resolve-border hover:border-amber-500/40 text-amber-300 cursor-pointer transition-colors">
+        <button type="button" onclick="cancelInspectorTask(${otIdArg})" title="Cancelar / Detener tarea" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-sky-500/20 border border-resolve-border hover:border-sky-500/40 text-sky-300 cursor-pointer transition-colors">
           ${lucideIcon('ban', 'w-3 h-3')}
         </button>
         <button type="button" onclick="duplicateInspectorTask(${otIdArg})" title="Duplicar tarea" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-white/[0.12] border border-resolve-border text-zinc-300 hover:text-white cursor-pointer transition-colors">
@@ -1498,7 +1498,7 @@ export function renderEnvelopeInspector() {
 
   const tabBtn = (id, label, tip) => {
     const active = activeInspectorTab === id;
-    return `<button type="button" onclick="setEnvelopeInspectorTab('${id}')" title="${tip}" class="flex-1 py-1 text-[10px] font-semibold uppercase tracking-wider border-b-2 cursor-pointer transition-colors ${active ? 'border-amber-400 text-amber-300 bg-white/[0.05]' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'}">${label}</button>`;
+    return `<button type="button" onclick="setEnvelopeInspectorTab('${id}')" title="${tip}" class="flex-1 py-1 text-[10px] font-semibold uppercase tracking-wider border-b-2 cursor-pointer transition-colors ${active ? 'border-sky-400 text-sky-300 bg-white/[0.05]' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'}">${label}</button>`;
   };
 
   const subTasksForOt = rootOt ? getSubOtsForRoot(rootOt.id) : [];
@@ -1507,8 +1507,8 @@ export function renderEnvelopeInspector() {
       <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
         <span>Tareas (${subTasksForOt.length})</span>
         <div class="flex items-center gap-1">
-          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); createEnvelopeSubTask()" title="Nueva Sub-tarea" class="w-4 h-4 flex items-center justify-center rounded bg-white/[0.06] hover:bg-amber-500/20 border border-resolve-border text-amber-300 text-[10px] font-bold cursor-pointer">+</button>
-          <span class="text-amber-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); createEnvelopeSubTask()" title="Nueva Sub-tarea" class="w-4 h-4 flex items-center justify-center rounded bg-white/[0.06] hover:bg-sky-500/20 border border-resolve-border text-sky-300 text-[10px] font-bold cursor-pointer">+</button>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
         </div>
       </summary>
       <div class="p-1.5 space-y-1 max-h-40 overflow-y-auto">
@@ -1520,7 +1520,7 @@ export function renderEnvelopeInspector() {
               const subSuffix = (typeof sub.id === 'string' && rootOt && sub.id.startsWith(rootOt.id + '-')) ? sub.id.slice(rootOt.id.length) : sub.id;
               const stCls = getStatusBadgeClass(sub.responsibleDept || 'Tráfico');
               return `
-                <button type="button" onclick="selectEnvelopeTreeTask('${escapeHtml(sub.id)}')" class="w-full text-left px-2 py-1 rounded border flex items-center justify-between gap-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-amber-500/10 border-amber-500/40 text-white' : 'bg-black/25 hover:bg-white/[0.05] border-resolve-border text-zinc-300'}">
+                <button type="button" onclick="selectEnvelopeTreeTask('${escapeHtml(sub.id)}')" class="w-full text-left px-2 py-1 rounded border flex items-center justify-between gap-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-sky-500/10 border-sky-500/40 text-white' : 'bg-black/25 hover:bg-white/[0.05] border-resolve-border text-zinc-300'}">
                   <span class="flex items-center gap-1.5 min-w-0">
                     <span class="font-mono text-[9px] text-sky-300 shrink-0">${escapeHtml(subSuffix)}</span>
                     <span class="text-[11px] truncate font-medium">${escapeHtml(subTitle)}</span>
@@ -1540,13 +1540,13 @@ export function renderEnvelopeInspector() {
       <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
         <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
           <span>Estado</span>
-          <span class="text-amber-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
         </summary>
         <div class="p-2 space-y-1.5">
           ${rootOt ? `
           <div>
             <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">OT Master (${escapeHtml(rootOt.id)})</label>
-            <select onchange="handleRootStatusChange(this.value)" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-amber-300 font-medium focus:border-amber-500 focus:outline-none cursor-pointer">
+            <select onchange="handleRootStatusChange(this.value)" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-sky-300 font-medium focus:border-sky-500 focus:outline-none cursor-pointer">
               ${getStatusOptionsHtml(rootOt.responsibleDept || 'Tráfico')}
             </select>
           </div>` : ''}
@@ -1562,16 +1562,16 @@ export function renderEnvelopeInspector() {
       <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
         <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
           <span>Fechas</span>
-          <span class="text-amber-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
         </summary>
         <div class="p-2 space-y-1.5">
           <div>
             <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Entrada</label>
-            <input type="datetime-local" ${lockAttr} value="${entryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'entryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('entryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-amber-500 focus:outline-none ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
+            <input type="datetime-local" ${lockAttr} value="${entryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'entryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('entryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-sky-500 focus:outline-none ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
           </div>
           <div>
             <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Entrega</label>
-            <input type="datetime-local" ${isDeliveryLocked ? 'disabled' : ''} value="${deliveryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'deliveryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('deliveryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-amber-300 focus:border-amber-500 focus:outline-none ${isDeliveryLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
+            <input type="datetime-local" ${isDeliveryLocked ? 'disabled' : ''} value="${deliveryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'deliveryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('deliveryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-sky-300 focus:border-sky-500 focus:outline-none ${isDeliveryLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
           </div>
         </div>
       </details>
@@ -1579,7 +1579,7 @@ export function renderEnvelopeInspector() {
       <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
         <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
           <span>Descripción</span>
-          <span class="text-amber-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
         </summary>
         <div class="p-2">
           ${row ? `
@@ -1590,16 +1590,16 @@ export function renderEnvelopeInspector() {
             oninput="updateRouteCellFromInspector(${index}, 'task', this.value, ${otIdArg})"
             onchange="updateRouteCellFromInspector(${index}, 'task', this.value, ${otIdArg})"
             placeholder="Escribe la descripción o instrucción completa..."
-            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-100 leading-relaxed focus:border-amber-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
+            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-100 leading-relaxed focus:border-sky-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
           >${escapeHtml(row.task || '')}</textarea>
-          ` : `<button type="button" onclick="addNewRouteRow()" title="Agregar movimiento" class="w-full py-1 px-2 rounded bg-white/[0.05] hover:bg-amber-500/20 border border-resolve-border text-amber-300 text-[10px] font-semibold cursor-pointer">+ Movimiento</button>`}
+          ` : `<button type="button" onclick="addNewRouteRow()" title="Agregar movimiento" class="w-full py-1 px-2 rounded bg-white/[0.05] hover:bg-sky-500/20 border border-resolve-border text-sky-300 text-[10px] font-semibold cursor-pointer">+ Movimiento</button>`}
         </div>
       </details>
 
       <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
         <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
           <span>Notas</span>
-          <span class="text-amber-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
         </summary>
         <div class="p-2">
           ${row ? `
@@ -1610,7 +1610,7 @@ export function renderEnvelopeInspector() {
             oninput="updateRouteCellFromInspector(${index}, 'notes', this.value, ${otIdArg})"
             onchange="updateRouteCellFromInspector(${index}, 'notes', this.value, ${otIdArg})"
             placeholder="Escribe notas completas, observaciones o acuerdos..."
-            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-200 leading-relaxed focus:border-amber-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
+            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-200 leading-relaxed focus:border-sky-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
           >${escapeHtml(row.notes || '')}</textarea>
           ` : `<div class="text-[10px] text-zinc-500 italic">Agrega un movimiento para registrar notas.</div>`}
         </div>
@@ -1621,21 +1621,21 @@ export function renderEnvelopeInspector() {
       <div class="rounded-lg border border-resolve-border bg-resolve-panel/40 p-2.5 space-y-2">
         <div>
           <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Fecha Programación</label>
-          <input type="date" id="inspector-sched-date" value="${escapeHtml(defaultSchedDate)}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-amber-500 focus:outline-none" />
+          <input type="date" id="inspector-sched-date" value="${escapeHtml(defaultSchedDate)}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-sky-500 focus:outline-none" />
         </div>
         <div>
           <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Bloque de horas</label>
-          <input type="text" id="inspector-sched-timeslot" value="${escapeHtml(defaultSlot)}" placeholder="09:00 - 11:00" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-amber-300 focus:border-amber-500 focus:outline-none" />
+          <input type="text" id="inspector-sched-timeslot" value="${escapeHtml(defaultSlot)}" placeholder="09:00 - 11:00" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-sky-300 focus:border-sky-500 focus:outline-none" />
         </div>
         <div>
           <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Responsable</label>
-          <select id="inspector-sched-assignee" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-zinc-200 focus:border-amber-500 focus:outline-none cursor-pointer">
+          <select id="inspector-sched-assignee" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-zinc-200 focus:border-sky-500 focus:outline-none cursor-pointer">
             ${getResponsibleOptionsHtml(defaultAssignee)}
           </select>
         </div>
         <div class="flex items-center justify-between pt-1">
           <span class="text-[10px] text-zinc-400">Sincronizar Agenda</span>
-          <button type="button" onclick="syncInspectorTaskToStripboard(${otIdArg})" title="Sincronizar con Agenda" class="w-6 h-6 flex items-center justify-center rounded bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 cursor-pointer transition-colors">
+          <button type="button" onclick="syncInspectorTaskToStripboard(${otIdArg})" title="Sincronizar con Agenda" class="w-6 h-6 flex items-center justify-center rounded bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 cursor-pointer transition-colors">
             ${lucideIcon('refresh-cw', 'w-[15px] h-[15px]')}
           </button>
         </div>
@@ -1654,7 +1654,7 @@ export function renderEnvelopeInspector() {
     <div class="p-2 rounded-lg bg-resolve-panel/80 border border-resolve-border space-y-1.5">
       ${topToolbarHtml}
       <div class="flex items-center justify-between gap-1.5">
-        <span class="font-mono font-bold text-[10px] text-amber-300 truncate">${escapeHtml(ot.id)}</span>
+        <span class="font-mono font-bold text-[10px] text-sky-300 truncate">${escapeHtml(ot.id)}</span>
         <span class="font-mono text-[9px] text-zinc-400 shrink-0">${navNodes.length > 1 ? `${navIdx + 1}/${navNodes.length}` : ''}${row ? ` • #${index + 1}` : ''}</span>
       </div>
       ${taskTitle ? `<div class="text-[13px] font-semibold text-white truncate" title="${escapeHtml(taskTitle)}">${escapeHtml(taskTitle)}</div>` : ''}
@@ -2031,17 +2031,17 @@ export function formatMarkdown(raw) {
   let s = String(raw).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   s = s.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (m, lang, code) =>
     '<pre class="my-2 p-2.5 bg-black/80 border border-resolve-border rounded font-mono text-[11px] text-emerald-400 overflow-x-auto"><code>' + code.trim() + '</code></pre>');
-  s = s.replace(/^### (.*$)/gim, '<h3 class="text-xs font-bold text-amber-400 uppercase mt-3 mb-1">$1</h3>');
+  s = s.replace(/^### (.*$)/gim, '<h3 class="text-xs font-bold text-sky-400 uppercase mt-3 mb-1">$1</h3>');
   s = s.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-white mt-4 mb-2 border-b border-resolve-border pb-1">$1</h2>');
-  s = s.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-amber-400 mt-4 mb-2 border-b border-amber-500/40 pb-1">$1</h1>');
+  s = s.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-sky-400 mt-4 mb-2 border-b border-sky-500/40 pb-1">$1</h1>');
   s = s.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
-  s = s.replace(/\*(.*?)\*/g, '<em class="text-amber-200/90">$1</em>');
-  s = s.replace(/`([^`]+)`/g, '<code class="bg-resolve-card text-amber-300 px-1 rounded text-[10px] font-mono">$1</code>');
-  s = s.replace(/^&gt; (.*$)/gim, '<blockquote class="border-l-2 border-amber-500 pl-3 my-2 text-stone-300 italic">$1</blockquote>');
+  s = s.replace(/\*(.*?)\*/g, '<em class="text-sky-200/90">$1</em>');
+  s = s.replace(/`([^`]+)`/g, '<code class="bg-resolve-card text-sky-300 px-1 rounded text-[10px] font-mono">$1</code>');
+  s = s.replace(/^&gt; (.*$)/gim, '<blockquote class="border-l-2 border-sky-500 pl-3 my-2 text-stone-300 italic">$1</blockquote>');
   s = s.replace(/^---$/gim, '<hr class="border-resolve-border my-3">');
   s = s.replace(/^\s*[-*]\s+(.*$)/gim, '<li class="ml-4 list-disc text-stone-300">$1</li>');
   s = s.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="ml-4 list-decimal text-stone-300">$1</li>');
-  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:underline">$1</a>');
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">$1</a>');
   s = s.replace(/\n{2,}/g, '</p><p class="my-2 text-stone-300 text-xs leading-relaxed">');
   return '<p class="my-2 text-stone-300 text-xs leading-relaxed">' + s + '</p>';
 }
@@ -2079,7 +2079,7 @@ function getReviewStatusBadgeHtml(status) {
     return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-[#0BA2AC]/40 bg-[#0BA2AC]/15 text-[#0BA2AC]">En Revisión</span>';
   }
   if (status === 'changes_requested') {
-    return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300">Ajustes</span>';
+    return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300">Ajustes</span>';
   }
   if (status === 'approved') {
     return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300">Aprobado</span>';
@@ -2147,13 +2147,13 @@ export function renderMediaPool() {
       const nextVersion = (file.versionNumber || 1) + 1;
       const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
       const ownerBadge = isMaster
-        ? `<span class="shrink-0 font-mono text-[8px] px-1 py-0.2 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${escapeHtml(ownerOtId)}</span>`
+        ? `<span class="shrink-0 font-mono text-[8px] px-1 py-0.2 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
         : '';
       const thumb = (meta.type === 'image' && file.url && file.url !== '#')
         ? `<img src="${file.url}" alt="${escapeHtml(file.name)}" class="w-full h-full object-cover">`
         : `<div class="flex flex-col items-center text-center p-2"><span class="px-2 py-0.5 rounded-lg font-semibold text-xs" style="${meta.badgeStyle}">${meta.badge}</span><span class="text-[9px] text-resolve-dimText mt-1.5 uppercase font-semibold">${escapeHtml(meta.subLabel)}</span></div>`;
       return `
-        <div class="bg-white/[0.03] hover:bg-white/[0.06] border border-resolve-border hover:border-amber-400/50 rounded-xl p-2.5 flex flex-col justify-between group transition-all">
+        <div class="bg-white/[0.03] hover:bg-white/[0.06] border border-resolve-border hover:border-sky-400/50 rounded-xl p-2.5 flex flex-col justify-between group transition-all">
           <div class="h-24 bg-black/40 rounded-lg border border-resolve-border/60 flex items-center justify-center overflow-hidden mb-2 relative">
             ${thumb}
             <button onclick="removeMediaItem(${ownerIndex}, ${otArg})" title="Eliminar del Media Pool" class="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-900 text-white rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">${lucideIcon('x', 'w-3 h-3')}</button>
@@ -2168,7 +2168,7 @@ export function renderMediaPool() {
               ${reviewBadge || `<span>${file.date ? file.date.split(' ')[0] : ''}</span>`}
             </div>
             <div class="mt-2 flex items-center gap-1">
-              ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="flex-1 text-center py-1 bg-white/[0.05] hover:bg-white/[0.10] text-amber-300 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all">Descargar</a>` : ''}
+              ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="flex-1 text-center py-1 bg-white/[0.05] hover:bg-white/[0.10] text-sky-300 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all">Descargar</a>` : ''}
               <button type="button" onclick="openMediaReview(${ownerIndex}, ${otArg})" title="Abrir visor de revisión colaborativa" class="px-2 py-1 bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 text-[#0BA2AC] font-semibold text-[10px] rounded-lg border border-[#0BA2AC]/40 transition-all cursor-pointer">Revisar</button>
               <button type="button" onclick="shareMediaItem(${ownerIndex}, ${otArg})" title="Compartir enlace de revisión" class="px-2 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all cursor-pointer">Compartir</button>
               <button type="button" onclick="promptUploadMediaVersion(${ownerIndex}, ${otArg})" title="Subir nueva versión (v${nextVersion})" class="px-1.5 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-mono font-semibold text-[10px] rounded-lg border border-resolve-border transition-all cursor-pointer">v${nextVersion}</button>
@@ -2191,7 +2191,7 @@ export function renderMediaPool() {
               const nextVersion = (file.versionNumber || 1) + 1;
               const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
               const ownerBadge = isMaster
-                ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${escapeHtml(ownerOtId)}</span>`
+                ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
                 : '';
               const isOdd = (idx % 2 === 1);
               const zebraClass = isOdd ? 'bg-white/[0.025]' : 'bg-transparent';
@@ -2458,7 +2458,7 @@ export function renderInlineEnvelopeMedia() {
     const nextVersion = (file.versionNumber || 1) + 1;
     const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
     const ownerBadge = isMaster
-      ? `<span class="shrink-0 font-mono text-[8px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${escapeHtml(ownerOtId)}</span>`
+      ? `<span class="shrink-0 font-mono text-[8px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
       : '';
 
     if (isGrid) {
@@ -2467,11 +2467,11 @@ export function renderInlineEnvelopeMedia() {
         : `<div class="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider" style="${meta.badgeStyle}">${meta.badge}</div>`;
 
       return `
-        <div onclick="selectInlinePreviewMedia(${idx})" title="${escapeHtml(file.name)} (v${file.versionNumber || 1})" class="group rounded-md border overflow-hidden transition-all cursor-pointer flex flex-col ${sel ? 'bg-resolve-card border-amber-500 ring-1 ring-amber-500/50 text-white' : 'bg-resolve-panel border-resolve-border hover:border-white/25 text-stone-300'}">
+        <div onclick="selectInlinePreviewMedia(${idx})" title="${escapeHtml(file.name)} (v${file.versionNumber || 1})" class="group rounded-md border overflow-hidden transition-all cursor-pointer flex flex-col ${sel ? 'bg-resolve-card border-sky-500 ring-1 ring-sky-500/50 text-white' : 'bg-resolve-panel border-resolve-border hover:border-white/25 text-stone-300'}">
           <div class="relative aspect-square bg-black/60 flex items-center justify-center overflow-hidden">
             ${thumbHtml}
             <span class="absolute bottom-1 left-1 font-mono text-[8px] px-1 rounded bg-black/75 border border-white/10 text-zinc-200 leading-tight">v${file.versionNumber || 1}</span>
-            ${isMaster ? `<span class="absolute top-1 left-1 font-mono text-[7px] px-1 rounded bg-black/80 border border-white/10 ${isSubOt ? 'text-sky-300' : 'text-amber-300'}">${escapeHtml(ownerOtId)}</span>` : ''}
+            ${isMaster ? `<span class="absolute top-1 left-1 font-mono text-[7px] px-1 rounded bg-black/80 border border-white/10 ${isSubOt ? 'text-sky-300' : 'text-sky-300'}">${escapeHtml(ownerOtId)}</span>` : ''}
             <div class="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button type="button" onclick="event.stopPropagation(); openMediaReview(${ownerIndex}, ${otArg})" title="Revisar" class="p-0.5 rounded bg-black/80 hover:bg-black text-[#0BA2AC] cursor-pointer">
                 ${lucideIcon('eye', 'w-3 h-3')}
@@ -2485,7 +2485,7 @@ export function renderInlineEnvelopeMedia() {
               <button type="button" onclick="event.stopPropagation(); removeMediaItem(${ownerIndex}, ${otArg})" title="Quitar del sobre" class="p-0.5 rounded bg-black/80 hover:bg-black text-zinc-300 hover:text-red-400 cursor-pointer">${lucideIcon('x', 'w-3 h-3')}</button>
             </div>
           </div>
-          <div class="px-1 py-0.5 bg-black/30 truncate text-[9px] font-medium ${sel ? 'text-amber-400' : 'text-zinc-300'}">${escapeHtml(file.name)}</div>
+          <div class="px-1 py-0.5 bg-black/30 truncate text-[9px] font-medium ${sel ? 'text-sky-400' : 'text-zinc-300'}">${escapeHtml(file.name)}</div>
         </div>`;
     }
 
@@ -2493,11 +2493,11 @@ export function renderInlineEnvelopeMedia() {
       ? `<img src="${file.url}" class="w-8 h-8 rounded object-cover border border-resolve-border shrink-0">`
       : `<div class="w-8 h-8 rounded flex items-center justify-center text-[9px] font-bold shrink-0" style="${meta.badgeStyle}">${meta.badge}</div>`;
     return `
-      <div onclick="selectInlinePreviewMedia(${idx})" class="p-2 rounded border transition-all cursor-pointer flex items-center justify-between gap-2 ${sel ? 'bg-resolve-card border-amber-500 text-white' : 'bg-resolve-panel border-resolve-border hover:bg-resolve-card/70 text-stone-300'}">
+      <div onclick="selectInlinePreviewMedia(${idx})" class="p-2 rounded border transition-all cursor-pointer flex items-center justify-between gap-2 ${sel ? 'bg-resolve-card border-sky-500 text-white' : 'bg-resolve-panel border-resolve-border hover:bg-resolve-card/70 text-stone-300'}">
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
           ${icon}
           <div class="min-w-0 flex-1">
-            <div class="font-bold text-[11px] truncate flex items-center gap-1.5 ${sel ? 'text-amber-400' : 'text-white'}" title="${escapeHtml(file.name)}">
+            <div class="font-bold text-[11px] truncate flex items-center gap-1.5 ${sel ? 'text-sky-400' : 'text-white'}" title="${escapeHtml(file.name)}">
               ${ownerBadge}
               <span class="truncate">${escapeHtml(file.name)}</span>
               <span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber || 1}</span>
@@ -2590,11 +2590,11 @@ export function buildMediaViewerHtml(file) {
     return `<div class="w-full h-full flex flex-col bg-stone-950">
       <div class="h-8 px-3 bg-resolve-panel border-b border-resolve-border flex items-center justify-between shrink-0">
         <span class="text-[10px] text-zinc-400">Si el PDF no se muestra, ábrelo en el visor nativo</span>
-        <a href="${url}" target="_blank" rel="noopener" class="px-2.5 py-0.5 bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 font-semibold rounded-md text-[10px]">Abrir PDF ↗</a>
+        <a href="${url}" target="_blank" rel="noopener" class="px-2.5 py-0.5 bg-gradient-to-b from-sky-400 to-sky-500 text-stone-950 font-semibold rounded-md text-[10px]">Abrir PDF ↗</a>
       </div>
       <object data="${url}" type="application/pdf" class="w-full flex-1" style="min-height:260px">
         <embed src="${url}" type="application/pdf" class="w-full h-full">
-        <div class="p-6 text-center text-xs text-zinc-300 font-medium">Tu navegador no puede incrustar este PDF. <a href="${url}" target="_blank" class="text-amber-400 underline">Abrir en pestaña nueva</a></div>
+        <div class="p-6 text-center text-xs text-zinc-300 font-medium">Tu navegador no puede incrustar este PDF. <a href="${url}" target="_blank" class="text-sky-400 underline">Abrir en pestaña nueva</a></div>
       </object>
     </div>`;
   }
@@ -2643,8 +2643,8 @@ export function buildMediaViewerHtml(file) {
         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="${meta.badgeStyle}">${meta.badge}</span>
         <div class="flex items-center gap-2">
           <span class="text-[10px] text-resolve-dimText font-medium">Tamaño</span>
-          <input type="range" min="12" max="72" value="${state.inlineFontSize}" oninput="setInlineFontSize(this.value)" class="w-24 accent-amber-500">
-          <span data-font-counter class="text-[10px] text-amber-400 font-mono font-bold w-9 text-right">${state.inlineFontSize}px</span>
+          <input type="range" min="12" max="72" value="${state.inlineFontSize}" oninput="setInlineFontSize(this.value)" class="w-24 accent-sky-500">
+          <span data-font-counter class="text-[10px] text-sky-400 font-mono font-bold w-9 text-right">${state.inlineFontSize}px</span>
         </div>
       </div>
       <div class="h-8 px-3 bg-resolve-surface/70 border-b border-resolve-border flex items-center gap-1.5 overflow-x-auto shrink-0">
@@ -2654,10 +2654,10 @@ export function buildMediaViewerHtml(file) {
         ${preset('0123456789 !?@#$%&*()_+-=[]{};:,.<>/~', '0–9 y símbolos')}
       </div>
       <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        <div data-font-sandbox contenteditable="true" class="specimen-${id} p-3.5 bg-black/60 border border-resolve-border rounded-xl text-white focus:outline-none focus:border-amber-400 leading-snug" style="font-size:${state.inlineFontSize}px">El veloz murciélago hindú comía feliz cardillo y kiwi. 1234567890</div>
+        <div data-font-sandbox contenteditable="true" class="specimen-${id} p-3.5 bg-black/60 border border-resolve-border rounded-xl text-white focus:outline-none focus:border-sky-400 leading-snug" style="font-size:${state.inlineFontSize}px">El veloz murciélago hindú comía feliz cardillo y kiwi. 1234567890</div>
         <div class="border border-resolve-border rounded-xl p-3 bg-resolve-surface/40 space-y-2">
           <div class="specimen-${id} text-2xl text-white truncate">Titular de campaña — 24</div>
-          <div class="specimen-${id} text-lg text-amber-200/90 truncate">Subtitular descriptivo — 18</div>
+          <div class="specimen-${id} text-lg text-sky-200/90 truncate">Subtitular descriptivo — 18</div>
           <div class="specimen-${id} text-sm text-zinc-300">Cuerpo de texto en 14px para evaluar legibilidad en impresos y pantallas.</div>
           <div class="specimen-${id} text-xs text-zinc-500 tracking-wider">ABCDEFGHIJKLMNÑOPQRSTUVWXYZ 0123456789</div>
         </div>
@@ -2677,7 +2677,7 @@ export function buildMediaViewerHtml(file) {
           <div class="flex justify-between text-resolve-dimText"><span>Importado</span><span class="text-zinc-300 font-mono">${file.date || '--'}</span></div>
           <p class="text-[9px] text-zinc-400 pt-1">Formato propietario: el navegador no puede renderizarlo. Ábrelo en su aplicación nativa; la pieza queda adjunta al sobre.</p>
         </div>
-        ${url ? `<a href="${url}" download="${escapeHtml(file.name)}" class="w-full py-2 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Descargar / Abrir en app nativa</a>` : ''}
+        ${url ? `<a href="${url}" download="${escapeHtml(file.name)}" class="w-full py-2 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Descargar / Abrir en app nativa</a>` : ''}
       </div>
     </div>`;
   }
@@ -2685,7 +2685,7 @@ export function buildMediaViewerHtml(file) {
   return `<div class="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-white/[0.02]">
     <div class="font-semibold text-white text-xs mb-1 max-w-xs truncate">${escapeHtml(file.name)}</div>
     <p class="text-[10px] text-resolve-dimText mb-3">Enlace web o archivo vinculado al sobre.</p>
-    ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Abrir Recurso ↗</a>` : ''}
+    ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Abrir Recurso ↗</a>` : ''}
   </div>`;
 }
 
@@ -2698,7 +2698,7 @@ export function renderInlineViewer() {
   const titleEl = document.getElementById('envelope-mediapool-title');
   if (titleEl) {
     titleEl.innerHTML = file
-      ? `<span>GALERÍA</span><span class="text-zinc-500">•</span><span class="text-amber-300 normal-case tracking-normal truncate max-w-[360px]" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>`
+      ? `<span>GALERÍA</span><span class="text-zinc-500">•</span><span class="text-sky-300 normal-case tracking-normal truncate max-w-[360px]" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>`
       : 'GALERÍA';
   }
   if (!viewer) return;
@@ -2710,12 +2710,12 @@ export function renderInlineViewer() {
   const nextVersion = (file.versionNumber || 1) + 1;
   const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
   const ownerBadge = isMaster
-    ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${entry.isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'}">${escapeHtml(entry.ownerOtId)}</span>`
+    ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${entry.isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(entry.ownerOtId)}</span>`
     : '';
   viewer.innerHTML = `
     <div class="h-9 px-3 bg-resolve-panel/90 border-b border-resolve-border flex items-center justify-between gap-2 shrink-0">
       <div class="flex items-center gap-2 truncate min-w-0">
-        <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
         ${ownerBadge}
         <span class="font-semibold text-white text-[11px] truncate">${escapeHtml(file.name)}</span>
         <span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber || 1}</span>
@@ -2725,7 +2725,7 @@ export function renderInlineViewer() {
         <button type="button" onclick="openMediaReview(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 border border-[#0BA2AC]/40 text-[#0BA2AC] text-[10px] font-semibold cursor-pointer transition-colors" title="Abrir visor de revisión colaborativa">Revisar</button>
         <button type="button" onclick="shareMediaItem(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-200 text-[10px] font-semibold cursor-pointer transition-colors" title="Compartir enlace de revisión colaborativa">Compartir</button>
         <button type="button" onclick="promptUploadMediaVersion(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-200 font-mono text-[10px] font-semibold cursor-pointer transition-colors" title="Subir nueva versión (v${nextVersion})">+ v${nextVersion}</button>
-        <button type="button" onclick="openMediaPreviewModal(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-amber-300 text-[10px] font-semibold cursor-pointer transition-colors" title="Pantalla completa">Ampliar</button>
+        <button type="button" onclick="openMediaPreviewModal(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-sky-300 text-[10px] font-semibold cursor-pointer transition-colors" title="Pantalla completa">Ampliar</button>
         ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-300 hover:text-white text-[10px] font-semibold transition-colors">Descargar ↓</a>` : ''}
       </div>
     </div>
@@ -2969,7 +2969,7 @@ export function renderClientModalColors() {
         type="button" 
         onclick="selectClientModalColor('${item.name}')" 
         title="${escapeHtml(item.label || item.name)}"
-        class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-amber-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
+        class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-sky-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
       >
         <span class="w-2.5 h-2.5 rounded-full ${item.dot} shrink-0"></span>
         <span class="text-[9px] font-medium truncate ${item.text}">${escapeHtml(item.label || item.name)}</span>
@@ -3571,7 +3571,7 @@ export function openUserProfileModal() {
   if (roleBadgeEl) {
     if (state.memberRole === 'owner') {
       roleBadgeEl.innerText = 'Dueño';
-      roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300';
+      roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300';
     } else if (state.memberRole === 'client') {
       roleBadgeEl.innerText = 'Cliente';
       roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
@@ -3643,7 +3643,7 @@ export function renderUserProfileModalUI() {
   const modeIconBtn = document.getElementById('user-avatar-mode-icon');
   const modeImageBtn = document.getElementById('user-avatar-mode-image');
 
-  const activeTabClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold shadow-sm';
+  const activeTabClass = 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold shadow-sm';
   const inactiveTabClass = 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border-white/[0.08]';
 
   if (modeInitialsBtn) {
@@ -3672,7 +3672,7 @@ export function renderUserProfileModalUI() {
             type="button" 
             onclick="selectUserProfileAvatarIcon('${key}')" 
             title="${escapeHtml(iconDef.label)}"
-            class="h-9 rounded-lg flex items-center justify-center p-2 transition-all cursor-pointer border ${isSelected ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-500/10 text-amber-300 scale-105' : 'border-white/[0.08] hover:border-white/30 text-zinc-400 hover:text-zinc-200 bg-black/30'}"
+            class="h-9 rounded-lg flex items-center justify-center p-2 transition-all cursor-pointer border ${isSelected ? 'border-sky-400 ring-2 ring-sky-400/50 bg-sky-500/10 text-sky-300 scale-105' : 'border-white/[0.08] hover:border-white/30 text-zinc-400 hover:text-zinc-200 bg-black/30'}"
           >
             <div class="w-5 h-5 flex items-center justify-center">${iconDef.svg}</div>
           </button>
@@ -3692,7 +3692,7 @@ export function renderUserProfileModalUI() {
           <button 
             type="button" 
             onclick="document.getElementById('user-profile-photo-input').click()" 
-            class="px-3 py-1.5 bg-white/[0.08] hover:bg-amber-500/15 hover:text-amber-300 text-zinc-200 border border-white/[0.12] rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
+            class="px-3 py-1.5 bg-white/[0.08] hover:bg-sky-500/15 hover:text-sky-300 text-zinc-200 border border-white/[0.12] rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
           >
             ${lucideIcon('image', 'w-[15px] h-[15px]')}
             <span>${hasImage ? 'Cambiar Foto' : 'Subir Imagen'}</span>
@@ -3736,7 +3736,7 @@ export function renderUserProfileModalUI() {
           type="button" 
           onclick="selectUserProfileColor('${item.name}')" 
           title="${escapeHtml(item.label || item.name)}"
-          class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-amber-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
+          class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-sky-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
         >
           <span class="w-2.5 h-2.5 rounded-full ${item.dot} shrink-0"></span>
           <span class="text-[9px] font-medium truncate ${item.text}">${escapeHtml(item.label || item.name)}</span>
@@ -3808,7 +3808,7 @@ export function renderUserProfileDepartments() {
   if (!isOwner) {
     container.innerHTML = `
       ${selectedDepts.map(dept => `
-        <span class="px-2.5 py-1 rounded-md text-[11px] border bg-amber-500/15 text-amber-300 border-amber-500/40 font-semibold flex items-center gap-1.5 select-none">
+        <span class="px-2.5 py-1 rounded-md text-[11px] border bg-sky-500/15 text-sky-300 border-sky-500/40 font-semibold flex items-center gap-1.5 select-none">
           <span>✓</span>
           <span>${escapeHtml(dept)}</span>
         </span>
@@ -3825,7 +3825,7 @@ export function renderUserProfileDepartments() {
         <button 
           type="button" 
           onclick="toggleUserProfileDepartment('${escapeHtml(dept)}')" 
-          class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer flex items-center gap-1.5 ${isSelected ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-semibold' : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-zinc-200'}"
+          class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer flex items-center gap-1.5 ${isSelected ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 font-semibold' : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-zinc-200'}"
         >
           <span>${isSelected ? '✓' : '+'}</span>
           <span>${escapeHtml(dept)}</span>
@@ -3835,7 +3835,7 @@ export function renderUserProfileDepartments() {
     <button 
       type="button" 
       onclick="promptAddUserProfileDepartment()" 
-      class="px-2.5 py-1 rounded-md text-[11px] border border-dashed border-white/[0.20] text-zinc-400 hover:text-amber-300 hover:border-amber-400/50 bg-white/[0.02] transition-colors cursor-pointer"
+      class="px-2.5 py-1 rounded-md text-[11px] border border-dashed border-white/[0.20] text-zinc-400 hover:text-sky-300 hover:border-sky-400/50 bg-white/[0.02] transition-colors cursor-pointer"
     >
       + Nuevo Depto.
     </button>
@@ -3976,7 +3976,7 @@ export function switchUserProfileTab(tabKey = 'profile') {
   const profileView = document.getElementById('user-modal-view-profile');
   const teamView = document.getElementById('user-modal-view-team');
 
-  const activeClass = 'flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm';
+  const activeClass = 'flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm';
   const inactiveClass = 'flex-1 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border border-white/[0.08]';
 
   if (tabKey === 'team') {
@@ -4043,7 +4043,7 @@ export async function loadTeamTabUI() {
     if (orgRoleEl) {
       if (isOwner) {
         orgRoleEl.innerText = 'Dueño';
-        orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300';
+        orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300';
       } else {
         orgRoleEl.innerText = 'Colaborador';
         orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300';
@@ -4087,7 +4087,7 @@ export async function loadTeamTabUI() {
           const scopeLabel = currentAllowed === '*' ? 'Todo el estudio' : (scopeObj ? scopeObj.name : currentAllowed);
 
           return `
-            <div ${canManage ? `onclick="openTeamMemberDetailModal('${escapeHtml(m.id)}')" role="button" tabindex="0"` : ''} class="p-2.5 rounded-xl bg-black/40 border border-resolve-border/60 ${canManage ? 'cursor-pointer hover:border-amber-500/45 hover:bg-black/55 transition-all' : ''} ${isDeactivated ? 'opacity-65' : ''} space-y-2">
+            <div ${canManage ? `onclick="openTeamMemberDetailModal('${escapeHtml(m.id)}')" role="button" tabindex="0"` : ''} class="p-2.5 rounded-xl bg-black/40 border border-resolve-border/60 ${canManage ? 'cursor-pointer hover:border-sky-500/45 hover:bg-black/55 transition-all' : ''} ${isDeactivated ? 'opacity-65' : ''} space-y-2">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5 min-w-0">
                   ${renderUserAvatarHtml('w-8 h-8 text-xs', memberProfile)}
@@ -4106,17 +4106,17 @@ export async function loadTeamTabUI() {
                   </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-semibold ${isOwnerMember ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : m.role === 'client' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-semibold ${isOwnerMember ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : m.role === 'client' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
                     ${isOwnerMember ? 'Dueño' : m.role === 'client' ? 'Cliente' : 'Colaborador'}
                   </span>
-                  ${canManage ? '<span class="text-[10px] text-amber-400/80 font-medium pl-1">Editar ›</span>' : ''}
+                  ${canManage ? '<span class="text-[10px] text-sky-400/80 font-medium pl-1">Editar ›</span>' : ''}
                 </div>
               </div>
               <div class="pt-1.5 border-t border-resolve-border/30 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                 <span class="text-zinc-400">Alcance: <strong class="text-zinc-200 font-medium">${escapeHtml(scopeLabel)}</strong></span>
                 ${m.role !== 'client' ? `
                   <div class="flex flex-wrap items-center gap-1">
-                    ${memberDepts.map(d => `<span class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-medium">${escapeHtml(d)}</span>`).join('')}
+                    ${memberDepts.map(d => `<span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/25 font-medium">${escapeHtml(d)}</span>`).join('')}
                   </div>
                 ` : ''}
               </div>
@@ -4133,9 +4133,9 @@ export async function loadTeamTabUI() {
         invContainer.classList.remove('hidden');
         invListEl.innerHTML = invitations.map(inv => {
           return `
-            <div class="flex items-center justify-between p-2 rounded-xl bg-amber-500/[0.03] border border-amber-500/20 text-xs">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-sky-500/[0.03] border border-sky-500/20 text-xs">
               <div class="min-w-0 pr-2">
-                <div class="font-medium text-amber-200 truncate">${escapeHtml(inv.email)}</div>
+                <div class="font-medium text-sky-200 truncate">${escapeHtml(inv.email)}</div>
                 <div class="text-[10px] text-zinc-500">Pendiente de registro / aceptación</div>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
@@ -4152,7 +4152,7 @@ export async function loadTeamTabUI() {
                 <button 
                   type="button" 
                   onclick="handleCopyTeamInviteLink('${inv.id}', this)" 
-                  class="px-2 py-1 bg-white/[0.08] hover:bg-amber-500/20 text-amber-300 border border-white/[0.12] hover:border-amber-500/40 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
+                  class="px-2 py-1 bg-white/[0.08] hover:bg-sky-500/20 text-sky-300 border border-white/[0.12] hover:border-sky-500/40 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
                   title="Copiar enlace de invitación"
                 >
                   Copiar Link
@@ -4248,8 +4248,8 @@ export function openTeamMemberDetailModal(memberId) {
   if (deptsContainer) {
     const allDepts = getDepartments();
     deptsContainer.innerHTML = allDepts.map(d => `
-      <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border border-white/10 bg-black/40 text-zinc-200 cursor-pointer hover:border-amber-500/40">
-        <input type="checkbox" class="team-member-modal-dept-cb accent-amber-400" value="${escapeHtml(d)}" ${memberDepts.includes(d) ? 'checked' : ''} />
+      <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border border-white/10 bg-black/40 text-zinc-200 cursor-pointer hover:border-sky-500/40">
+        <input type="checkbox" class="team-member-modal-dept-cb accent-sky-400" value="${escapeHtml(d)}" ${memberDepts.includes(d) ? 'checked' : ''} />
         <span>${escapeHtml(d)}</span>
       </label>
     `).join('');
@@ -4264,7 +4264,7 @@ export function openTeamMemberDetailModal(memberId) {
     toggleBtn.innerText = isDeactivated ? 'Reactivar' : 'Desactivar';
     toggleBtn.className = isDeactivated
       ? 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
-      : 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-white/[0.06] hover:bg-amber-500/15 text-zinc-300 hover:text-amber-300 border-white/[0.12]';
+      : 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-white/[0.06] hover:bg-sky-500/15 text-zinc-300 hover:text-sky-300 border-white/[0.12]';
     toggleBtn.onclick = async () => {
       await handleToggleMemberStatus(member.id, isDeactivated ? 'active' : 'deactivated');
       closeTeamMemberDetailModal();
@@ -4589,7 +4589,7 @@ export function togglePasswordVisibility(inputId, btn) {
   input.type = isPassword ? 'text' : 'password';
   if (btn) {
     btn.innerHTML = isPassword ? `
-      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
       </svg>
     ` : `
@@ -4797,11 +4797,11 @@ export function openSubscriptionPaywallModal(isBlocking = false) {
   } else {
     if (statusBadgeEl) {
       statusBadgeEl.innerText = 'PRUEBA ACTIVA';
-      statusBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300';
+      statusBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 border border-sky-500/25 text-sky-300';
     }
     if (daysTextEl) {
       daysTextEl.innerText = `${trialDaysLeft} ${trialDaysLeft === 1 ? 'día restante' : 'días restantes'}`;
-      daysTextEl.className = 'font-bold text-amber-400 text-xs';
+      daysTextEl.className = 'font-bold text-sky-400 text-xs';
     }
     if (titleEl) titleEl.innerText = 'Trafikeitor Plan Pro';
     if (subtitleEl) subtitleEl.innerText = 'Impulsa el flujo de trabajo creativo de tu agencia con máxima capacidad.';

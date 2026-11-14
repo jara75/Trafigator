@@ -14,20 +14,24 @@
         extend: {
           colors: {
             resolve: {
-              bg: '#0d0e11',
-              panel: '#15161a',
-              surface: '#1b1c22',
-              card: '#22232a',
-              border: 'rgba(255, 255, 255, 0.08)',
-              lightText: '#f4f4f6',
-              dimText: '#9496a1',
-              accent: '#f59e0b',
-              accentHover: '#d97706',
+              bg: '#0e0f12',
+              panel: '#15171c',
+              surface: '#181a20',
+              card: '#1c1f26',
+              inset: '#111317',
+              border: '#232730',
+              borderActive: '#343b48',
+              lightText: '#e3e2e6',
+              dimText: '#87929a',
+              accent: '#38bdf8',
+              accentHover: '#7bd0ff',
+              indigo: '#4f46e5',
+              indigoHover: '#4338ca',
             }
           },
           fontFamily: {
-            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Inter', 'system-ui', 'sans-serif'],
-            mono: ['"SF Mono"', '"JetBrains Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'monospace'],
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', '"SF Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'monospace'],
           }
         }
       }
@@ -57,7 +61,7 @@
           onclick="switchMainView('desk')" 
           class="h-6 px-2.5 rounded font-medium transition-all bg-white/[0.12] text-white shadow-xs border border-white/[0.08] flex items-center gap-1.5 cursor-pointer"
         >
-          <span data-icon="module-traffic" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-amber-400"></span>
+          <span data-icon="module-traffic" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-sky-400"></span>
           <span>Tráfico</span>
         </button>
         <button 
@@ -65,7 +69,7 @@
           onclick="switchMainView('ot')" 
           class="h-6 px-2.5 rounded font-medium transition-all text-resolve-dimText hover:text-white flex items-center gap-1.5 cursor-pointer"
         >
-          <span data-icon="module-ot" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-amber-400"></span>
+          <span data-icon="module-ot" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-sky-400"></span>
           <span>Órdenes de Trabajo</span>
         </button>
         <button 
@@ -73,9 +77,9 @@
           onclick="switchMainView('stripboard')" 
           class="h-6 px-2.5 rounded font-medium transition-all text-resolve-dimText hover:text-white flex items-center gap-1.5 cursor-pointer"
         >
-          <span data-icon="module-agenda" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-amber-400"></span>
+          <span data-icon="module-agenda" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-sky-400"></span>
           <span>Agenda</span>
-          <span id="stripboard-pending-badge" class="px-1.5 py-0.2 bg-white/[0.08] rounded-full text-[9px] text-amber-300 font-bold border border-white/[0.06]">0</span>
+          <span id="stripboard-pending-badge" class="px-1.5 py-0.2 bg-white/[0.08] rounded-full text-[9px] text-sky-300 font-bold border border-white/[0.06]">0</span>
         </button>
       </nav>
     </div>
@@ -100,7 +104,7 @@
       </label>
 
       <!-- Botón Nueva OT -->
-      <button onclick="openNewOtModal()" class="h-7 px-2.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-[11px] rounded-md shadow-sm shadow-amber-950/40 border border-amber-300/40 flex items-center gap-1 transition-all active:scale-[0.97] cursor-pointer">
+      <button onclick="openNewOtModal()" class="h-[26px] px-2.5 bg-resolve-indigo hover:bg-resolve-indigoHover text-white font-medium text-[11px] rounded border border-white/10 flex items-center gap-1 transition-all active:scale-[0.98] focus:outline-none focus:ring-1 focus:ring-resolve-accent cursor-pointer">
         <span data-icon="plus" data-icon-size="w-[15px] h-[15px]"></span>
         <span>Nueva OT</span>
       </button>
@@ -122,7 +126,7 @@
 
       <!-- Píldora de Usuario Activo / Login (Extremo Derecho) -->
       <div id="header-user-container" class="flex items-center pl-1">
-        <button id="elmarcante-login-btn" type="button" onclick="showAuthGate(true)" class="h-7 px-2.5 text-[11px] font-medium bg-white/[0.05] hover:bg-amber-500/10 text-zinc-300 hover:text-amber-300 rounded-md border border-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer flex items-center gap-1.5">
+        <button id="elmarcante-login-btn" type="button" onclick="showAuthGate(true)" class="h-7 px-2.5 text-[11px] font-medium bg-white/[0.05] hover:bg-sky-500/10 text-zinc-300 hover:text-sky-300 rounded-md border border-white/[0.08] hover:border-sky-500/30 transition-all cursor-pointer flex items-center gap-1.5">
           Iniciar Sesión
         </button>
       </div>
@@ -141,20 +145,20 @@
       <!-- Resizer handle en el borde derecho -->
       <div 
         id="sidebar-resizer" 
-        class="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-amber-500/50 active:bg-amber-500 transition-colors z-30 select-none"
+        class="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-sky-500/50 active:bg-sky-500 transition-colors z-30 select-none"
         title="Arrastrar para redimensionar panel"
       ></div>
       
       <!-- Encabezado de la barra lateral -->
       <div class="h-9 px-3 bg-resolve-panel border-b border-resolve-border flex items-center justify-between shrink-0">
         <span class="text-[11px] uppercase tracking-wider text-resolve-dimText font-semibold flex items-center gap-1.5 truncate">
-          <svg class="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
           <span class="truncate">CLIENTES & MARCAS</span>
         </span>
         <button 
           onclick="toggleSidebar()" 
           title="Colapsar panel de Clientes" 
-          class="w-6 h-6 flex items-center justify-center text-amber-400 hover:text-white hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer select-none"
+          class="w-6 h-6 flex items-center justify-center text-sky-400 hover:text-white hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer select-none"
         >
           <span data-icon="collapse-diagonal" data-icon-size="w-[15px] h-[15px]"></span>
         </button>
@@ -164,7 +168,7 @@
       <div class="p-2 border-b border-resolve-border/60 shrink-0">
         <button onclick="selectTreeFilter('all', null, null)" id="bin-all" class="bin-item bin-active w-full text-left px-2 py-1.5 rounded-lg flex items-center justify-between text-zinc-300 hover:bg-white/[0.05] transition-colors cursor-pointer">
           <div class="flex items-center gap-1.5 truncate">
-            <svg class="w-4 h-4 text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+            <svg class="w-4 h-4 text-sky-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
             <span class="font-bold truncate text-[11px] text-white">Master Bin</span>
           </div>
           <span class="bin-tree-badge text-[10px] font-semibold bg-white/[0.08] px-1.5 py-0.2 rounded-full text-zinc-300" id="badge-count-all">0</span>
@@ -182,7 +186,7 @@
             type="button" 
             onclick="expandAllClientTrees()" 
             title="Abrir todo (Desplegar todas las marcas)" 
-            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-amber-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
+            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-sky-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <span data-icon="expand-diagonal" data-icon-size="w-3 h-3"></span>
           </button>
@@ -192,7 +196,7 @@
             type="button" 
             onclick="collapseAllClientTrees()" 
             title="Cerrar todo (Colapsar todas las marcas)" 
-            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-amber-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
+            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-sky-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <span data-icon="collapse-diagonal" data-icon-size="w-3 h-3"></span>
           </button>
@@ -205,7 +209,7 @@
             type="button" 
             onclick="toggleTreeActionMenu(event)" 
             title="Opciones de Clientes y Marcas" 
-            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-amber-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
+            class="w-5 h-5 rounded flex items-center justify-center text-zinc-400 hover:text-sky-400 hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <span data-icon="list" data-icon-size="w-[15px] h-[15px]"></span>
           </button>
@@ -221,9 +225,9 @@
             id="tree-btn-add" 
             type="button" 
             onclick="handleTreeToolbarAdd(); closeTreeActionMenu();" 
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-200 hover:text-amber-400 transition-colors cursor-pointer"
+            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-200 hover:text-sky-400 transition-colors cursor-pointer"
           >
-            <span class="w-3.5 text-center font-bold text-amber-400 text-xs shrink-0">+</span>
+            <span class="w-3.5 text-center font-bold text-sky-400 text-xs shrink-0">+</span>
             <span id="tree-menu-add-label" class="text-[11px] font-medium">Nuevo Cliente</span>
           </button>
 
@@ -231,7 +235,7 @@
             id="tree-btn-edit" 
             type="button" 
             onclick="handleTreeToolbarEdit(); closeTreeActionMenu();" 
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-amber-400 transition-colors cursor-pointer"
+            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-sky-400 transition-colors cursor-pointer"
           >
             <span class="w-3.5 text-center text-zinc-400 text-xs shrink-0">✎</span>
             <span id="tree-menu-edit-label" class="text-[11px] font-medium">Editar</span>
@@ -241,7 +245,7 @@
             id="tree-btn-duplicate" 
             type="button" 
             onclick="handleTreeToolbarDuplicate(); closeTreeActionMenu();" 
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-amber-400 transition-colors cursor-pointer"
+            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-sky-400 transition-colors cursor-pointer"
           >
             <span class="w-3.5 text-center text-zinc-400 text-xs font-serif shrink-0">⎘</span>
             <span id="tree-menu-duplicate-label" class="text-[11px] font-medium">Duplicar</span>
@@ -266,7 +270,7 @@
             id="tree-btn-toggle-badges" 
             type="button" 
             onclick="toggleTreeBadges(); closeTreeActionMenu();" 
-            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-amber-400 transition-colors cursor-pointer"
+            class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-white/[0.08] text-zinc-300 hover:text-sky-400 transition-colors cursor-pointer"
           >
             <span id="tree-menu-badges-icon" data-icon="tag" data-icon-size="w-3.5 h-3.5" data-icon-class="text-zinc-400" class="w-3.5 flex items-center justify-center shrink-0"></span>
             <span id="tree-menu-badges-label" class="text-[11px] font-medium">Ocultar badges</span>
@@ -295,7 +299,7 @@
       <button 
         onclick="toggleSidebar()" 
         title="Expandir panel de Clientes" 
-        class="w-6 h-6 flex items-center justify-center text-amber-400 hover:text-white hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer select-none"
+        class="w-6 h-6 flex items-center justify-center text-sky-400 hover:text-white hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer select-none"
       >
         <span data-icon="expand-diagonal" data-icon-size="w-[15px] h-[15px]"></span>
       </button>
@@ -305,7 +309,7 @@
         title="Master Bin" 
         class="p-2 text-resolve-dimText hover:text-white hover:bg-white/[0.08] rounded-md transition-colors cursor-pointer"
       >
-        <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
+        <svg class="w-4 h-4 text-sky-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/></svg>
       </button>
     </div>
 
@@ -315,7 +319,7 @@
       <div class="h-9 px-3 bg-resolve-surface border-b border-resolve-border flex items-center justify-between gap-3 shrink-0">
         <!-- Breadcrumb & Cantidad -->
         <div class="flex items-center gap-2 min-w-0">
-          <span data-icon="folder" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-amber-400"></span>
+          <span data-icon="folder" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-sky-400"></span>
           <span id="current-bin-breadcrumb" class="text-[11px] font-semibold text-white truncate tracking-tight">Master Bin (Todas las OTs)</span>
           <span id="current-bin-count" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/[0.05] text-zinc-300 border border-resolve-border shrink-0">0 OTs</span>
         </div>
@@ -332,7 +336,7 @@
               id="search-input" 
               oninput="renderTrafficDesk()" 
               placeholder="Buscar OT, ref, cliente..." 
-              class="h-6 w-40 sm:w-56 bg-black/30 border border-resolve-border rounded-md pl-6 pr-2 text-[11px] text-white focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none placeholder-zinc-500 transition-all"
+              class="h-6 w-40 sm:w-56 bg-black/30 border border-resolve-border rounded-md pl-6 pr-2 text-[11px] text-white focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none placeholder-zinc-500 transition-all"
             />
           </div>
 
@@ -371,10 +375,10 @@
             <!-- Categorías / Agrupar por -->
             <div class="flex items-center gap-1.5">
               <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                 Categorías:
               </span>
-              <select id="trafico-group-select" onchange="setTableGroup(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-amber-500/60 focus:outline-none cursor-pointer">
+              <select id="trafico-group-select" onchange="setTableGroup(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-sky-500/60 focus:outline-none cursor-pointer">
                 <option value="client">Agrupar por Cliente</option>
                 <option value="status">Agrupar por Estado</option>
                 <option value="responsible">Agrupar por Responsable</option>
@@ -391,7 +395,7 @@
               <select 
                 id="status-filter" 
                 onchange="renderTrafficDesk()" 
-                class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-zinc-200 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all font-medium cursor-pointer"
+                class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-zinc-200 focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all font-medium cursor-pointer"
               >
                 <option value="all">Todos los estados</option>
                 <option value="Tráfico">Tráfico</option>
@@ -410,7 +414,7 @@
             <!-- Ordenar por -->
             <div class="flex items-center gap-1.5">
               <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Ordenar:</span>
-              <select id="trafico-sort-select" onchange="setTableSort(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-amber-500/60 focus:outline-none cursor-pointer">
+              <select id="trafico-sort-select" onchange="setTableSort(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-sky-500/60 focus:outline-none cursor-pointer">
                 <option value="otNumber">No. OT</option>
                 <option value="entryDate">Entrada</option>
                 <option value="deliveryDate">Entrega</option>
@@ -432,7 +436,7 @@
                 type="button" 
                 onclick="expandAllTableGroups()" 
                 title="Desplegar todas las categorías" 
-                class="hover:text-amber-400 transition-colors cursor-pointer"
+                class="hover:text-sky-400 transition-colors cursor-pointer"
               >
                 Abrir todo
               </button>
@@ -441,7 +445,7 @@
                 type="button" 
                 onclick="collapseAllTableGroups()" 
                 title="Colapsar todas las categorías" 
-                class="hover:text-amber-400 transition-colors cursor-pointer"
+                class="hover:text-sky-400 transition-colors cursor-pointer"
               >
                 Cerrar todo
               </button>
@@ -478,10 +482,10 @@
                   <th class="p-2 border-r border-resolve-border w-28">Medio</th>
                   <th class="p-2 border-r border-resolve-border w-28">Referencia</th>
                   <th class="p-2 border-r border-resolve-border min-w-[180px]">Descripción</th>
-                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-amber-400" onclick="setTableSort('entryDate')">Entrada ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-amber-400" onclick="setTableSort('deliveryDate')">Entrega ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-amber-400" onclick="setTableSort('status')">Estado ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-amber-400" onclick="setTableSort('responsible')">Responsable ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-sky-400" onclick="setTableSort('entryDate')">Entrada ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-sky-400" onclick="setTableSort('deliveryDate')">Entrega ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-sky-400" onclick="setTableSort('status')">Estado ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-sky-400" onclick="setTableSort('responsible')">Responsable ↕</th>
                   <th class="p-2 min-w-[140px]">Notas</th>
                 </tr>
               </thead>
@@ -499,7 +503,7 @@
           </div>
           <h4 class="font-bold text-white text-sm">No hay Órdenes de Trabajo en este Bin</h4>
           <p class="text-xs text-resolve-dimText mt-1 max-w-sm">No se encontraron OTs con los filtros activos. Crea una nueva OT o selecciona otro Bin.</p>
-          <button onclick="openNewOtModal()" class="mt-4 px-3.5 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] flex items-center gap-1.5">
+          <button onclick="openNewOtModal()" class="mt-4 px-3.5 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] flex items-center gap-1.5">
             <span>+ Crear Nueva OT</span>
           </button>
         </div>
@@ -559,7 +563,7 @@
         <button 
           id="sb-view-btn-day" 
           onclick="setStripboardViewMode('day')" 
-          class="h-5 px-2 rounded font-medium transition-all bg-white/[0.12] text-amber-300 shadow-xs border border-white/[0.08] cursor-pointer"
+          class="h-5 px-2 rounded font-medium transition-all bg-white/[0.12] text-sky-300 shadow-xs border border-white/[0.08] cursor-pointer"
         >
           Día
         </button>
@@ -590,7 +594,7 @@
       <div class="hidden xl:flex items-center gap-2 text-[11px] font-medium text-resolve-dimText shrink-0">
         <span>Tiras: <strong id="strip-count-total" class="text-white font-semibold">0</strong></span>
         <span>•</span>
-        <span>En Mesa: <strong id="strip-count-active" class="text-amber-400 font-semibold">0</strong></span>
+        <span>En Mesa: <strong id="strip-count-active" class="text-sky-400 font-semibold">0</strong></span>
         <span>•</span>
         <span>Entregadas: <strong id="strip-count-done" class="text-emerald-400 font-semibold">0</strong></span>
       </div>
@@ -600,9 +604,9 @@
         <button 
           onclick="autoPopulatePendingOts()" 
           title="Cargar automáticamente las OTs pendientes al plan del día" 
-          class="h-6 px-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-medium text-[11px] rounded-md border border-amber-500/30 flex items-center gap-1 transition-all cursor-pointer"
+          class="h-6 px-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-medium text-[11px] rounded-md border border-sky-500/30 flex items-center gap-1 transition-all cursor-pointer"
         >
-          <span data-icon="zap" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-amber-400"></span>
+          <span data-icon="zap" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-sky-400"></span>
           <span class="hidden lg:inline">Cargar Pendientes</span>
         </button>
         <button 
@@ -656,10 +660,10 @@
       <aside id="stripboard-pool-panel" class="w-72 lg:w-80 bg-resolve-surface border-r border-resolve-border flex flex-col shrink-0 overflow-hidden no-print">
         <div class="h-10 px-3 bg-resolve-panel border-b border-resolve-border flex items-center justify-between shrink-0">
           <span class="text-[11px] uppercase tracking-wider text-resolve-dimText font-semibold flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+            <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
             <span>OTs Pendientes de Asignar</span>
           </span>
-          <span id="stripboard-pool-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.08] text-amber-300 font-bold border border-white/[0.06]">0</span>
+          <span id="stripboard-pool-count" class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/[0.08] text-sky-300 font-bold border border-white/[0.06]">0</span>
         </div>
 
         <!-- Buscador y Filtro de Estado de Programación de Pendientes -->
@@ -669,13 +673,13 @@
             id="stripboard-pool-search" 
             oninput="renderStripboardPendingPool()" 
             placeholder="Filtrar por OT, cliente, título..." 
-            class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1 text-xs text-white focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none placeholder-zinc-500 transition-all"
+            class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1 text-xs text-white focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none placeholder-zinc-500 transition-all"
           />
           <div class="grid grid-cols-3 gap-1 bg-black/40 p-0.5 rounded-lg border border-resolve-border text-[10px] font-medium shadow-inner">
             <button
               id="pool-filter-btn-all"
               onclick="setStripboardPoolFilter('all')"
-              class="py-1 rounded font-semibold bg-white/[0.12] text-amber-300 shadow-xs border border-white/[0.08] transition-all cursor-pointer"
+              class="py-1 rounded font-semibold bg-white/[0.12] text-sky-300 shadow-xs border border-white/[0.08] transition-all cursor-pointer"
             >
               Todas
             </button>
@@ -715,10 +719,10 @@
               <!-- Categorías / Agrupar por -->
               <div class="flex items-center gap-1.5">
                 <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
-                  <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                  <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                   Categorías:
                 </span>
-                <select id="stripboard-group-select" onchange="setTableGroup(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-amber-500/60 focus:outline-none cursor-pointer">
+                <select id="stripboard-group-select" onchange="setTableGroup(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-sky-500/60 focus:outline-none cursor-pointer">
                   <option value="none">Sin Agrupar</option>
                   <option value="client">Agrupar por Cliente</option>
                   <option value="status">Agrupar por Estado</option>
@@ -732,7 +736,7 @@
               <!-- Ordenar por -->
               <div class="flex items-center gap-1.5">
                 <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Ordenar:</span>
-                <select id="stripboard-sort-select" onchange="setTableSort(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-amber-500/60 focus:outline-none cursor-pointer">
+                <select id="stripboard-sort-select" onchange="setTableSort(this.value)" class="h-6 bg-black/50 border border-resolve-border rounded-md px-2 text-[11px] text-white font-medium focus:border-sky-500/60 focus:outline-none cursor-pointer">
                   <option value="none">Predeterminado</option>
                   <option value="entryDate">Entrada</option>
                   <option value="deliveryDate">Entrega</option>
@@ -762,10 +766,10 @@
                   <th class="p-2 border-r border-resolve-border w-28">Medio</th>
                   <th class="p-2 border-r border-resolve-border w-28">Referencia</th>
                   <th class="p-2 border-r border-resolve-border min-w-[180px]">Descripción</th>
-                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-amber-400" onclick="setTableSort('entryDate')">Entrada ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-amber-400" onclick="setTableSort('deliveryDate')">Entrega ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-amber-400" onclick="setTableSort('status')">Estado ↕</th>
-                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-amber-400" onclick="setTableSort('responsible')">Responsable ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-sky-400" onclick="setTableSort('entryDate')">Entrada ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-36 cursor-pointer hover:text-sky-400" onclick="setTableSort('deliveryDate')">Entrega ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-sky-400" onclick="setTableSort('status')">Estado ↕</th>
+                  <th class="p-2 border-r border-resolve-border w-32 cursor-pointer hover:text-sky-400" onclick="setTableSort('responsible')">Responsable ↕</th>
                   <th class="p-2 min-w-[140px]">Notas</th>
                 </tr>
               </thead>
@@ -796,7 +800,7 @@
           <div class="h-9 px-4 bg-resolve-panel/80 border-b border-resolve-border flex items-center justify-between text-[11px] text-resolve-dimText shrink-0">
             <div class="flex items-center gap-3">
               <span class="font-semibold text-white uppercase tracking-wider">TIMELINE • GANTT DE TRÁFICO DIARIO (08:00 – 19:00)</span>
-              <span id="stripboard-gantt-date-label" class="text-amber-400 font-semibold">--</span>
+              <span id="stripboard-gantt-date-label" class="text-sky-400 font-semibold">--</span>
             </div>
             <span>Pistas por Departamento • Arrastra los bordes del clip para expandir/contraer tiempo (DaVinci Trim) o mueve el bloque</span>
           </div>
@@ -817,7 +821,7 @@
                 <span>Entrega Comprometida (Hoja de Ruta)</span>
               </span>
               <span class="flex items-center gap-1.5 text-[10px]">
-                <span class="w-2 h-2 rounded-xs bg-amber-500 inline-block"></span>
+                <span class="w-2 h-2 rounded-xs bg-sky-500 inline-block"></span>
                 <span>Tira en Plan Diario</span>
               </span>
             </div>
@@ -843,7 +847,7 @@
         <!-- Pie del Stripboard -->
         <div class="h-9 px-4 bg-resolve-panel border-t border-resolve-border flex items-center justify-between text-xs text-resolve-dimText shrink-0 no-print">
           <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+            <span class="w-2 h-2 rounded-full bg-sky-500 inline-block"></span>
             <span id="stripboard-footer-hint">Agenda de Producción • Arrastra y suelta las tiras en la posición del día</span>
           </div>
           <div class="flex items-center gap-3">
@@ -870,12 +874,12 @@
           <button
             id="modal-btn-back-stripboard"
             onclick="closeEnvelopeModal()"
-            class="hidden px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] border border-amber-500/40 text-amber-300 font-semibold text-xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
+            class="hidden px-2.5 py-1 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] border border-sky-500/40 text-sky-300 font-semibold text-xs flex items-center gap-1.5 shrink-0 transition-all cursor-pointer"
             title="Cerrar Sobre y volver a Agenda"
           >
             <span>← Volver a Agenda</span>
           </button>
-          <span id="modal-ot-id" class="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold text-xs font-mono shrink-0">OT-26-000</span>
+          <span id="modal-ot-id" class="px-2.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/30 text-sky-400 font-bold text-xs font-mono shrink-0">OT-26-000</span>
           <h2 id="modal-ot-title-header" class="font-bold text-white text-sm truncate max-w-lg lg:max-w-2xl tracking-tight">Título de la Pieza</h2>
           <label class="flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0 ml-2">
             <input type="checkbox" id="modal-ot-urgent" onchange="updateRootOtField('urgent', this.checked)" class="accent-red-500 rounded">
@@ -895,43 +899,43 @@
         <!-- 1. No. OT -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">No. OT</label>
-          <input type="text" id="modal-ot-id-display" readonly class="w-full bg-black/50 border border-resolve-border rounded-lg px-2 py-1 text-amber-400 font-bold font-mono text-[11px] cursor-default">
+          <input type="text" id="modal-ot-id-display" readonly class="w-full bg-black/50 border border-resolve-border rounded-lg px-2 py-1 text-sky-400 font-bold font-mono text-[11px] cursor-default">
         </div>
 
         <!-- 2. Cliente -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Cliente</label>
-          <input type="text" id="modal-ot-client" onchange="updateRootOtField('client', this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+          <input type="text" id="modal-ot-client" onchange="updateRootOtField('client', this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
         </div>
 
         <!-- 3. Marca/Producto -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Marca/Producto</label>
-          <input type="text" id="modal-ot-brand" onchange="updateRootOtField('brand', this.value)" placeholder="Marca o Producto" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+          <input type="text" id="modal-ot-brand" onchange="updateRootOtField('brand', this.value)" placeholder="Marca o Producto" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
         </div>
 
         <!-- 4. Medio -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Medio</label>
-          <input type="text" id="modal-ot-media" onchange="updateRootOtField('media', this.value)" placeholder="Medio / Formato" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+          <input type="text" id="modal-ot-media" onchange="updateRootOtField('media', this.value)" placeholder="Medio / Formato" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-white focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
         </div>
 
         <!-- 5. Referencia -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Referencia</label>
-          <input type="text" id="modal-ot-ref" onchange="updateRootOtField('ref', this.value)" placeholder="Referencia" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-amber-300 font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all font-mono">
+          <input type="text" id="modal-ot-ref" onchange="updateRootOtField('ref', this.value)" placeholder="Referencia" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-sky-300 font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all font-mono">
         </div>
 
         <!-- 6. Descripción -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Descripción</label>
-          <input type="text" id="modal-ot-description" onchange="updateRootOtField('title', this.value)" placeholder="Descripción general" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-zinc-100 font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+          <input type="text" id="modal-ot-description" onchange="updateRootOtField('title', this.value)" placeholder="Descripción general" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-[11px] text-zinc-100 font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
         </div>
 
         <!-- 7. Responsable -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Responsable</label>
-          <select id="modal-ot-status" onchange="handleRootStatusChange(this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-white font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none text-[11px] transition-all cursor-pointer">
+          <select id="modal-ot-status" onchange="handleRootStatusChange(this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-white font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none text-[11px] transition-all cursor-pointer">
             <!-- Inyectado dinámicamente con JS -->
           </select>
         </div>
@@ -947,13 +951,13 @@
         <!-- 9. Entrada (General OT Madre) -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Entrada</label>
-          <input type="datetime-local" id="modal-ot-entry-date" onchange="updateRootOtDateField('entryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}" style="color-scheme: dark;" class="w-full bg-black/40 border border-resolve-border rounded-lg px-1.5 py-1 text-[10px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none cursor-pointer">
+          <input type="datetime-local" id="modal-ot-entry-date" onchange="updateRootOtDateField('entryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}" style="color-scheme: dark;" class="w-full bg-black/40 border border-resolve-border rounded-lg px-1.5 py-1 text-[10px] text-zinc-200 font-mono focus:border-sky-500/60 focus:outline-none cursor-pointer">
         </div>
 
         <!-- 10. Entrega Final (General OT Madre) -->
         <div>
           <label class="text-[10px] uppercase text-zinc-400 font-semibold block mb-1">Entrega Final</label>
-          <input type="datetime-local" id="modal-ot-delivery-date" onchange="updateRootOtDateField('deliveryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}" style="color-scheme: dark;" class="w-full bg-black/40 border border-resolve-border rounded-lg px-1.5 py-1 text-[10px] text-amber-200 font-mono focus:border-amber-500/60 focus:outline-none cursor-pointer">
+          <input type="datetime-local" id="modal-ot-delivery-date" onchange="updateRootOtDateField('deliveryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}" style="color-scheme: dark;" class="w-full bg-black/40 border border-resolve-border rounded-lg px-1.5 py-1 text-[10px] text-sky-200 font-mono focus:border-sky-500/60 focus:outline-none cursor-pointer">
         </div>
       </div>
 
@@ -969,12 +973,12 @@
             <!-- Inyectado dinámicamente con JS -->
           </div>
           <div id="envelope-tree-footer" class="p-2 border-t border-resolve-border shrink-0">
-            <button type="button" id="envelope-tree-add-btn" onclick="createEnvelopeSubTask()" class="w-full py-1.5 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer">
+            <button type="button" id="envelope-tree-add-btn" onclick="createEnvelopeSubTask()" class="w-full py-1.5 px-2 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-semibold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer">
               <span>+ Sub-tarea</span>
             </button>
           </div>
         </aside>
-        <div id="envelope-tree-resizer" class="relative w-px shrink-0 bg-white/[0.08] hover:bg-amber-400/80 active:bg-amber-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar el árbol de tareas">
+        <div id="envelope-tree-resizer" class="relative w-px shrink-0 bg-white/[0.08] hover:bg-sky-400/80 active:bg-sky-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar el árbol de tareas">
           <div class="absolute inset-y-0 -left-1.5 w-3 cursor-col-resize"></div>
         </div>
 
@@ -990,20 +994,20 @@
               </button>
               <div class="min-w-0 flex-1 max-w-xl">
                 <div class="flex items-center gap-1.5">
-                  <span id="envelope-bitacora-task-id-badge" onclick="toggleEnvelopeSection('bitacora')" class="font-mono font-bold text-[11px] text-amber-400 shrink-0 cursor-pointer select-none" title="Clic para contraer o expandir Bitácora">OT-26-000</span>
+                  <span id="envelope-bitacora-task-id-badge" onclick="toggleEnvelopeSection('bitacora')" class="font-mono font-bold text-[11px] text-sky-400 shrink-0 cursor-pointer select-none" title="Clic para contraer o expandir Bitácora">OT-26-000</span>
                   <input
                     type="text"
                     id="envelope-bitacora-task-title-input"
                     onchange="updateActiveTaskTitle(this.value)"
                     onkeydown="if(event.key==='Enter'){this.blur();}"
                     placeholder="Título de la tarea..."
-                    class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-amber-500 focus:bg-black/30 focus:ring-0 focus:outline-none rounded-t px-1.5 py-0.5 font-semibold text-white text-xs tracking-wide transition-colors"
+                    class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-sky-500 focus:bg-black/30 focus:ring-0 focus:outline-none rounded-t px-1.5 py-0.5 font-semibold text-white text-xs tracking-wide transition-colors"
                   />
                 </div>
                 <p id="envelope-bitacora-task-subtitle" onclick="toggleEnvelopeSection('bitacora')" class="text-[11px] text-resolve-dimText truncate cursor-pointer select-none pl-1">Bitácora de Relevos y Movimientos • Pases entre departamentos</p>
               </div>
             </div>
-            <button type="button" onclick="addNewRouteRow()" title="Agregar movimiento" class="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-amber-500/20 border border-resolve-border hover:border-amber-400/50 text-amber-300 hover:text-amber-200 transition-colors cursor-pointer shrink-0">
+            <button type="button" onclick="addNewRouteRow()" title="Agregar movimiento" class="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-sky-500/20 border border-resolve-border hover:border-sky-400/50 text-sky-300 hover:text-sky-200 transition-colors cursor-pointer shrink-0">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             </button>
           </div>
@@ -1029,7 +1033,7 @@
               </tbody>
             </table>
           </div>
-          <div id="envelope-bitacora-resizer" class="relative h-px bg-white/[0.08] hover:bg-amber-400/80 active:bg-amber-400 cursor-row-resize transition-colors my-1" title="Arrastra para redimensionar la altura de la Bitácora">
+          <div id="envelope-bitacora-resizer" class="relative h-px bg-white/[0.08] hover:bg-sky-400/80 active:bg-sky-400 cursor-row-resize transition-colors my-1" title="Arrastra para redimensionar la altura de la Bitácora">
             <div class="absolute inset-x-0 -top-1.5 h-3 cursor-row-resize"></div>
           </div>
 
@@ -1045,7 +1049,7 @@
                 <div onclick="toggleEnvelopeSection('mediapool')" class="cursor-pointer select-none">
                   <h3 class="font-semibold text-white text-xs uppercase tracking-wider flex items-center gap-2 min-w-0">
                     <span id="envelope-mediapool-title" class="flex items-center gap-2 min-w-0 truncate">GALERÍA</span>
-                    <span id="inline-envelope-files-count" class="px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.06] text-amber-300 text-[10px] font-bold shrink-0">0 piezas</span>
+                    <span id="inline-envelope-files-count" class="px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.06] text-sky-300 text-[10px] font-bold shrink-0">0 piezas</span>
                   </h3>
                   <p class="text-[11px] text-resolve-dimText">Selecciona cualquier foto, boceto, video o PDF adjunto al sobre para previsualizarlo aquí mismo sin cambiar de pestaña.</p>
                 </div>
@@ -1054,7 +1058,7 @@
                 <button type="button" onclick="promptAddMediaLink()" class="px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-200 hover:text-white rounded-lg border border-resolve-border text-xs font-medium transition-all cursor-pointer">
                   + Enlace Web / Video
                 </button>
-                <label class="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold rounded-lg border border-amber-500/30 text-xs flex items-center gap-1.5 cursor-pointer transition-all">
+                <label class="px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-semibold rounded-lg border border-sky-500/30 text-xs flex items-center gap-1.5 cursor-pointer transition-all">
                   <span>+ Importar Piezas</span>
                   <input type="file" multiple onchange="handleMediaPoolUpload(event)" class="hidden">
                 </label>
@@ -1070,11 +1074,11 @@
                   ondragleave="handleInlineDropzoneLeave(event)"
                   ondrop="handleInlineDropzoneDrop(event)"
                   onclick="this.querySelector('input').click()"
-                  class="border-2 border-dashed border-resolve-border hover:border-amber-400/60 rounded-xl p-3 bg-white/[0.02] hover:bg-white/[0.05] text-center transition-all cursor-pointer flex flex-col items-center justify-center shrink-0"
+                  class="border-2 border-dashed border-resolve-border hover:border-sky-400/60 rounded-xl p-3 bg-white/[0.02] hover:bg-white/[0.05] text-center transition-all cursor-pointer flex flex-col items-center justify-center shrink-0"
                   title="Arrastra o haz clic para importar fotos, PDFs, tipografías, código o suites de diseño"
                 >
                   <input type="file" multiple onchange="handleMediaPoolUpload(event)" class="hidden">
-                  <div class="flex items-center gap-1.5 text-amber-400 font-semibold text-[11px]">
+                  <div class="flex items-center gap-1.5 text-sky-400 font-semibold text-[11px]">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     <span>Arrastra archivos aquí o haz clic para importar</span>
                   </div>
@@ -1098,7 +1102,7 @@
                 </div>
               </div>
 
-              <div id="envelope-mediapool-resizer" class="hidden lg:block relative w-px shrink-0 bg-white/[0.08] hover:bg-amber-400/80 active:bg-amber-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar lista y visor">
+              <div id="envelope-mediapool-resizer" class="hidden lg:block relative w-px shrink-0 bg-white/[0.08] hover:bg-sky-400/80 active:bg-sky-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar lista y visor">
                 <div class="absolute inset-y-0 -left-1.5 w-3 cursor-col-resize"></div>
               </div>
 
@@ -1107,7 +1111,7 @@
                 <!-- Inyectado dinámicamente con JS -->
               </div>
             </div>
-            <div id="envelope-mediapool-height-resizer" class="relative h-px bg-white/[0.08] hover:bg-amber-400/80 active:bg-amber-400 cursor-row-resize transition-colors mt-2" title="Arrastra para redimensionar la altura del Media Pool y Visor">
+            <div id="envelope-mediapool-height-resizer" class="relative h-px bg-white/[0.08] hover:bg-sky-400/80 active:bg-sky-400 cursor-row-resize transition-colors mt-2" title="Arrastra para redimensionar la altura del Media Pool y Visor">
               <div class="absolute inset-x-0 -top-1.5 h-3 cursor-row-resize"></div>
             </div>
           </div>
@@ -1124,7 +1128,7 @@
               <button onclick="promptAddMediaLink()" class="px-2.5 py-1 bg-resolve-card hover:bg-resolve-border text-white rounded border border-resolve-border text-xs flex items-center gap-1 transition-colors">
                 <span>+ Enlace URL</span>
               </button>
-              <label class="px-2.5 py-1 bg-resolve-accent hover:bg-resolve-accentHover text-stone-950 font-bold rounded border border-amber-400 text-xs flex items-center gap-1 cursor-pointer transition-colors">
+              <label class="px-2.5 py-1 bg-resolve-accent hover:bg-resolve-accentHover text-stone-950 font-bold rounded border border-sky-400 text-xs flex items-center gap-1 cursor-pointer transition-colors">
                 <span>Subir Archivo</span>
                 <input type="file" multiple onchange="handleMediaPoolUpload(event)" class="hidden">
               </label>
@@ -1164,7 +1168,7 @@
       </div>
 
       <!-- Resizer & Panel Derecho: INSPECTOR estilo DaVinci Resolve -->
-      <div id="envelope-inspector-resizer" class="relative w-px shrink-0 bg-white/[0.08] hover:bg-amber-400/80 active:bg-amber-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar el Inspector">
+      <div id="envelope-inspector-resizer" class="relative w-px shrink-0 bg-white/[0.08] hover:bg-sky-400/80 active:bg-sky-400 cursor-col-resize transition-colors" title="Arrastra para redimensionar el Inspector">
         <div class="absolute inset-y-0 -left-1.5 w-3 cursor-col-resize"></div>
       </div>
       <aside id="envelope-inspector-sidebar" class="w-[210px] shrink-0 bg-black/30 flex flex-col overflow-hidden">
@@ -1185,7 +1189,7 @@
             <span data-icon="trash-2" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-red-400"></span>
             <span>Eliminar OT</span>
           </button>
-          <button id="btn-reopen-archived-ot" type="button" onclick="reopenArchivedOt()" class="hidden px-3 py-1 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 rounded flex items-center gap-1.5 transition-colors cursor-pointer text-xs font-semibold">
+          <button id="btn-reopen-archived-ot" type="button" onclick="reopenArchivedOt()" class="hidden px-3 py-1 bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 rounded flex items-center gap-1.5 transition-colors cursor-pointer text-xs font-semibold">
             <span>Reabrir OT</span>
           </button>
         </div>
@@ -1202,7 +1206,7 @@
     <div class="w-full max-w-6xl h-[88vh] bg-resolve-surface/95 border border-white/[0.12] rounded-2xl shadow-2xl shadow-black/90 flex flex-col overflow-hidden text-xs">
       <div class="h-11 px-4 bg-resolve-panel/90 border-b border-resolve-border flex items-center justify-between shrink-0">
         <div class="flex items-center gap-2.5 min-w-0">
-          <span class="px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.06] text-amber-300 font-bold text-[10px]">VISOR DE PIEZA</span>
+          <span class="px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.06] text-sky-300 font-bold text-[10px]">VISOR DE PIEZA</span>
           <span id="media-preview-modal-title" class="font-semibold text-white truncate">Archivo</span>
           <span id="media-preview-modal-meta" class="text-[10px] text-resolve-dimText hidden sm:inline"></span>
         </div>
@@ -1213,7 +1217,7 @@
           <button type="button" onclick="stepSelectedMediaItem(1)" class="px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-300 hover:text-white rounded-lg border border-resolve-border font-medium cursor-pointer transition-all">
             Siguiente ▶
           </button>
-          <button type="button" onclick="closeMediaPreviewModal()" class="px-3 py-1 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-amber-300/40 cursor-pointer ml-1 transition-all active:scale-[0.98]">
+          <button type="button" onclick="closeMediaPreviewModal()" class="px-3 py-1 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-sky-300/40 cursor-pointer ml-1 transition-all active:scale-[0.98]">
             ← Volver al Sobre
           </button>
         </div>
@@ -1242,7 +1246,7 @@
         <label class="block text-[10px] uppercase text-zinc-400 font-semibold">Enlace público de revisión</label>
         <div class="flex items-center gap-2">
           <input id="share-review-url-input" type="text" readonly class="flex-1 bg-black/50 border border-resolve-border rounded-lg px-2.5 py-2 text-[11px] text-[#0BA2AC] font-mono focus:outline-none select-all" />
-          <button id="share-review-copy-btn" type="button" class="px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-semibold text-xs transition-colors cursor-pointer shrink-0">Copiar</button>
+          <button id="share-review-copy-btn" type="button" class="px-3 py-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-semibold text-xs transition-colors cursor-pointer shrink-0">Copiar</button>
         </div>
       </div>
 
@@ -1271,7 +1275,7 @@
     <div class="w-full max-w-md bg-resolve-surface/95 border border-white/[0.12] rounded-2xl shadow-2xl shadow-black/80 p-6 text-xs">
       <div class="flex items-center justify-between border-b border-resolve-border pb-2.5 mb-3">
         <h4 class="font-semibold text-white uppercase text-xs tracking-wider flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span>
           <span>Gestión de Estados de Tráfico</span>
         </h4>
         <button onclick="closeStatusManagerModal()" class="p-1 hover:bg-white/[0.10] text-zinc-400 hover:text-white rounded-lg transition-colors">✕</button>
@@ -1298,9 +1302,9 @@
             id="new-status-name" 
             required 
             placeholder="Ej: En Aprobación Cliente..." 
-            class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+            class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
           />
-          <select id="new-status-color" class="bg-black/40 border border-resolve-border rounded-lg px-2 py-1.5 text-zinc-200 text-xs font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+          <select id="new-status-color" class="bg-black/40 border border-resolve-border rounded-lg px-2 py-1.5 text-zinc-200 text-xs font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
             <option value="amber">Ámbar</option>
             <option value="blue">Azul</option>
             <option value="cyan">Celeste</option>
@@ -1310,7 +1314,7 @@
             <option value="yellow">Amarillo</option>
             <option value="stone">Gris</option>
           </select>
-          <button type="submit" class="px-3 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] shrink-0">
+          <button type="submit" class="px-3 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] shrink-0">
             + Añadir
           </button>
         </div>
@@ -1329,7 +1333,7 @@
     <div class="w-full max-w-sm bg-resolve-surface/95 border border-white/[0.12] rounded-2xl shadow-2xl shadow-black/80 p-5 text-xs">
       <div class="flex items-center justify-between border-b border-resolve-border pb-2.5 mb-3">
         <h4 class="font-semibold text-white uppercase text-xs tracking-wider flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
           <span>Aplicar Sello de Relevo</span>
         </h4>
         <button onclick="closeStampModal()" class="p-1 hover:bg-white/[0.10] text-zinc-400 hover:text-white rounded-lg transition-colors">✕</button>
@@ -1347,7 +1351,7 @@
         <button onclick="applyStamp('APROBADO')" class="ink-stamp-box p-2.5 text-center border-emerald-500 text-emerald-400 hover:bg-emerald-950/30 rounded-lg font-bold transition-all hover:scale-[1.02]">
           [ APROBADO ]
         </button>
-        <button onclick="applyStamp('AJUSTES')" class="ink-stamp-box p-2.5 text-center border-amber-500 text-amber-400 hover:bg-amber-950/30 rounded-lg font-bold transition-all hover:scale-[1.02]">
+        <button onclick="applyStamp('AJUSTES')" class="ink-stamp-box p-2.5 text-center border-sky-500 text-sky-400 hover:bg-sky-950/30 rounded-lg font-bold transition-all hover:scale-[1.02]">
           [ AJUSTES ]
         </button>
       </div>
@@ -1368,7 +1372,7 @@
     <div class="w-full max-w-lg bg-resolve-surface/95 border border-white/[0.12] rounded-2xl shadow-2xl shadow-black/80 p-6 text-xs">
       <div class="flex items-center justify-between border-b border-resolve-border pb-2.5 mb-3">
         <h4 class="font-semibold text-white uppercase text-xs tracking-wider flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400 inline-block"></span>
           <span>Nueva Orden de Trabajo (Sobre OT)</span>
         </h4>
         <button onclick="closeNewOtModal()" class="p-1 hover:bg-white/[0.10] text-zinc-400 hover:text-white rounded-lg transition-colors">✕</button>
@@ -1378,26 +1382,26 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">N° de Orden:</label>
-            <input type="text" id="new-id-input" class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1.5 text-amber-400 font-bold font-mono" readonly>
+            <input type="text" id="new-id-input" class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1.5 text-sky-400 font-bold font-mono" readonly>
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Referencia / Código Campaña</label>
-            <input type="text" id="new-ref-input" placeholder="Ej: BOT-26-DIG" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-amber-300 font-semibold font-mono focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+            <input type="text" id="new-ref-input" placeholder="Ej: BOT-26-DIG" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-sky-300 font-semibold font-mono focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Cliente *</label>
-            <input type="text" id="new-client-input" required list="clients-datalist" oninput="syncNewOtBrandSuggestions()" placeholder="Seleccionar..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+            <input type="text" id="new-client-input" required list="clients-datalist" oninput="syncNewOtBrandSuggestions()" placeholder="Seleccionar..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Marca *</label>
-            <input type="text" id="new-brand-input" required list="brands-datalist" placeholder="Ej: Club Premium" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+            <input type="text" id="new-brand-input" required list="brands-datalist" placeholder="Ej: Club Premium" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Producto</label>
-            <input type="text" id="new-product-input" placeholder="Ej: Línea Retornable" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+            <input type="text" id="new-product-input" placeholder="Ej: Línea Retornable" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
           </div>
         </div>
 
@@ -1411,7 +1415,7 @@
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Estado Inicial *</label>
-            <select id="new-ot-status" onchange="handleOtStatusChange(this.value, 'new-ot-status')" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-semibold focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none cursor-pointer">
+            <select id="new-ot-status" onchange="handleOtStatusChange(this.value, 'new-ot-status')" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-semibold focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none cursor-pointer">
               <!-- Inyectado dinámicamente con JS -->
             </select>
           </div>
@@ -1419,16 +1423,16 @@
 
         <div>
           <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Medio / Medidas</label>
-          <input type="text" id="new-media-input" placeholder="Ej: TV 20'', Prensa 1 Pag..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+          <input type="text" id="new-media-input" placeholder="Ej: TV 20'', Prensa 1 Pag..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
         </div>
 
         <div>
           <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Título de la Pieza o Campaña *</label>
-          <input type="text" id="new-title-input" required placeholder="Ej: Comercial TV Lanzamiento Nueva Botella" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+          <input type="text" id="new-title-input" required placeholder="Ej: Comercial TV Lanzamiento Nueva Botella" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
         </div>
         <div>
           <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Primer Relevo / Instrucción Inicial</label>
-          <textarea id="new-first-task-input" rows="2" placeholder="Ej: Favor redactar guion de TV de 20 segundos..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none resize-none"></textarea>
+          <textarea id="new-first-task-input" rows="2" placeholder="Ej: Favor redactar guion de TV de 20 segundos..." class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none resize-none"></textarea>
         </div>
 
         <div class="flex items-center gap-2 pt-1">
@@ -1438,7 +1442,7 @@
 
         <div class="flex justify-end gap-2 pt-3 border-t border-resolve-border">
           <button type="button" onclick="closeNewOtModal()" class="px-3.5 py-1.5 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-300 rounded-lg border border-resolve-border transition-colors">Cancelar</button>
-          <button type="submit" class="px-4 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Crear y Abrir Sobre OT</button>
+          <button type="submit" class="px-4 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Crear y Abrir Sobre OT</button>
         </div>
       </form>
     </div>
@@ -1473,7 +1477,7 @@
             id="client-modal-name" 
             required 
             placeholder="Ej: Ron Santa Teresa / Nestlé" 
-            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-2 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-2 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
           >
         </div>
 
@@ -1500,13 +1504,13 @@
               type="text" 
               id="client-modal-brand-input" 
               placeholder="Escribe una marca y presiona Enter o +" 
-              class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+              class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
               onkeydown="if (event.key === 'Enter') { event.preventDefault(); handleAddBrandToModal(); }"
             >
             <button 
               type="button" 
               onclick="handleAddBrandToModal()" 
-              class="px-3 py-1.5 bg-white/[0.08] hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/30 text-zinc-200 rounded-lg border border-resolve-border font-medium transition-all cursor-pointer shrink-0"
+              class="px-3 py-1.5 bg-white/[0.08] hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/30 text-zinc-200 rounded-lg border border-resolve-border font-medium transition-all cursor-pointer shrink-0"
             >
               + Agregar
             </button>
@@ -1522,7 +1526,7 @@
         <!-- Botones de Acción -->
         <div class="flex justify-end gap-2 pt-3 border-t border-resolve-border">
           <button type="button" onclick="closeClientModal()" class="px-3.5 py-1.5 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-300 rounded-lg border border-resolve-border transition-colors cursor-pointer">Cancelar</button>
-          <button type="submit" class="px-4 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-bold rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] cursor-pointer">Guardar Cliente</button>
+          <button type="submit" class="px-4 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-bold rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] cursor-pointer">Guardar Cliente</button>
         </div>
       </form>
     </div>
@@ -1540,15 +1544,15 @@
         <input type="hidden" id="edit-brand-old-name">
         <div>
           <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Cliente Vinculado</label>
-          <input type="text" id="brand-client-display" readonly class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1.5 text-amber-400 font-semibold">
+          <input type="text" id="brand-client-display" readonly class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1.5 text-sky-400 font-semibold">
         </div>
         <div>
           <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Nombre de la Marca / Producto *</label>
-          <input type="text" id="brand-modal-name" required placeholder="Ej: Bebida Energética" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none">
+          <input type="text" id="brand-modal-name" required placeholder="Ej: Bebida Energética" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none">
         </div>
         <div class="flex justify-end gap-2 pt-2.5 border-t border-resolve-border">
           <button type="button" onclick="closeBrandModal()" class="px-3.5 py-1 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-300 rounded-lg border border-resolve-border transition-colors">Cancelar</button>
-          <button type="submit" class="px-3.5 py-1 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Guardar Marca</button>
+          <button type="submit" class="px-3.5 py-1 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Guardar Marca</button>
         </div>
       </form>
     </div>
@@ -1560,7 +1564,7 @@
       <!-- Encabezado del modal -->
       <div class="flex items-center justify-between border-b border-resolve-border pb-3">
         <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
           <h3 id="custom-task-modal-title" class="text-sm font-bold text-white tracking-tight">Tarea Libre • Plan de Trabajo</h3>
         </div>
         <button 
@@ -1577,14 +1581,14 @@
         <!-- Título / Descripción -->
         <div>
           <label class="block text-[11px] font-medium text-zinc-300 mb-1">
-            Descripción de la Tarea <span class="text-amber-400">*</span>
+            Descripción de la Tarea <span class="text-sky-400">*</span>
           </label>
           <input 
             type="text" 
             id="custom-task-title-input" 
             required 
             placeholder="ej: Reunión de Tráfico, Presentación a Cliente, Standby..."
-            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all placeholder-zinc-500"
+            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-2 text-white text-xs focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all placeholder-zinc-500"
           />
         </div>
 
@@ -1592,7 +1596,7 @@
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-[11px] font-medium text-zinc-300">
-              Responsable / Área Asignada <span class="text-amber-400">*</span>
+              Responsable / Área Asignada <span class="text-sky-400">*</span>
             </label>
             <span class="text-[10px] text-zinc-500">Escribe o crea un nuevo nombre</span>
           </div>
@@ -1603,7 +1607,7 @@
               list="dept-options" 
               required 
               placeholder="Selecciona o escribe un responsable..."
-              class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-8 py-2 text-cyan-300 font-semibold text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all placeholder-zinc-500"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-8 py-2 text-cyan-300 font-semibold text-xs focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all placeholder-zinc-500"
             />
             <span class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-zinc-500 text-[10px]">▼</span>
           </div>
@@ -1625,7 +1629,7 @@
               id="custom-task-timeslot-input" 
               value="08:30 - 09:30" 
               placeholder="08:30 - 09:30" 
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 font-mono text-zinc-200 text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 font-mono text-zinc-200 text-xs focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all"
             />
           </div>
 
@@ -1636,7 +1640,7 @@
             </label>
             <select 
               id="custom-task-status-input" 
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 font-medium text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all cursor-pointer"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 font-medium text-xs focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all cursor-pointer"
             >
               <option value="Por Iniciar">Por Iniciar</option>
               <option value="En Mesa">En Mesa</option>
@@ -1657,7 +1661,7 @@
             list="clients-datalist"
             value="Interno" 
             placeholder="Interno" 
-            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all placeholder-zinc-500"
+            class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 text-xs focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all placeholder-zinc-500"
           />
         </div>
 
@@ -1681,7 +1685,7 @@
             </button>
             <button 
               type="submit" 
-              class="px-4 py-1.5 rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] cursor-pointer"
+              class="px-4 py-1.5 rounded-lg bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] cursor-pointer"
             >
               Guardar Tarea
             </button>
@@ -1712,7 +1716,7 @@
           id="user-modal-tab-profile-btn" 
           type="button" 
           onclick="switchUserProfileTab('profile')" 
-          class="flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm"
+          class="flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm"
         >
           Mi Perfil
         </button>
@@ -1812,7 +1816,7 @@
         <div id="user-profile-role-scope-card" class="bg-black/30 border border-resolve-border/60 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2">
           <div class="flex items-center gap-2">
             <span class="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Rol:</span>
-            <span id="user-profile-role-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">Dueño</span>
+            <span id="user-profile-role-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300">Dueño</span>
           </div>
           <div class="text-[11px] text-zinc-300 truncate">
             <span class="text-zinc-500">Alcance:</span>
@@ -1831,7 +1835,7 @@
               required 
               placeholder="Ej: Andrés Jaramillo" 
               oninput="handleUserProfileInputChange()"
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
             >
           </div>
 
@@ -1844,7 +1848,7 @@
               required 
               placeholder="Ej: Andrés J." 
               oninput="handleUserProfileInputChange()"
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-semibold font-mono focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-white font-semibold font-mono focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
             >
             <p class="text-[10px] text-zinc-500 mt-1 leading-tight">
               Nombre con el que firmas automáticamente como responsable al tramitar pasos en la Hoja de Ruta y OTs.
@@ -1859,7 +1863,7 @@
               id="user-modal-email" 
               placeholder="contacto@marcanter.com" 
               oninput="handleUserProfileInputChange()"
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-300 font-mono focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-300 font-mono focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
             >
           </div>
 
@@ -1871,7 +1875,7 @@
               id="user-modal-phone" 
               placeholder="+57 300 000 0000" 
               oninput="handleUserProfileInputChange()"
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 font-mono focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 font-mono focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none"
             >
           </div>
         </div>
@@ -1892,7 +1896,7 @@
           <details id="user-password-details" class="group">
             <summary class="flex items-center justify-between cursor-pointer select-none text-xs font-semibold text-zinc-300 hover:text-white transition-colors">
               <span class="flex items-center gap-2">
-                <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 <span>Cambiar Contraseña</span>
               </span>
               <span data-icon="expand-diagonal" data-icon-size="w-[15px] h-[15px]" data-icon-class="text-zinc-400"></span>
@@ -1909,12 +1913,12 @@
                     id="user-modal-current-password" 
                     placeholder="••••••••" 
                     autocomplete="current-password"
-                    class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-amber-500/60 focus:outline-none"
+                    class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-sky-500/60 focus:outline-none"
                   >
                   <button 
                     type="button" 
                     onclick="togglePasswordVisibility('user-modal-current-password', this)" 
-                    class="absolute right-2 text-zinc-400 hover:text-amber-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
+                    class="absolute right-2 text-zinc-400 hover:text-sky-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
                     title="Mostrar u ocultar contraseña"
                     tabindex="-1"
                   >
@@ -1932,12 +1936,12 @@
                       id="user-modal-new-password" 
                       placeholder="••••••••" 
                       autocomplete="new-password"
-                      class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-amber-500/60 focus:outline-none"
+                      class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-sky-500/60 focus:outline-none"
                     >
                     <button 
                       type="button" 
                       onclick="togglePasswordVisibility('user-modal-new-password', this)" 
-                      class="absolute right-2 text-zinc-400 hover:text-amber-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
+                      class="absolute right-2 text-zinc-400 hover:text-sky-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
                       title="Mostrar u ocultar contraseña"
                       tabindex="-1"
                     >
@@ -1953,12 +1957,12 @@
                       id="user-modal-confirm-password" 
                       placeholder="••••••••" 
                       autocomplete="new-password"
-                      class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-amber-500/60 focus:outline-none"
+                      class="w-full bg-black/40 border border-resolve-border rounded-lg pl-3 pr-9 py-1.5 text-white font-mono text-xs focus:border-sky-500/60 focus:outline-none"
                     >
                     <button 
                       type="button" 
                       onclick="togglePasswordVisibility('user-modal-confirm-password', this)" 
-                      class="absolute right-2 text-zinc-400 hover:text-amber-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
+                      class="absolute right-2 text-zinc-400 hover:text-sky-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
                       title="Mostrar u ocultar contraseña"
                       tabindex="-1"
                     >
@@ -1973,7 +1977,7 @@
                   type="button" 
                   id="user-modal-update-pwd-btn"
                   onclick="handleUserChangePassword()" 
-                  class="px-3 py-1.5 rounded-lg bg-white/[0.08] hover:bg-amber-500/15 text-zinc-200 hover:text-amber-300 border border-white/[0.12] hover:border-amber-500/30 font-medium text-xs transition-colors cursor-pointer"
+                  class="px-3 py-1.5 rounded-lg bg-white/[0.08] hover:bg-sky-500/15 text-zinc-200 hover:text-sky-300 border border-white/[0.12] hover:border-sky-500/30 font-medium text-xs transition-colors cursor-pointer"
                 >
                   Actualizar Contraseña
                 </button>
@@ -2005,7 +2009,7 @@
             </button>
             <button 
               type="submit" 
-              class="px-4 py-1.5 rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] cursor-pointer"
+              class="px-4 py-1.5 rounded-lg bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] cursor-pointer"
             >
               Guardar Perfil
             </button>
@@ -2024,7 +2028,7 @@
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm animate-pulse"></span>
               <span id="user-modal-org-name" class="font-bold text-white text-xs">Mi Espacio de Trabajo</span>
             </div>
-            <span id="user-modal-org-role-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">Dueño</span>
+            <span id="user-modal-org-role-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300">Dueño</span>
           </div>
           <div class="flex items-center justify-between text-[11px] text-zinc-400 pt-1.5 border-t border-resolve-border/40">
             <div class="flex items-center gap-1.5">
@@ -2033,7 +2037,7 @@
             </div>
             <div class="flex items-center gap-1.5">
               <span class="text-zinc-500">Capacidad:</span>
-              <span id="user-modal-org-quota" class="font-semibold text-amber-300 font-mono">1 / 6 miembros</span>
+              <span id="user-modal-org-quota" class="font-semibold text-sky-300 font-mono">1 / 6 miembros</span>
             </div>
           </div>
         </div>
@@ -2049,14 +2053,14 @@
               <select
                 id="user-team-invite-role"
                 onchange="handleInviteRoleSelectChange(this.value)"
-                class="bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-amber-500/60 focus:outline-none"
+                class="bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-sky-500/60 focus:outline-none"
               >
                 <option value="member">Colaborador (consume cupo)</option>
                 <option value="client">Cliente / Cuentas Colaborativo (ilimitado)</option>
               </select>
               <select
                 id="user-team-invite-client"
-                class="hidden bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-amber-500/60 focus:outline-none"
+                class="hidden bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-sky-500/60 focus:outline-none"
               >
                 <option value="">Selecciona cliente asignado...</option>
               </select>
@@ -2067,12 +2071,12 @@
                 id="user-team-invite-email" 
                 required 
                 placeholder="colaborador@estudio.com" 
-                class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 text-xs font-mono focus:border-amber-500/60 focus:outline-none"
+                class="flex-1 bg-black/40 border border-resolve-border rounded-lg px-3 py-1.5 text-zinc-200 text-xs font-mono focus:border-sky-500/60 focus:outline-none"
               >
               <button 
                 type="submit" 
                 id="user-team-invite-btn"
-                class="px-3.5 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] cursor-pointer shrink-0"
+                class="px-3.5 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] cursor-pointer shrink-0"
               >
                 Invitar
               </button>
@@ -2085,7 +2089,7 @@
         <div class="space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-[10px] uppercase text-zinc-400 font-bold tracking-wider">Miembros del Espacio</span>
-            <button type="button" onclick="loadTeamTabUI()" class="text-[10px] text-amber-400 hover:underline cursor-pointer flex items-center gap-1">
+            <button type="button" onclick="loadTeamTabUI()" class="text-[10px] text-sky-400 hover:underline cursor-pointer flex items-center gap-1">
               <span>Actualizar</span>
               <span class="text-xs">⟳</span>
             </button>
@@ -2097,7 +2101,7 @@
 
         <!-- Invitaciones Pendientes -->
         <div id="user-team-invitations-container" class="space-y-2 hidden">
-          <span class="text-[10px] uppercase text-amber-400 font-bold tracking-wider">Invitaciones Pendientes</span>
+          <span class="text-[10px] uppercase text-sky-400 font-bold tracking-wider">Invitaciones Pendientes</span>
           <div id="user-team-invitations-list" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
             <!-- Inyectado dinámicamente -->
           </div>
@@ -2124,7 +2128,7 @@
     <div class="w-full max-w-md bg-resolve-surface/98 border border-white/[0.15] rounded-2xl shadow-2xl shadow-black/95 p-6 flex flex-col text-xs text-zinc-300 relative">
       <!-- Encabezado macOS Dark -->
       <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/30 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-lg shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/30 border border-sky-500/40 flex items-center justify-center text-sky-400 font-bold text-lg shrink-0">
           🏛️
         </div>
         <div>
@@ -2146,7 +2150,7 @@
             required 
             placeholder="Ej. Central Constructora de Marcas" 
             autocomplete="organization"
-            class="w-full px-3.5 py-2.5 bg-black/60 border border-white/[0.15] rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/80 text-sm transition-all"
+            class="w-full px-3.5 py-2.5 bg-black/60 border border-white/[0.15] rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500/80 focus:ring-1 focus:ring-sky-500/80 text-sm transition-all"
             autofocus
           >
           <input type="hidden" id="onboarding-studio-slug" name="slug">
@@ -2157,7 +2161,7 @@
         <button 
           type="submit" 
           id="onboarding-studio-submit-btn" 
-          class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs tracking-wide shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-black font-bold text-xs tracking-wide shadow-lg shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>Comenzar Prueba Gratuita (14 Días)</span>
           <span class="text-sm font-black">→</span>
@@ -2199,21 +2203,21 @@
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Celular / WhatsApp</label>
-            <input type="tel" id="team-member-modal-phone" placeholder="+57 300 000 0000" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 font-mono text-[11px] focus:border-amber-500/60 focus:outline-none" />
+            <input type="tel" id="team-member-modal-phone" placeholder="+57 300 000 0000" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 font-mono text-[11px] focus:border-sky-500/60 focus:outline-none" />
           </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Rol en el Estudio</label>
-            <select id="team-member-modal-role" onchange="handleTeamMemberModalRoleChange(this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-amber-500/60 focus:outline-none">
+            <select id="team-member-modal-role" onchange="handleTeamMemberModalRoleChange(this.value)" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-sky-500/60 focus:outline-none">
               <option value="member">Colaborador</option>
               <option value="client">Cliente / Cuentas</option>
             </select>
           </div>
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Alcance / Cliente</label>
-            <select id="team-member-modal-client" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-amber-500/60 focus:outline-none">
+            <select id="team-member-modal-client" class="w-full bg-black/40 border border-resolve-border rounded-lg px-2.5 py-1.5 text-zinc-200 text-xs focus:border-sky-500/60 focus:outline-none">
               <option value="*">Todo el estudio (*)</option>
             </select>
           </div>
@@ -2233,7 +2237,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button type="button" onclick="closeTeamMemberDetailModal()" class="px-3 py-1.5 rounded-lg border border-resolve-border bg-white/[0.05] hover:bg-white/[0.10] text-zinc-300 hover:text-white font-medium text-xs transition-colors cursor-pointer">Cancelar</button>
-            <button type="submit" id="team-member-modal-save-btn" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs shadow-sm border border-amber-300/40 transition-all cursor-pointer">Guardar</button>
+            <button type="submit" id="team-member-modal-save-btn" class="px-3.5 py-1.5 rounded-lg bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs shadow-sm border border-sky-300/40 transition-all cursor-pointer">Guardar</button>
           </div>
         </div>
       </form>
@@ -2259,13 +2263,13 @@
 
       <!-- Encabezado con Ícono y Badge -->
       <div class="flex items-center gap-3 mb-4 pr-6">
-        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/30 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-xl shrink-0">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-600/30 border border-sky-500/40 flex items-center justify-center text-sky-400 font-bold text-xl shrink-0">
           ⚡
         </div>
         <div>
           <div class="flex items-center gap-2">
             <h2 id="subscription-modal-title" class="text-base font-bold text-white tracking-tight">Trafikeitor Plan Pro</h2>
-            <span id="subscription-modal-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300">
+            <span id="subscription-modal-status-badge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 border border-sky-500/25 text-sky-300">
               PRUEBA ACTIVA
             </span>
           </div>
@@ -2283,7 +2287,7 @@
         </div>
         <div class="flex items-center justify-between">
           <span class="text-zinc-400 text-xs">Estado de Suscripción:</span>
-          <span id="subscription-modal-days-text" class="font-bold text-amber-400 text-xs">14 días restantes</span>
+          <span id="subscription-modal-days-text" class="font-bold text-sky-400 text-xs">14 días restantes</span>
         </div>
       </div>
 
@@ -2316,7 +2320,7 @@
           type="button" 
           id="paywall-bold-checkout-btn" 
           onclick="handleBoldCheckoutClick()" 
-          class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs tracking-wide shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-400 hover:to-sky-500 text-black font-bold text-xs tracking-wide shadow-lg shadow-sky-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <span>Activar Plan Pro con Bold ($49 USD)</span>
           <span class="text-sm font-black">→</span>
@@ -2354,7 +2358,7 @@
         <button type="button" onclick="closeMemberReassignModal()" class="p-1 hover:bg-white/[0.10] text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer" title="Cerrar (Esc)">✕</button>
       </div>
 
-      <div id="member-reassign-summary" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs leading-relaxed">
+      <div id="member-reassign-summary" class="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-200 text-xs leading-relaxed">
         <!-- Resumen de carga activa -->
       </div>
 
@@ -2364,7 +2368,7 @@
           <label for="member-reassign-successor-select" class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1.5">
             Nuevo Responsable Activo *
           </label>
-          <select id="member-reassign-successor-select" required class="w-full bg-black/50 border border-resolve-border rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500/60 focus:outline-none">
+          <select id="member-reassign-successor-select" required class="w-full bg-black/50 border border-resolve-border rounded-lg px-3 py-2 text-white text-xs focus:border-sky-500/60 focus:outline-none">
             <!-- Opciones inyectadas dinámicamente -->
           </select>
         </div>

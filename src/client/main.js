@@ -424,8 +424,8 @@ export function updateSyncBadge(stateText, isSaving) {
   if (!badge) return;
 
   if (isSaving) {
-    badge.className = 'hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] font-semibold text-amber-300';
-    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'Guardando en SQLite...')}</span>`;
+    badge.className = 'hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-sky-500/10 border border-sky-500/25 text-[10px] font-semibold text-sky-300';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'Guardando en SQLite...')}</span>`;
   } else {
     badge.className = 'hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-semibold text-emerald-300';
     badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'SQLite Sincronizado')}</span>`;
@@ -461,7 +461,7 @@ export function updateTrialBadge(org) {
     if (textEl) textEl.innerText = 'Prueba Finalizada';
     badge.title = 'Período de prueba finalizado. Clic para activar con Bold.';
   } else if (trialDaysLeft <= 3) {
-    badge.classList.add('bg-amber-500/15', 'border-amber-500/35', 'text-amber-300', 'hover:bg-amber-500/25', 'animate-pulse');
+    badge.classList.add('bg-sky-500/15', 'border-sky-500/35', 'text-sky-300', 'hover:bg-sky-500/25', 'animate-pulse');
     if (textEl) textEl.innerText = `Prueba Pro: ${trialDaysLeft} ${trialDaysLeft === 1 ? 'día' : 'días'}`;
     badge.title = `Prueba por vencer (${trialDaysLeft} días restantes). Clic para activar con Bold.`;
   } else {
@@ -512,7 +512,7 @@ export function updateUserPill(user) {
         id="elmarcante-login-btn" 
         type="button" 
         onclick="showAuthGate(true)" 
-        class="h-7 px-2.5 text-[11px] font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 rounded-md border border-amber-500/30 transition-all cursor-pointer flex items-center gap-1.5"
+        class="h-7 px-2.5 text-[11px] font-medium bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 rounded-md border border-sky-500/30 transition-all cursor-pointer flex items-center gap-1.5"
       >
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
         <span>Iniciar Sesión</span>
@@ -550,7 +550,7 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-[10px] text-amber-300 font-semibold">
+            <span class="px-2.5 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/25 text-[10px] text-sky-300 font-semibold">
               ${inviteId ? 'INVITACIÓN' : (isRegisterMode ? 'ACTIVAR CUENTA' : 'BETTER AUTH')}
             </span>
             <button type="button" id="auth-close-btn" class="p-1 hover:bg-white/[0.10] text-zinc-400 hover:text-white rounded-lg transition-colors cursor-pointer" title="Cerrar (Esc)">✕</button>
@@ -558,10 +558,10 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
         </div>
 
         ${inviteId ? `
-          <div class="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+          <div class="mb-4 p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-start gap-2.5">
             <span class="text-base leading-none pt-0.5">🤝</span>
             <div>
-              <div class="font-bold text-amber-300 text-[11px]">Invitación a ${escapeHtml(inviteInfo?.organizationName || 'Micro-Estudio')}</div>
+              <div class="font-bold text-sky-300 text-[11px]">Invitación a ${escapeHtml(inviteInfo?.organizationName || 'Micro-Estudio')}</div>
               <div class="text-[10px] text-zinc-300 leading-relaxed mt-0.5">
                 ${invitedEmail ? `Invitación dirigida a <strong class="text-white">${escapeHtml(invitedEmail)}</strong>. ` : ''}Regístrate o inicia sesión con ese correo para unirte automáticamente al equipo.
               </div>
@@ -579,13 +579,13 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
           ${isRegisterMode ? `
             <div>
               <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Nombre Completo *</label>
-              <input type="text" id="auth-name" required placeholder="Ej: Carolina Cárdenas" value="" class="w-full bg-black/40 border border-white/[0.10] rounded-lg px-3 py-2 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+              <input type="text" id="auth-name" required placeholder="Ej: Carolina Cárdenas" value="" class="w-full bg-black/40 border border-white/[0.10] rounded-lg px-3 py-2 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
             </div>
           ` : ''}
 
           <div>
             <label class="block text-[10px] uppercase text-zinc-400 font-semibold mb-1">Correo Electrónico *</label>
-            <input type="email" id="auth-email" required placeholder="correo@estudio.com" value="${escapeHtml(invitedEmail)}" class="w-full bg-black/40 border border-white/[0.10] rounded-lg px-3 py-2 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all">
+            <input type="email" id="auth-email" required placeholder="correo@estudio.com" value="${escapeHtml(invitedEmail)}" class="w-full bg-black/40 border border-white/[0.10] rounded-lg px-3 py-2 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all">
           </div>
 
           <div>
@@ -597,12 +597,12 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
                 required 
                 minlength="8" 
                 placeholder="••••••••" 
-                class="w-full bg-black/40 border border-white/[0.10] rounded-lg pl-3 pr-10 py-2 text-white font-medium focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 focus:outline-none transition-all"
+                class="w-full bg-black/40 border border-white/[0.10] rounded-lg pl-3 pr-10 py-2 text-white font-medium focus:border-sky-500/60 focus:ring-1 focus:ring-sky-500/30 focus:outline-none transition-all"
               >
               <button 
                 type="button" 
                 id="auth-toggle-pwd-btn" 
-                class="absolute right-2 text-zinc-400 hover:text-amber-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
+                class="absolute right-2 text-zinc-400 hover:text-sky-400 p-1 rounded transition-colors cursor-pointer select-none flex items-center justify-center" 
                 title="Mostrar u ocultar contraseña"
                 tabindex="-1"
               >
@@ -616,14 +616,14 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
 
           <div id="auth-error-msg" class="hidden p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] font-medium"></div>
 
-          <button type="submit" id="auth-submit-btn" class="w-full py-2.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold uppercase tracking-wider rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98] cursor-pointer text-xs">
+          <button type="submit" id="auth-submit-btn" class="w-full py-2.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold uppercase tracking-wider rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98] cursor-pointer text-xs">
             ${isRegisterMode ? (inviteId ? 'Unirse al Equipo' : 'Crear Cuenta y Entrar') : 'Entrar al Estudio'}
           </button>
         </form>
 
         <div class="mt-4 pt-3 border-t border-white/[0.08] flex items-center justify-between text-[11px] text-zinc-400">
           <span>${isRegisterMode ? '¿Ya tienes cuenta creada?' : '¿Necesitas registrar un usuario?'}</span>
-          <button type="button" id="auth-toggle-mode" class="text-amber-400 hover:underline font-semibold cursor-pointer">
+          <button type="button" id="auth-toggle-mode" class="text-sky-400 hover:underline font-semibold cursor-pointer">
             ${isRegisterMode ? 'Iniciar Sesión' : 'Crear Cuenta'}
           </button>
         </div>
@@ -642,7 +642,7 @@ export function showAuthGate(hasAnyUsers = true, inviteIdParam = null, inviteInf
         const isPassword = pwdInput.type === 'password';
         pwdInput.type = isPassword ? 'text' : 'password';
         togglePwdBtn.innerHTML = isPassword ? `
-          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
           </svg>
         ` : `
@@ -898,7 +898,7 @@ async function syncRoleHeaderVisibilityAndOrgSwitcher() {
       select = document.createElement('select');
       select.id = 'header-org-switcher';
       select.title = 'Cambiar estudio activo';
-      select.className = 'h-7 max-w-[145px] px-2 text-[11px] font-medium bg-white/[0.05] hover:bg-white/[0.10] text-zinc-200 rounded-md border border-white/[0.08] focus:outline-none focus:border-amber-500/50 cursor-pointer truncate';
+      select.className = 'h-7 max-w-[145px] px-2 text-[11px] font-medium bg-white/[0.05] hover:bg-white/[0.10] text-zinc-200 rounded-md border border-white/[0.08] focus:outline-none focus:border-sky-500/50 cursor-pointer truncate';
       select.onchange = (ev) => switchActiveOrganization(ev.target.value);
       userContainer.insertBefore(select, userContainer.firstChild);
     }

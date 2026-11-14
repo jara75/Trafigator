@@ -1,4 +1,21 @@
-/* Estilos de Impresión: Hoja de Tiempos y Stripboard de Producción */
+/* ============================================================================
+   STUDIO OBSIDIAN — DESIGN.md (High-Density Technical Precision)
+   ============================================================================ */
+:root {
+  --obsidian-bg: #0e0f12;
+  --obsidian-panel: #15171c;
+  --obsidian-surface: #181a20;
+  --obsidian-elevated: #1c1f26;
+  --obsidian-inset: #111317;
+  --obsidian-border: #232730;
+  --obsidian-border-active: #343b48;
+  --obsidian-cyan: #38bdf8;
+  --obsidian-indigo: #4f46e5;
+  --obsidian-text: #e3e2e6;
+  --obsidian-text-muted: #87929a;
+}
+
+/* Estilos de Impresión: Hoja de Tiempos y Agenda de Producción */
 @media print {
   body {
     background: #ffffff !important;
@@ -58,9 +75,9 @@
   top: -5px;
   left: 0;
   right: 0;
-  height: 3px;
-  background-color: #f59e0b;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.95);
+  height: 2px;
+  background-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
   border-radius: 2px;
   z-index: 40;
   pointer-events: none;
@@ -71,60 +88,92 @@
   bottom: -5px;
   left: 0;
   right: 0;
-  height: 3px;
-  background-color: #f59e0b;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.95);
+  height: 2px;
+  background-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
   border-radius: 2px;
   z-index: 40;
   pointer-events: none;
 }
 #stripboard-strips-container.drag-over-empty {
-  background-color: rgba(217, 119, 6, 0.04);
+  background-color: rgba(56, 189, 248, 0.05);
 }
 tr.stripboard-row.drop-before {
-  border-top: 2px solid #f59e0b !important;
-  box-shadow: inset 0 2px 0 0 #f59e0b;
+  border-top: 2px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 0 0 #38bdf8;
 }
 tr.stripboard-row.drop-after {
-  border-bottom: 2px solid #f59e0b !important;
-  box-shadow: inset 0 -2px 0 0 #f59e0b;
+  border-bottom: 2px solid #38bdf8 !important;
+  box-shadow: inset 0 -2px 0 0 #38bdf8;
 }
 tr.stripboard-row.dragging {
   opacity: 0.35;
-  background-color: rgba(245, 158, 11, 0.08) !important;
+  background-color: rgba(56, 189, 248, 0.08) !important;
 }
 
-/* Zebra striping para filas de tabla (uno sí, uno no • DaVinci / Apple Numbers) */
+/* Zebra striping para filas de tabla (Studio Obsidian) */
 tr.stripboard-row.stripboard-row-even {
   background-color: transparent;
 }
 tr.stripboard-row.stripboard-row-odd {
-  background-color: rgba(255, 255, 255, 0.025);
+  background-color: rgba(255, 255, 255, 0.02);
 }
 tr.stripboard-row:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: #191c23 !important;
 }
 tr.apple-category-row {
-  background-color: rgba(21, 22, 26, 0.95);
+  background-color: #15171c;
 }
 tr.apple-category-row:hover {
-  background-color: rgba(34, 35, 42, 0.95) !important;
+  background-color: #1c1f26 !important;
 }
 
-/* Unificación estricta de líneas separadoras de la tabla con el encabezado */
+/* Unificación estricta de líneas separadoras hairline (1px #232730) */
 #envelopes-list-body > tr,
 #stripboard-day-table-body > tr,
 #route-sheet-rows > tr,
 .divide-resolve-border > :not([hidden]) ~ :not([hidden]),
 tr.stripboard-row,
 tr.apple-category-row {
-  border-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: #232730 !important;
 }
 
 tbody#envelopes-list-body > tr,
 tbody#stripboard-day-table-body > tr,
 tbody#route-sheet-rows > tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid #232730;
+}
+
+/* Limpieza de cajas en celdas de Bitácora: transparentes en reposo, #38bdf8 en foco */
+#route-sheet-rows input,
+#route-sheet-rows select,
+#route-sheet-rows textarea {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #e3e2e6;
+  box-shadow: none !important;
+}
+#route-sheet-rows input:focus,
+#route-sheet-rows select:focus,
+#route-sheet-rows textarea:focus {
+  background: #111317 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  outline: none !important;
+}
+
+/* Encabezado técnico de OT: campos inset #111317 con hairline #232730 y foco #38bdf8 */
+#envelope-modal .grid input,
+#envelope-modal .grid select {
+  background: #111317 !important;
+  border-color: #232730 !important;
+  color: #e3e2e6;
+}
+#envelope-modal .grid input:focus,
+#envelope-modal .grid select:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.35) !important;
+  outline: none !important;
 }
 
 /* Ocultar badges numéricos del árbol de clientes */
@@ -153,8 +202,8 @@ tbody#route-sheet-rows > tr {
   background: rgba(255, 255, 255, 0.25);
 }
 .bin-active {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  border-left: 2.5px solid #f59e0b !important;
+  background-color: #1c1f26 !important;
+  border-left: 2px solid #38bdf8 !important;
 }
 .ink-stamp-box {
   font-family: 'Special Elite', monospace;
@@ -166,8 +215,8 @@ tbody#route-sheet-rows > tr {
   user-select: none;
 }
 .file-dropzone.dragover {
-  border-color: #f59e0b !important;
-  background-color: rgba(245, 158, 11, 0.08) !important;
+  border-color: #38bdf8 !important;
+  background-color: rgba(56, 189, 248, 0.08) !important;
 }
 /* Eliminar el icono de calendario de los campos de fecha */
 input[type="datetime-local"]::-webkit-calendar-picker-indicator,

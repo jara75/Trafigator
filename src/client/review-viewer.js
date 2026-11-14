@@ -11,7 +11,7 @@ const PIN_COLOR_STORAGE_KEY = 'trafikeitor_pin_color';
 
 const PIN_COLOR_PALETTE = [
   { id: 'teal', label: 'Turquesa', bg: 'bg-[#0BA2AC] border-white text-white', swatch: '#0BA2AC' },
-  { id: 'amber', label: 'Amarillo', bg: 'bg-amber-400 border-white text-stone-950', swatch: '#fbbf24' },
+  { id: 'amber', label: 'Amarillo', bg: 'bg-sky-400 border-white text-stone-950', swatch: '#fbbf24' },
   { id: 'pink', label: 'Magenta', bg: 'bg-pink-500 border-white text-white', swatch: '#ec4899' },
   { id: 'red', label: 'Rojo', bg: 'bg-red-500 border-white text-white', swatch: '#ef4444' },
   { id: 'white', label: 'Blanco', bg: 'bg-white border-zinc-900 text-stone-950', swatch: '#ffffff' },
@@ -204,7 +204,7 @@ function renderStatusBadge() {
   const map = {
     draft: { text: 'Borrador', cls: 'border-resolve-border bg-white/[0.04] text-resolve-dimText' },
     in_review: { text: 'En Revisión', cls: 'border-[#0BA2AC]/40 bg-[#0BA2AC]/15 text-[#0BA2AC]' },
-    changes_requested: { text: 'Cambios Solicitados', cls: 'border-amber-500/40 bg-amber-500/15 text-amber-300' },
+    changes_requested: { text: 'Cambios Solicitados', cls: 'border-sky-500/40 bg-sky-500/15 text-sky-300' },
     approved: { text: 'Aprobada', cls: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' },
   };
   const cfg = map[status] || map.in_review;
@@ -247,7 +247,7 @@ function renderPins() {
         ? 'bg-emerald-500 border-emerald-200 text-stone-950'
         : pinPalette.bg;
       const ringCls = active
-        ? 'ring-2 ring-amber-300 ring-offset-1 ring-offset-black/70'
+        ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-black/70'
         : 'ring-2 ring-black/60';
       const firstMsg = state.messages.find((m) => m.threadId === t.id);
       const tooltipAuthor = firstMsg?.authorName || t.authorName || 'Usuario';
@@ -260,7 +260,7 @@ function renderPins() {
         ${!t.isResolved ? `<span class="pointer-events-none absolute -inset-1 rounded-full animate-ping opacity-40" style="background-color:${pinPalette.swatch}; animation-duration:2.6s;"></span>` : ''}
         <span class="relative z-10">${t.pinNumber}</span>
         <div class="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 max-w-[240px] px-2.5 py-2 rounded-lg bg-[#121318]/95 border border-white/15 shadow-2xl text-left font-sans z-30">
-          <div class="flex items-center justify-between gap-1 text-[10px] font-semibold text-amber-300 mb-0.5">
+          <div class="flex items-center justify-between gap-1 text-[10px] font-semibold text-sky-300 mb-0.5">
             <span class="truncate">#${t.pinNumber} · ${escapeHtml(tooltipAuthor)}</span>
             ${t.isResolved ? '<span class="text-emerald-400 shrink-0">✓ Resuelto</span>' : ''}
           </div>
@@ -372,7 +372,7 @@ function renderThreadsSidebar() {
               (m) => `
             <div class="text-xs">
               <div class="flex items-center gap-1.5">
-                <span class="font-semibold ${m.authorRole === 'agency' ? 'text-amber-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
+                <span class="font-semibold ${m.authorRole === 'agency' ? 'text-sky-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
                 <span class="text-[10px] text-resolve-dimText">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
               </div>
               <p class="text-stone-200 mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
@@ -396,7 +396,7 @@ function renderThreadsSidebar() {
             (m) => `
           <div class="rounded-lg border border-resolve-border bg-resolve-bg/70 p-2.5 text-xs">
             <div class="flex items-center gap-1.5">
-              <span class="font-semibold ${m.authorRole === 'agency' ? 'text-amber-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
+              <span class="font-semibold ${m.authorRole === 'agency' ? 'text-sky-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
               <span class="text-[10px] text-resolve-dimText">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
             </div>
             <p class="text-stone-200 mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
@@ -731,7 +731,7 @@ function setupSidebarResizer() {
 
   resizer.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    resizer.classList.add('bg-amber-400');
+    resizer.classList.add('bg-sky-400');
     document.body.style.cursor = 'col-resize';
 
     const onMove = (ev) => {
@@ -740,7 +740,7 @@ function setupSidebarResizer() {
     };
 
     const onUp = () => {
-      resizer.classList.remove('bg-amber-400');
+      resizer.classList.remove('bg-sky-400');
       document.body.style.cursor = '';
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
