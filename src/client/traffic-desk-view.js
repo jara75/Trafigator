@@ -16,6 +16,8 @@ import {
   isOtTerminal
 } from './core-state.js';
 
+import { icon } from './icons.js';
+
 export { CLIENT_COLOR_PALETTE };
 
 import {
@@ -137,9 +139,9 @@ export function collapseAllTableGroups() {
     if (state.currentTableGroup === 'client') {
       key = ot.client || 'Sin Cliente';
     } else if (state.currentTableGroup === 'status') {
-      key = ot.status || 'Tráfico';
+      key = ot.responsibleDept || 'Tráfico';
     } else if (state.currentTableGroup === 'responsible') {
-      key = ot.responsible || 'Sin Asignar';
+      key = ot.sign || 'Sin Asignar';
     } else if (state.currentTableGroup === 'department') {
       key = (route && route.to) ? route.to : 'Sin Departamento';
     }
@@ -198,11 +200,11 @@ export function sortOrdersList(list) {
       const timeB = new Date(toIsoDateTime(routeB.deliveryDate)).getTime() || 0;
       return state.currentTableSort.dir === 'asc' ? timeA - timeB : timeB - timeA;
     } else if (state.currentTableSort.field === 'responsible') {
-      valA = (a.responsible || '').toLowerCase();
-      valB = (b.responsible || '').toLowerCase();
+      valA = (a.sign || '').toLowerCase();
+      valB = (b.sign || '').toLowerCase();
     } else if (state.currentTableSort.field === 'status') {
-      const idxA = statusOrder[(a.status || '').toLowerCase()] ?? 999;
-      const idxB = statusOrder[(b.status || '').toLowerCase()] ?? 999;
+      const idxA = statusOrder[(a.responsibleDept || '').toLowerCase()] ?? 999;
+      const idxB = statusOrder[(b.responsibleDept || '').toLowerCase()] ?? 999;
       return state.currentTableSort.dir === 'asc' ? idxA - idxB : idxB - idxA;
     } else if (state.currentTableSort.field === 'department') {
       valA = (routeA.to || '').toLowerCase();
@@ -338,9 +340,9 @@ export function handleCategoryRowDrop(e, groupKey, viewContext) {
   if (state.currentTableGroup === 'client') {
     srcOt.client = groupKey;
   } else if (state.currentTableGroup === 'status') {
-    srcOt.status = groupKey;
+    srcOt.responsibleDept = groupKey;
   } else if (state.currentTableGroup === 'responsible') {
-    srcOt.responsible = groupKey;
+    srcOt.sign = groupKey;
   } else if (state.currentTableGroup === 'department') {
     const route = getActiveRoute(srcOt);
     route.to = groupKey;
@@ -388,12 +390,12 @@ export function handleUnifiedRowDrop(e, targetOtId, viewContext) {
       srcOt.client = targetOt.client;
     }
   } else if (state.currentTableGroup === 'status') {
-    if (srcOt.status !== targetOt.status) {
-      srcOt.status = targetOt.status;
+    if (srcOt.responsibleDept !== targetOt.responsibleDept) {
+      srcOt.responsibleDept = targetOt.responsibleDept;
     }
   } else if (state.currentTableGroup === 'responsible') {
-    if (srcOt.responsible !== targetOt.responsible) {
-      srcOt.responsible = targetOt.responsible;
+    if (srcOt.sign !== targetOt.sign) {
+      srcOt.sign = targetOt.sign;
     }
   } else if (state.currentTableGroup === 'department') {
     const srcRoute = getActiveRoute(srcOt);
@@ -416,7 +418,7 @@ export function handleUnifiedRowDrop(e, targetOtId, viewContext) {
   if (viewContext === 'stripboard' || state.currentMainView === 'stripboard') {
     let strips = getDayStrips(currentDate);
     if (!strips || strips.length === 0) {
-      strips = orders.filter(o => !isOtTerminal(o.status)).map(o => ({
+      strips = orders.filter(o => !isOtTerminal(o.otStatus)).map(o => ({
         type: 'ot',
         otId: o.id,
         shiftStatus: 'En Mesa',
@@ -481,7 +483,7 @@ export function handleTableContainerDrop(e, viewContext) {
   if (viewContext === 'stripboard' || state.currentMainView === 'stripboard') {
     let strips = getDayStrips(currentDate);
     if (!strips || strips.length === 0) {
-      strips = orders.filter(o => !isOtTerminal(o.status)).map(o => ({
+      strips = orders.filter(o => !isOtTerminal(o.otStatus)).map(o => ({
         type: 'ot',
         otId: o.id,
         shiftStatus: 'En Mesa',
@@ -577,7 +579,7 @@ export function handleGlobalStatusChange(val, otId = null, targetSelectId = 'mod
         const ot = getOrders().find(o => o.id === targetId);
         if (typeof document !== 'undefined') {
           const sel = document.getElementById(targetSelectId);
-          if (sel) sel.value = (ot && ot.status) || 'Tráfico';
+          if (sel) sel.value = (ot && ot.responsibleDept) || 'Tráfico';
         }
       }
     }
@@ -628,7 +630,7 @@ export function handleGlobalResponsibleChange(val, otId = null, targetSelectId =
         const ot = getOrders().find(o => o.id === targetId);
         if (typeof document !== 'undefined') {
           const sel = document.getElementById(targetSelectId);
-          if (sel) sel.value = (ot && ot.responsible) || getActiveUserShortName() || 'Usuario';
+          if (sel) sel.value = (ot && ot.sign) || getActiveUserShortName() || 'Usuario';
         }
       }
     }
@@ -644,7 +646,7 @@ function applyOtResponsibleUpdate(otId, responsibleName) {
   const orders = getOrders();
   const ot = orders.find(o => o.id === otId);
   if (ot) {
-    ot.responsible = responsibleName;
+    ot.sign = responsibleName;
     const activeRoute = getActiveRoute(ot);
     if (!activeRoute.to) {
       activeRoute.to = responsibleName;
@@ -696,23 +698,20 @@ export function renderStatusSelects() {
 export function renderResponsibleSelects() {
   if (typeof document === 'undefined') return;
 
-  // 1. Selector en Modal de Sobre OT
+  // 1. Selector de Firma en Modal de Sobre OT (solo firma del creador de la OT)
   const defaultResp = getActiveUserShortName() || 'Usuario';
   const modalSelect = document.getElementById('modal-ot-responsible');
   if (modalSelect) {
-    const prevVal = modalSelect.value;
-    modalSelect.innerHTML = getResponsibleOptionsHtml(prevVal || defaultResp);
-    if (prevVal && prevVal !== '__NEW_RESPONSIBLE__') {
-      modalSelect.value = prevVal;
-    }
+    const currentSign = (modalSelect.value && modalSelect.value !== '__NEW_RESPONSIBLE__') ? modalSelect.value : defaultResp;
+    modalSelect.innerHTML = `<option value="${escapeHtml(currentSign)}" selected>${escapeHtml(currentSign)}</option>`;
+    modalSelect.value = currentSign;
   }
 
-  // 2. Selector en Modal de Nueva OT
+  // 2. Selector de Firma en Modal de Nueva OT (solo usuario activo)
   const newSelect = document.getElementById('new-ot-responsible');
   if (newSelect) {
-    const prevVal = newSelect.value || defaultResp;
-    newSelect.innerHTML = getResponsibleOptionsHtml(prevVal !== '__NEW_RESPONSIBLE__' ? prevVal : defaultResp);
-    newSelect.value = prevVal !== '__NEW_RESPONSIBLE__' ? prevVal : defaultResp;
+    newSelect.innerHTML = `<option value="${escapeHtml(defaultResp)}" selected>${escapeHtml(defaultResp)}</option>`;
+    newSelect.value = defaultResp;
   }
 }
 
@@ -723,7 +722,7 @@ export function renderResponsibleSelects() {
 export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', rowIndex = 0) {
   const isStripboard = viewContext === 'stripboard';
   const clientColor = getClientColorClasses(ot.client);
-  const respColor = getResponsibleColorClasses(ot.responsible);
+  const respColor = getResponsibleColorClasses(ot.sign);
   const safeDesc = ot.title || ot.description || '';
   const safeBrand = ot.brand || ot.product || '--';
   const safeMedia = ot.media || '--';
@@ -744,9 +743,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
 
   const gripHtml = isStripboard ? `
     <span class="cursor-grab active:cursor-grabbing text-zinc-500 hover:text-amber-400 transition-colors select-none p-0.5 shrink-0" title="Arrastrar para reorganizar">
-      <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-        <path d="M7 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm6-12a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
-      </svg>
+      ${icon('grip-vertical', 'w-[15px] h-[15px]')}
     </span>
   ` : '';
 
@@ -838,7 +835,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
           onchange="handleTableOtStatusChange('${ot.id}', this.value)" 
           class="w-full bg-black/50 border border-resolve-border hover:border-amber-400/50 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-300 focus:border-amber-500/60 focus:outline-none cursor-pointer"
         >
-          ${getStatusOptionsHtml(ot.status || 'Tráfico')}
+          ${getStatusOptionsHtml(ot.responsibleDept || 'Tráfico')}
         </select>
       </td>
 
@@ -848,7 +845,7 @@ export function renderUnifiedOtRow(ot, activeRoute, viewContext = 'trafico', row
           onchange="handleTableOtResponsibleChange('${ot.id}', this.value)" 
           class="w-full bg-black/50 border border-resolve-border hover:${respColor.border} rounded px-1.5 py-0.5 text-[11px] font-semibold ${respColor.text} focus:border-current focus:outline-none cursor-pointer"
         >
-          ${getResponsibleOptionsHtml(ot.responsible || getActiveUserShortName() || 'Usuario')}
+          ${getResponsibleOptionsHtml(ot.sign || getActiveUserShortName() || 'Usuario')}
         </select>
       </td>
 
@@ -929,9 +926,9 @@ export function renderUnifiedTableRows(ordersList, viewContext = 'trafico') {
     if (state.currentTableGroup === 'client') {
       key = ot.client || 'Sin Cliente';
     } else if (state.currentTableGroup === 'status') {
-      key = ot.status || 'Tráfico';
+      key = ot.responsibleDept || 'Tráfico';
     } else if (state.currentTableGroup === 'responsible') {
-      key = ot.responsible || 'Sin Asignar';
+      key = ot.sign || 'Sin Asignar';
     } else if (state.currentTableGroup === 'department') {
       key = (route && route.to) ? route.to : 'Sin Departamento';
     }
@@ -1088,18 +1085,14 @@ export function renderBinTree() {
                 title="${isCollapsed ? 'Desplegar marcas' : 'Colapsar marcas'}"
                 class="w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer shrink-0"
               >
-                <svg class="w-2.5 h-2.5 transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90 text-amber-400'}" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M6 4l8 6-8 6V4z"/>
-                </svg>
+                ${icon(isCollapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-3 h-3', isCollapsed ? '' : 'text-amber-400')}
               </button>
             ` : `
               <span class="w-4 h-4 shrink-0"></span>
             `}
 
             <!-- Ícono de Carpeta / Bin en el color distintivo del cliente -->
-            <svg class="w-3.5 h-3.5 ${clientColor.text} shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-            </svg>
+            ${icon('folder', 'w-[15px] h-[15px]', clientColor.text)}
 
             <!-- Nombre del Cliente: 11px y en Negrita con color atenuado -->
             <span class="font-bold truncate text-resolve-dimText group-hover:text-zinc-200 text-[11px] leading-tight transition-colors ${isClientActive ? 'text-white' : ''}">${escapeHtml(client.name)}</span>
@@ -1123,7 +1116,7 @@ export function renderBinTree() {
                   title="Clic para filtrar por esta marca"
                 >
                   <div class="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                    <svg class="w-3 h-3 text-zinc-500 group-hover:text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    ${icon('tag', 'w-3 h-3', 'text-zinc-500 group-hover:text-amber-400')}
                     <span class="truncate font-medium text-[11px] text-resolve-dimText group-hover:text-zinc-300">${escapeHtml(brand)}</span>
                     <!-- Badge numérico inmediatamente al lado de la marca -->
                     <span class="bin-tree-badge text-[10px] font-medium text-zinc-400 bg-white/[0.04] px-1.5 py-0.2 rounded-full shrink-0">${brandOrders.length}</span>
@@ -1395,8 +1388,8 @@ export function renderTrafficDesk() {
       if (!matchClient || !matchBrand) return false;
     }
 
-    // Filtro por Estado
-    if (statusFilter !== 'all' && ot.status !== statusFilter) return false;
+    // Filtro por Estado / Responsable
+    if (statusFilter !== 'all' && ot.responsibleDept !== statusFilter && ot.otStatus !== statusFilter) return false;
 
     // Búsqueda libre
     if (searchQuery) {
@@ -1430,7 +1423,7 @@ export function renderTrafficDesk() {
   
   const footerCount = document.getElementById('footer-active-count');
   if (footerCount) {
-    footerCount.innerText = `${orders.filter(o => !isOtTerminal(o.status)).length} Activas en Tráfico`;
+    footerCount.innerText = `${orders.filter(o => !isOtTerminal(o.otStatus)).length} Activas en Tráfico`;
   }
 
   // Control de visibilidad de acciones de grupo (Abrir todo / Cerrar todo)
@@ -1454,7 +1447,7 @@ export function renderTrafficDesk() {
         urgentIndicator.innerHTML = `
           <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
           <span class="font-bold">${urgentCount} ${urgentCount === 1 ? 'Urgente' : 'Urgentes'}</span>
-          <span class="text-[9px] bg-rose-500/30 px-1 rounded text-rose-300 font-sans ml-0.5">✕ Solo Urgentes</span>
+          <span class="inline-flex items-center gap-1 text-[9px] bg-rose-500/30 px-1 rounded text-rose-300 font-sans ml-0.5">${icon('x', 'w-3 h-3')} Solo Urgentes</span>
         `;
         urgentIndicator.title = "Filtro activo: mostrando solo OTs urgentes. Clic para ver todas.";
       } else {
@@ -1501,7 +1494,7 @@ export function renderTrafficDesk() {
       const clientColor = getClientColorClasses(ot.client);
       const lastRoute = ot.routes && ot.routes.length > 0 ? ot.routes[ot.routes.length - 1] : null;
       const totalFiles = ot.mediaFiles ? ot.mediaFiles.length : 0;
-      let statusClass = getStatusBadgeClass(ot.status);
+      let statusClass = getStatusBadgeClass(ot.responsibleDept || 'Tráfico');
 
       return `
       <div class="bg-white/[0.025] hover:bg-white/[0.05] border ${ot.urgent ? 'border-rose-500/60 shadow-lg shadow-rose-950/20' : 'border-resolve-border hover:border-amber-400/50 hover:shadow-xl hover:shadow-black/60'} rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 group">
@@ -1524,7 +1517,7 @@ export function renderTrafficDesk() {
               ` : ''}
             </div>
             <span class="text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${statusClass}">
-              ${escapeHtml(ot.status || 'Tráfico')}
+              ${escapeHtml(ot.responsibleDept || 'Tráfico')}
             </span>
           </div>
 
@@ -1543,7 +1536,7 @@ export function renderTrafficDesk() {
             </h3>
             <div class="text-[11px] text-zinc-400 mt-1 flex items-center justify-between gap-1.5">
               <span class="truncate"><span class="text-zinc-500 font-medium">Medio:</span> <span class="text-zinc-300">${escapeHtml(ot.media || 'No especificado')}</span></span>
-              <span class="shrink-0"><span class="text-zinc-500 font-medium">Resp:</span> <span class="${getResponsibleColorClasses(ot.responsible || (lastRoute ? lastRoute.to : '')).text} font-semibold">${escapeHtml(ot.responsible || (lastRoute ? lastRoute.to : 'Sin Asignar'))}</span></span>
+              <span class="shrink-0"><span class="text-zinc-500 font-medium">Resp:</span> <span class="${getResponsibleColorClasses(ot.sign || (lastRoute ? lastRoute.to : '')).text} font-semibold">${escapeHtml(ot.sign || (lastRoute ? lastRoute.to : 'Sin Asignar'))}</span></span>
             </div>
 
             <!-- Último Relevo -->
@@ -1571,7 +1564,7 @@ export function renderTrafficDesk() {
         <!-- Footer Tarjeta (Media Pool Preview & Abrir) -->
         <div class="mt-4 pt-2.5 border-t border-resolve-border/60 flex items-center justify-between text-xs">
           <div class="flex items-center gap-1.5 text-zinc-400 text-[11px] font-medium">
-            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+            ${icon('paperclip', 'w-[15px] h-[15px]', 'text-amber-400')}
             <span>${totalFiles} items en Media Pool</span>
           </div>
           <button onclick="handleTableRowClick(event, '${ot.id}')" class="px-2.5 py-1 bg-white/[0.05] hover:bg-white/[0.10] text-zinc-200 hover:text-white rounded-lg border border-resolve-border font-medium text-xs flex items-center gap-1.5 transition-all active:scale-[0.98]">

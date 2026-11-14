@@ -15,6 +15,8 @@ import {
   isOtTerminal
 } from './core-state.js';
 
+import { icon } from './icons.js';
+
 import {
   getOrders,
   saveOrders,
@@ -245,7 +247,7 @@ function isOrderInUserTray(ot) {
   const activeRoute = getActiveRoute(ot);
   const toDept = (activeRoute?.to || '').trim().toLowerCase();
   const fromDept = (activeRoute?.from || '').trim().toLowerCase();
-  const respLower = (ot.responsible || '').trim().toLowerCase();
+  const respLower = (ot.sign || '').trim().toLowerCase();
 
   if (toDept && userDepts.includes(toDept)) return true;
   if (fromDept && userDepts.includes(fromDept)) return true;
@@ -270,7 +272,7 @@ export function renderStripboardPendingPool() {
   if (!container) return;
 
   // OTs activas no cerradas ni canceladas, filtradas por bandeja/departamento/cuenta del usuario
-  const activeOrders = orders.filter(o => !isOtTerminal(o.status) && isOrderInUserTray(o));
+  const activeOrders = orders.filter(o => !isOtTerminal(o.otStatus) && isOrderInUserTray(o));
   if (badge) badge.innerText = activeOrders.length;
 
   // Filtrado por texto y por estado de agendamiento
@@ -353,9 +355,7 @@ export function renderStripboardPendingPool() {
       >
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-1.5 truncate">
-            <svg class="w-3.5 h-3.5 text-stone-500 group-hover:text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-            </svg>
+            ${icon('grip-vertical', 'w-[15px] h-[15px]', 'text-stone-500 group-hover:text-amber-400')}
             <button
               type="button"
               onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${ot.id}' });"
@@ -366,8 +366,8 @@ export function renderStripboardPendingPool() {
             </button>
             ${ot.urgent ? '<span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Urgente"></span>' : ''}
           </div>
-          <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ot.status)}">
-            ${escapeHtml(ot.status || 'Tráfico')}
+          <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ot.responsibleDept || 'Tráfico')}">
+            ${escapeHtml(ot.responsibleDept || 'Tráfico')}
           </span>
         </div>
 
@@ -452,7 +452,7 @@ export function renderStripboard() {
     if (scheduledIds.length > 0) {
       stripboardOrders = scheduledIds.map(id => orders.find(o => o.id === id)).filter(Boolean);
     } else {
-      stripboardOrders = orders.filter(o => !isOtTerminal(o.status));
+      stripboardOrders = orders.filter(o => !isOtTerminal(o.otStatus));
     }
     if (stripboardOrders.length === 0) {
       stripboardOrders = orders;
@@ -474,11 +474,11 @@ export function renderStripboard() {
     if (!strips || strips.length === 0) {
       container.innerHTML = `
         <div class="p-12 text-center border border-dashed border-resolve-border rounded-2xl bg-white/[0.02] text-xs text-resolve-dimText flex flex-col items-center justify-center">
-          <svg class="w-10 h-10 text-stone-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          ${icon('module-agenda', 'w-10 h-10', 'text-stone-600 mb-3')}
           <span class="font-bold text-white text-sm">Arrastra OTs aquí o cárgales automáticamente</span>
           <p class="text-[11px] text-resolve-dimText mt-1 max-w-sm">Puedes arrastrar cualquier OT desde la columna izquierda y soltarla en este tablero, o pulsar el botón para cargar todas las pendientes.</p>
           <button onclick="autoPopulatePendingOts()" class="mt-4 px-3.5 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg transition-all active:scale-[0.98] text-xs flex items-center gap-1.5 shadow-sm">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            ${icon('zap', 'w-[15px] h-[15px]')}
             <span>Cargar OTs Pendientes al Plan</span>
           </button>
         </div>
@@ -501,9 +501,7 @@ export function renderStripboard() {
           >
             <div class="flex items-center gap-2.5 flex-1">
               <span class="text-resolve-dimText hover:text-amber-400 cursor-grab active:cursor-grabbing no-print" title="Arrastrar para mover de posición">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-                </svg>
+                ${icon('grip-vertical', 'w-[15px] h-[15px]')}
               </span>
               <span class="text-[10px] text-amber-400 font-bold tracking-widest uppercase shrink-0">BANDA / CORTE:</span>
               <input 
@@ -517,7 +515,7 @@ export function renderStripboard() {
               />
             </div>
             <div class="flex items-center gap-1 no-print">
-              <button onclick="removeStrip(${idx})" title="Eliminar banda separadora" class="p-1 hover:text-red-400 text-resolve-dimText ml-1">✕</button>
+              <button onclick="removeStrip(${idx})" title="Eliminar banda separadora" class="p-1 hover:text-red-400 text-resolve-dimText ml-1 inline-flex items-center justify-center cursor-pointer">${icon('x', 'w-[15px] h-[15px]')}</button>
             </div>
           </div>
         `;
@@ -548,9 +546,7 @@ export function renderStripboard() {
           <!-- Col 1: Grip de arrastre + N° de secuencia -->
           <div class="col-span-1 flex items-center gap-1.5 text-[11px] text-resolve-dimText">
             <span class="text-stone-500 group-hover:text-amber-400 transition-colors cursor-grab active:cursor-grabbing no-print" title="Arrastra la tira a cualquier posición del día">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-              </svg>
+              ${icon('grip-vertical', 'w-[15px] h-[15px]')}
             </span>
             <span class="font-bold text-stone-300">#${idx + 1}</span>
           </div>
@@ -664,9 +660,9 @@ export function renderStripboard() {
             <button 
               onclick="removeStrip(${idx})" 
               title="Quitar tira del plan" 
-              class="p-1 hover:text-red-400 text-resolve-dimText transition-colors no-print cursor-pointer"
+              class="p-1 hover:text-red-400 text-resolve-dimText transition-colors no-print cursor-pointer inline-flex items-center justify-center"
             >
-              ✕
+              ${icon('x', 'w-[15px] h-[15px]')}
             </button>
           </div>
         </div>
@@ -700,7 +696,7 @@ export function insertOtStripOnDate(otId, dateStr, positionIndex, customAssignee
     product: ot.product || '',
     timeSlot: nextSlot,
     task: lastRoute ? lastRoute.task : (ot.title || 'Desarrollo de piezas de campaña'),
-    assignee: customAssignee || ot.responsible || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
+    assignee: customAssignee || ot.sign || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
     shiftStatus: 'Por Iniciar'
   };
 
@@ -766,7 +762,7 @@ export function cycleStripStatusOnDate(dateStr, index) {
 
 export function autoPopulatePendingOts() {
   const orders = getOrders();
-  const activeOrders = orders.filter(o => !isOtTerminal(o.status) && isOrderInUserTray(o));
+  const activeOrders = orders.filter(o => !isOtTerminal(o.otStatus) && isOrderInUserTray(o));
   if (activeOrders.length === 0) {
     if (typeof window !== 'undefined') window.alert("No hay OTs activas en tu bandeja para planificar.");
     return;
@@ -792,7 +788,7 @@ export function autoPopulatePendingOts() {
         product: ot.product || '',
         timeSlot: assignedSlot,
         task: lastRoute ? lastRoute.task : (ot.title || 'Desarrollo'),
-        assignee: ot.responsible || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
+        assignee: ot.sign || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
         shiftStatus: 'Por Iniciar'
       });
     }
@@ -1108,7 +1104,7 @@ export function renderStripboardWeekView() {
             class="stripboard-row bg-resolve-panel border border-amber-600/40 border-l-4 border-l-amber-500 rounded px-2 py-1.5 text-[10px] text-amber-300 font-bold flex items-center justify-between gap-1 cursor-grab active:cursor-grabbing"
           >
             <span class="truncate">${escapeHtml(strip.title || 'CORTE / SEPARADOR')}</span>
-            <button onclick="removeStrip(${idx}, '${day.dateStr}')" class="text-stone-500 hover:text-red-400 shrink-0 cursor-pointer">✕</button>
+            <button onclick="removeStrip(${idx}, '${day.dateStr}')" class="text-stone-500 hover:text-red-400 shrink-0 cursor-pointer inline-flex items-center justify-center">${icon('x', 'w-3 h-3')}</button>
           </div>
         `;
       }
@@ -1162,10 +1158,10 @@ export function renderStripboardWeekView() {
                   onmousedown="pauseRowDrag(this); event.stopPropagation();"
                   onmouseup="resumeRowDrag(this)"
                   onclick="event.stopPropagation(); openCustomTaskModal(${idx}, '${day.dateStr}')"
-                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-amber-400 rounded text-amber-300 font-bold text-[10px] cursor-pointer"
+                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-amber-400 rounded text-amber-300 font-bold text-[10px] cursor-pointer inline-flex items-center gap-1"
                   title="Editar Tarea Libre y Responsable"
                 >
-                  LIBRE ✎
+                  <span>LIBRE</span> ${icon('pencil', 'w-3 h-3')}
                 </button>
               `}
             </div>
@@ -1179,8 +1175,8 @@ export function renderStripboardWeekView() {
                 onmouseup="resumeRowDrag(this)"
                 onclick="event.stopPropagation(); removeStrip(${idx}, '${day.dateStr}')"
                 title="Quitar tira"
-                class="text-stone-500 hover:text-red-400 text-[10px] cursor-pointer"
-              >✕</button>
+                class="text-stone-500 hover:text-red-400 text-[10px] cursor-pointer inline-flex items-center justify-center"
+              >${icon('x', 'w-3 h-3')}</button>
             </div>
           </div>
 

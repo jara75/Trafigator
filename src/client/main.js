@@ -12,6 +12,11 @@ import {
 } from './core-state.js';
 
 import {
+  icon,
+  hydrateIcons
+} from './icons.js';
+
+import {
   bootstrap,
   scheduleSync,
   getCurrentUser,
@@ -102,37 +107,66 @@ import {
 } from './modals-controller.js';
 
 // ============================================================================
-// CONMUTACIÓN DE VISTA PRINCIPAL (MESA DE TRÁFICO vs STRIPBOARD)
+// CONMUTACIÓN DE VISTA PRINCIPAL (TRÁFICO | ÓRDENES DE TRABAJO | AGENDA)
 // ============================================================================
 
-export function switchMainView(view) {
-  state.currentMainView = view;
+const NAV_BTN_ACTIVE_CLASS = "h-6 px-2.5 rounded font-medium transition-all bg-white/[0.12] text-white shadow-xs border border-white/[0.08] flex items-center gap-1.5 cursor-pointer";
+const NAV_BTN_IDLE_CLASS = "h-6 px-2.5 rounded font-medium transition-all text-resolve-dimText hover:text-white flex items-center gap-1.5 cursor-pointer";
+
+export function updateMainHeaderNav(activeView) {
   if (typeof document === 'undefined') return;
+  const buttons = {
+    desk: document.getElementById('nav-btn-desk'),
+    ot: document.getElementById('nav-btn-ot'),
+    stripboard: document.getElementById('nav-btn-stripboard')
+  };
+  Object.entries(buttons).forEach(([key, btn]) => {
+    if (!btn) return;
+    btn.className = key === activeView ? NAV_BTN_ACTIVE_CLASS : NAV_BTN_IDLE_CLASS;
+  });
+}
+
+export function switchMainView(view) {
+  if (typeof document === 'undefined') {
+    state.currentMainView = view;
+    return;
+  }
 
   const deskEl = document.getElementById('app-view-desk');
   const stripboardEl = document.getElementById('app-view-stripboard');
-  const btnDesk = document.getElementById('nav-btn-desk');
-  const btnStripboard = document.getElementById('nav-btn-stripboard');
+  const envelopeEl = document.getElementById('envelope-modal');
+
+  if (view === 'ot') {
+    const orders = getOrders();
+    const targetOt = (state.activeOtId && orders.find(o => o.id === state.activeOtId))
+      || orders.find(o => !o.parentOtId && o.otStatus !== 'Archivada')
+      || orders.find(o => !o.parentOtId)
+      || orders[0];
+    if (!targetOt) {
+      showToast('Crea o selecciona una OT para abrirla', 'info');
+      updateMainHeaderNav(state.currentMainView === 'stripboard' ? 'stripboard' : 'desk');
+      return;
+    }
+    openEnvelopeModal(targetOt.id);
+    updateMainHeaderNav('ot');
+    return;
+  }
+
+  if (envelopeEl && !envelopeEl.classList.contains('hidden')) {
+    envelopeEl.classList.add('hidden');
+    state.activeOtId = null;
+  }
+
+  state.currentMainView = view;
+  updateMainHeaderNav(view === 'stripboard' ? 'stripboard' : 'desk');
 
   if (view === 'desk') {
     if (deskEl) deskEl.classList.remove('hidden');
     if (stripboardEl) stripboardEl.classList.add('hidden');
-    if (btnDesk) {
-      btnDesk.className = "h-6 px-2.5 rounded font-medium transition-all bg-white/[0.12] text-white shadow-xs border border-white/[0.08] flex items-center gap-1.5 cursor-pointer";
-    }
-    if (btnStripboard) {
-      btnStripboard.className = "h-6 px-2.5 rounded font-medium transition-all text-resolve-dimText hover:text-white flex items-center gap-1.5 cursor-pointer";
-    }
     renderTrafficDesk();
   } else {
     if (deskEl) deskEl.classList.add('hidden');
     if (stripboardEl) stripboardEl.classList.remove('hidden');
-    if (btnStripboard) {
-      btnStripboard.className = "h-6 px-2.5 rounded font-medium transition-all bg-white/[0.12] text-white shadow-xs border border-white/[0.08] flex items-center gap-1.5 cursor-pointer";
-    }
-    if (btnDesk) {
-      btnDesk.className = "h-6 px-2.5 rounded font-medium transition-all text-resolve-dimText hover:text-white flex items-center gap-1.5 cursor-pointer";
-    }
     initStripboard();
   }
 }
@@ -394,7 +428,7 @@ export function updateSyncBadge(stateText, isSaving) {
     badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'Guardando en SQLite...')}</span>`;
   } else {
     badge.className = 'hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-semibold text-emerald-300';
-    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'SQLite Activo')}</span>`;
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span id="sqlite-sync-text">${escapeHtml(stateText || 'SQLite Sincronizado')}</span>`;
   }
 }
 
@@ -891,6 +925,7 @@ on('data:ready', () => {
 async function initializeApp() {
   console.log('TRAFIKEITOR v1.1 // Iniciando arquitectura modular...');
 
+  hydrateIcons();
   setupEventDelegation();
 
   // 1. Hidratar caché desde backend Hono/SQLite con fallback síncrono a localStorage
@@ -983,6 +1018,7 @@ if (typeof document !== 'undefined') {
 // Exposición en window para compatibilidad
 if (typeof window !== 'undefined') {
   window.switchMainView = switchMainView;
+  window.updateMainHeaderNav = updateMainHeaderNav;
   window.showAuthGate = showAuthGate;
   window.updateUserPill = updateUserPill;
   window.updateTrialBadge = updateTrialBadge;

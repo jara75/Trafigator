@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import { icon } from './icons.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -351,7 +352,7 @@ function renderThreadsSidebar() {
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5 min-w-0">
             <button type="button" data-toggle-collapse="${escapeHtml(t.id)}" title="${isCollapsed ? 'Expandir hilo' : 'Contraer hilo'}" class="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] border border-resolve-border text-zinc-200 hover:text-white shrink-0 cursor-pointer transition-all">
-              <svg class="w-3.5 h-3.5 transition-transform ${isCollapsed ? '-rotate-90' : ''}" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+              ${icon(isCollapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-[15px] h-[15px]')}
             </button>
             <span class="w-5 h-5 rounded-full border ${t.isResolved ? 'bg-emerald-500 border-emerald-200 text-stone-950' : pinPalette.bg} font-mono text-[10px] font-bold flex items-center justify-center shrink-0">${t.pinNumber}</span>
             <span class="text-[11px] font-semibold text-white shrink-0">Pin #${t.pinNumber}</span>
