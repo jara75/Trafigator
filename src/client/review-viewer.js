@@ -182,7 +182,7 @@ async function renderMediaStage() {
         stage.classList.add('hidden');
         if (emptyEl && errMsgEl) {
           emptyEl.classList.remove('hidden');
-          errMsgEl.innerHTML = `Vista previa no soportada para este formato. ${state.activeMedia?.url && state.activeMedia.url !== '#' ? `<a href="${escapeHtml(state.activeMedia.url)}" download class="text-[#0BA2AC] underline ml-1">Descargar archivo</a>` : ''}`;
+          errMsgEl.innerHTML = `Vista previa no soportada para este formato. ${state.activeMedia?.url && state.activeMedia.url !== '#' ? `<a href="${escapeHtml(state.activeMedia.url)}" download class="text-obsidian-cyan underline ml-1">Descargar archivo</a>` : ''}`;
         }
       };
       imgEl.src = source.src;
@@ -193,7 +193,7 @@ async function renderMediaStage() {
     stage.classList.add('hidden');
     if (emptyEl && errMsgEl) {
       emptyEl.classList.remove('hidden');
-      errMsgEl.innerHTML = `No se pudo renderizar la pieza. ${state.activeMedia?.url && state.activeMedia.url !== '#' ? `<a href="${escapeHtml(state.activeMedia.url)}" download class="text-[#0BA2AC] underline ml-1">Descargar archivo</a>` : ''}`;
+      errMsgEl.innerHTML = `No se pudo renderizar la pieza. ${state.activeMedia?.url && state.activeMedia.url !== '#' ? `<a href="${escapeHtml(state.activeMedia.url)}" download class="text-obsidian-cyan underline ml-1">Descargar archivo</a>` : ''}`;
     }
   }
 }
@@ -202,9 +202,9 @@ function renderStatusBadge() {
   const badge = el('rv-status-badge');
   const status = state.activeMedia?.reviewStatus || 'in_review';
   const map = {
-    draft: { text: 'Borrador', cls: 'border-resolve-border bg-white/[0.04] text-resolve-dimText' },
-    in_review: { text: 'En Revisión', cls: 'border-[#0BA2AC]/40 bg-[#0BA2AC]/15 text-[#0BA2AC]' },
-    changes_requested: { text: 'Cambios Solicitados', cls: 'border-sky-500/40 bg-sky-500/15 text-sky-300' },
+    draft: { text: 'Borrador', cls: 'border-obsidian-border bg-[#202020] text-[#8C8C8C]' },
+    in_review: { text: 'En Revisión', cls: 'border-obsidian-cyan/40 bg-obsidian-cyan/15 text-obsidian-cyan' },
+    changes_requested: { text: 'Cambios Solicitados', cls: 'border-amber-500/40 bg-amber-500/15 text-amber-300' },
     approved: { text: 'Aprobada', cls: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' },
   };
   const cfg = map[status] || map.in_review;
@@ -341,7 +341,7 @@ function renderThreadsSidebar() {
     .map((t) => {
       const msgs = state.messages.filter((m) => m.threadId === t.id);
       const isSelected = t.id === state.selectedThreadId;
-      const borderCls = isSelected ? 'border-[#0BA2AC] bg-[#0BA2AC]/10' : 'border-resolve-border bg-resolve-surface';
+      const borderCls = isSelected ? 'border-obsidian-amber bg-obsidian-amber/10' : 'border-obsidian-border bg-[#202020]';
 
       const pinPalette = PIN_COLOR_PALETTE.find((c) => c.id === (t.pinColor || 'teal')) || PIN_COLOR_PALETTE[0];
       const isCollapsed = state.collapsedThreads.has(t.id);
@@ -351,55 +351,55 @@ function renderThreadsSidebar() {
       <div id="rv-thread-card-${escapeHtml(t.id)}" data-card-thread-id="${escapeHtml(t.id)}" class="rounded-xl border ${borderCls} p-3 space-y-2 cursor-pointer transition-colors">
         <div class="flex items-center justify-between gap-2">
           <div class="flex items-center gap-1.5 min-w-0">
-            <button type="button" data-toggle-collapse="${escapeHtml(t.id)}" title="${isCollapsed ? 'Expandir hilo' : 'Contraer hilo'}" class="w-6 h-6 flex items-center justify-center rounded-md bg-white/[0.06] hover:bg-white/[0.14] border border-resolve-border text-zinc-200 hover:text-white shrink-0 cursor-pointer transition-all">
+            <button type="button" data-toggle-collapse="${escapeHtml(t.id)}" title="${isCollapsed ? 'Expandir hilo' : 'Contraer hilo'}" class="w-6 h-6 flex items-center justify-center rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[#D4D4D4] hover:text-white shrink-0 cursor-pointer transition-all">
               ${icon(isCollapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-[15px] h-[15px]')}
             </button>
             <span class="w-5 h-5 rounded-full border ${t.isResolved ? 'bg-emerald-500 border-emerald-200 text-stone-950' : pinPalette.bg} font-mono text-[10px] font-bold flex items-center justify-center shrink-0">${t.pinNumber}</span>
-            <span class="text-[11px] font-semibold text-white shrink-0">Pin #${t.pinNumber}</span>
-            ${t.pageNumber > 1 ? `<span class="text-[10px] text-resolve-dimText font-mono shrink-0">Pág ${t.pageNumber}</span>` : ''}
-            ${isCollapsed ? `<span class="text-[10px] text-resolve-dimText font-mono shrink-0">(${msgs.length})</span>` : ''}
+            <span class="text-[11px] font-medium text-[#D4D4D4] shrink-0">Pin #${t.pinNumber}</span>
+            ${t.pageNumber > 1 ? `<span class="text-[10px] text-[#8C8C8C] font-mono shrink-0">Pág ${t.pageNumber}</span>` : ''}
+            ${isCollapsed ? `<span class="text-[10px] text-[#8C8C8C] font-mono shrink-0">(${msgs.length})</span>` : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <button type="button" data-resolve-thread="${escapeHtml(t.id)}" class="text-[10px] px-2 py-0.5 rounded border border-resolve-border hover:bg-white/[0.08] ${t.isResolved ? 'text-emerald-300' : 'text-resolve-dimText'} cursor-pointer">
+            <button type="button" data-resolve-thread="${escapeHtml(t.id)}" class="text-[10px] px-2 py-0.5 rounded border border-obsidian-border hover:bg-obsidian-elevated ${t.isResolved ? 'text-emerald-300' : 'text-[#8C8C8C]'} cursor-pointer">
               ${t.isResolved ? '✓ Resuelto' : 'Resolver'}
             </button>
           </div>
         </div>
-        ${isCollapsed ? `<p class="text-[11px] text-resolve-dimText truncate pl-5">${escapeHtml(firstMsgPreview)}</p>` : `
+        ${isCollapsed ? `<p class="text-[11px] text-[#8C8C8C] truncate pl-5">${escapeHtml(firstMsgPreview)}</p>` : `
         <div class="space-y-1.5">
           ${msgs
             .map(
               (m) => `
             <div class="text-xs">
               <div class="flex items-center gap-1.5">
-                <span class="font-semibold ${m.authorRole === 'agency' ? 'text-sky-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
-                <span class="text-[10px] text-resolve-dimText">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
+                <span class="font-medium ${m.authorRole === 'agency' ? 'text-obsidian-cyan' : 'text-obsidian-amber'}">${escapeHtml(m.authorName)}</span>
+                <span class="text-[10px] text-[#8C8C8C]">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
               </div>
-              <p class="text-stone-200 mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
+              <p class="text-[#D4D4D4] mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
             </div>`
             )
             .join('')}
         </div>
         <form data-reply-form="${escapeHtml(t.id)}" class="flex gap-1.5 pt-1">
-          <input type="text" placeholder="Responder..." class="flex-1 bg-resolve-bg border border-resolve-border rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-[#0BA2AC]">
-          <button type="submit" class="px-2.5 py-1 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] text-[11px] font-semibold text-white cursor-pointer">Enviar</button>
+          <input type="text" placeholder="Responder..." class="flex-1 bg-[#191919] border border-obsidian-border rounded-lg px-2 py-1 text-xs text-[#D4D4D4] outline-none focus:border-obsidian-borderActive">
+          <button type="submit" class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#333333] border border-obsidian-borderActive text-[11px] font-medium text-[#D4D4D4] cursor-pointer">Enviar</button>
         </form>`}
       </div>`;
     })
     .join('');
 
   const generalHtml = generalMessages.length
-    ? `<div class="pt-2 border-t border-resolve-border space-y-2">
-        <div class="text-[10px] uppercase tracking-wider font-semibold text-resolve-dimText">Comentarios Generales</div>
+    ? `<div class="pt-2 border-t border-obsidian-border space-y-2">
+        <div class="text-[10px] uppercase tracking-wider font-medium text-[#8C8C8C]">Comentarios Generales</div>
         ${generalMessages
           .map(
             (m) => `
-          <div class="rounded-lg border border-resolve-border bg-resolve-bg/70 p-2.5 text-xs">
+          <div class="rounded-lg border border-obsidian-border bg-[#191919] p-2.5 text-xs">
             <div class="flex items-center gap-1.5">
-              <span class="font-semibold ${m.authorRole === 'agency' ? 'text-sky-300' : 'text-[#0BA2AC]'}">${escapeHtml(m.authorName)}</span>
-              <span class="text-[10px] text-resolve-dimText">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
+              <span class="font-medium ${m.authorRole === 'agency' ? 'text-obsidian-cyan' : 'text-obsidian-amber'}">${escapeHtml(m.authorName)}</span>
+              <span class="text-[10px] text-[#8C8C8C]">${m.authorRole === 'agency' ? 'Agencia' : 'Cliente'}</span>
             </div>
-            <p class="text-stone-200 mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
+            <p class="text-[#D4D4D4] mt-0.5 whitespace-pre-wrap">${escapeHtml(m.content)}</p>
           </div>`
           )
           .join('')}
@@ -407,7 +407,7 @@ function renderThreadsSidebar() {
     : '';
 
   list.innerHTML =
-    (threadsHtml || '<div class="text-xs text-resolve-dimText text-center py-6">Haz clic sobre cualquier punto de la pieza para crear el primer pin de revisión.</div>') +
+    (threadsHtml || '<div class="text-xs text-[#8C8C8C] text-center py-6">Haz clic sobre cualquier punto de la pieza para crear el primer pin de revisión.</div>') +
     generalHtml;
 
   list.querySelectorAll('[data-card-thread-id]').forEach((card) => {
@@ -693,7 +693,7 @@ function renderPinColorPicker() {
     const selected = c.id === state.pinColor;
     return `<button type="button" data-pin-color="${c.id}" title="Color ${c.label} (nuevo pin o pin seleccionado)"
       style="background-color:${c.swatch};"
-      class="w-4 h-4 rounded-full border ${selected ? 'border-white ring-2 ring-[#0BA2AC] scale-110' : 'border-white/30 opacity-75 hover:opacity-100'} transition-all cursor-pointer"></button>`;
+      class="w-4 h-4 rounded-full border ${selected ? 'border-white ring-2 ring-obsidian-amber scale-110' : 'border-white/30 opacity-75 hover:opacity-100'} transition-all cursor-pointer"></button>`;
   }).join('');
 
   box.querySelectorAll('[data-pin-color]').forEach((btn) => {

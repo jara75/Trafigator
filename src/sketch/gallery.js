@@ -10,6 +10,7 @@ import {
   sketchState,
   escapeHtml,
   ensureOtData,
+  notifySketchChange,
   onSketchChange,
 } from './store.js';
 
@@ -273,6 +274,7 @@ export function renderGallerySectionHtml(
             </div>
             `}
             <div class="inline-flex items-center gap-0.5">
+              <button type="button" data-preview-action="review" data-tip="Revisión colaborativa" class="p-1.5 rounded-lg hover:bg-obsidian-elevated hover:text-obsidian-amber cursor-pointer transition-colors"><span data-icon="eye" data-icon-size="w-3.5 h-3.5"></span></button>
               <button type="button" data-preview-action="lightbox" data-tip="Caja de luz" class="p-1.5 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] cursor-pointer transition-colors"><span data-icon="maximize-2" data-icon-size="w-3.5 h-3.5"></span></button>
               <button type="button" data-tip="Compartir" class="p-1.5 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] cursor-pointer transition-colors"><span data-icon="share-2" data-icon-size="w-3.5 h-3.5"></span></button>
               <button type="button" data-tip="Exportar" class="p-1.5 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] cursor-pointer transition-colors">
@@ -327,6 +329,9 @@ export function renderGallerySectionHtml(
                       <div class="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-[#141414]/95 via-[#141414]/80 to-transparent text-[9.5px] ${isSel ? 'text-[#D4D4D4]' : 'text-[#8C8C8C] group-hover:text-[#D4D4D4]'} truncate text-center pointer-events-none">
                         ${escapeHtml(p.name)}
                       </div>
+                      <button type="button" data-review-piece="${i}" title="Revisión colaborativa" class="opacity-0 group-hover:opacity-100 absolute top-1.5 left-1.5 w-5 h-5 rounded flex items-center justify-center bg-[#141414]/85 border border-[#3a3a3a] text-[#8C8C8C] hover:text-obsidian-amber transition-all cursor-pointer">
+                        <span data-icon="eye" data-icon-size="w-3 h-3"></span>
+                      </button>
                       <button type="button" data-toggle-piece-select="${escapeHtml(p.name)}" title="Seleccionar" class="absolute top-1.5 right-1.5 w-4 h-4 rounded flex items-center justify-center transition-opacity cursor-pointer ${isChecked ? 'opacity-100 bg-[#8C8C8C] text-[#141414]' : 'opacity-0 group-hover:opacity-100 border border-[#555555] bg-[#141414]/80 text-transparent hover:border-[#8C8C8C]'}">
                         <span data-icon="check" data-icon-size="w-2.5 h-2.5"></span>
                       </button>
@@ -353,7 +358,7 @@ export function renderGallerySectionHtml(
                       </div>
                     </div>
                     <div class="flex items-center gap-1 text-[#8C8C8C] shrink-0">
-                      <button type="button" title="Revisar" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="eye" data-icon-size="w-3 h-3"></span></button>
+                      <button type="button" data-review-piece="${i}" title="Revisión colaborativa" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-obsidian-amber transition-colors cursor-pointer"><span data-icon="eye" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Compartir" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="share-2" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Nueva versión" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="plus" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Ampliar" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="expand-diagonal" data-icon-size="w-3 h-3"></span></button>
@@ -506,6 +511,20 @@ export function bindGalleryEvents(container, rerenderFn, getAllPiecesFn, onDelet
     rerenderFn();
   });
 
+  const openPieceReview = (piece) => {
+    notifySketchChange('open-review', { piece });
+  };
+
+  container.querySelectorAll('[data-review-piece]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.reviewPiece);
+      const pieces = getAllPiecesFn() || [];
+      if (!Number.isNaN(idx)) sketchState.activePieceIndex = idx;
+      openPieceReview(pieces[idx]);
+    });
+  });
+
   container.querySelectorAll('[data-pick-piece]').forEach((el) => {
     el.addEventListener('click', () => {
       sketchState.activePieceIndex = Number(el.dataset.pickPiece) || 0;
@@ -571,6 +590,11 @@ export function bindGalleryEvents(container, rerenderFn, getAllPiecesFn, onDelet
       else if (act === 'code-preview') sketchState.codeRenderPreview = !sketchState.codeRenderPreview;
       else if (act === 'code-wrap') sketchState.codeWrap = !sketchState.codeWrap;
       else if (act === 'code-lines') sketchState.codeLines = !sketchState.codeLines;
+      else if (act === 'review') {
+        const pieces = getAllPiecesFn() || [];
+        openPieceReview(pieces[sketchState.activePieceIndex]);
+        return;
+      }
       rerenderFn();
     });
   });

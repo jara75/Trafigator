@@ -3,19 +3,41 @@
  */
 
 import {
+  bindTableColResizers,
   escapeHtml,
   formatShortDate,
   getClientColor,
+  getDepartmentColor,
+  getPriorityDotHtml,
+  getStageColor,
+  matchesCommonTrafficFilters,
   notifySketchChange,
   onSketchChange,
   relDate,
   shiftIsoDate,
   sketchState,
+  sortTrafficItemsByEntryDate,
   studioSettings,
+  trafficDepartments,
+  trafficMembers,
   trafficOrders,
+  trafficStages,
   trafficStatuses,
   ensureOtData
 } from './store.js';
+import {
+  bindGanttScaleEvents,
+  bindKanbanScheduleEvents,
+  bindScheduleNavEvents,
+  formatLongDayHeading,
+  renderGanttScheduleHtml,
+  renderInspectorMiniCalendar,
+  renderKanbanScheduleHtml,
+  renderMonthScheduleHtml,
+  renderScheduleNavHeader,
+  renderWeekScheduleHtml,
+  shiftScheduleDate,
+} from './schedule-views.js';
 
 let initialized = false;
 let openOtCb = null;
@@ -39,10 +61,14 @@ export function getAllMyTaskPool() {
           brand: ot.brand,
           product: ot.product,
           title: st.title,
+          entryDate: ot.entryDate,
           deliveryDate: deliv,
           scheduledDate: (st.scheduledDate || deliv || '').slice(0, 10),
           estimatedHours: Number(st.estimatedHours ?? 3) || 0,
+          department: st.department || ot.department || '—',
+          stage: st.stage || ot.stage || 'Tráfico',
           status: st.status || ot.status,
+          urgent: !!(st.urgent ?? ot.urgent),
           notes: st.notes || '',
           type: 'task'
         });
@@ -97,6 +123,10 @@ export function ensureStripboardDaySeeded(dateStr) {
         s.estimatedHours = src.estimatedHours;
         s.scheduledDate = src.scheduledDate;
         s.status = src.status;
+        s.stage = src.stage;
+        s.department = src.department;
+        s.notes = src.notes;
+        s.urgent = src.urgent;
         s.title = src.title;
       }
     });
@@ -120,7 +150,7 @@ export function getDayReservedHours(dateStr) {
 export function moveTaskToScheduledDate(uid, targetDateStr) {
   if (!uid || !targetDateStr) return;
 
-  if (String(uid).startsWith('free-')) {
+  if (String(uid).startsWith('free-') || String(uid).startsWith('sep-')) {
     let movedItem = null;
     for (const [dateKey, list] of Object.entries(sketchState.stripboardStripsByDate)) {
       const idx = list.findIndex((s) => s.uid === uid);
@@ -163,9 +193,11 @@ export function moveTaskToScheduledDate(uid, targetDateStr) {
 }
 
 /**
- * Group visible strips by client, status, or deliveryDate when stripboardGroupBy !== 'none'.
+ * Group visible strips by the active left-menu groupBy option.
  */
 function buildStripGroups(visibleStrips, groupBy) {
+  const todayIso = relDate(0).slice(0, 10);
+  const tomorrowIso = relDate(1).slice(0, 10);
   const groupsMap = new Map();
   visibleStrips.forEach((s) => {
     let key = '';
@@ -175,13 +207,32 @@ function buildStripGroups(visibleStrips, groupBy) {
       key = s.client || 'Interno';
       label = key;
       color = getClientColor(s.client);
+    } else if (groupBy === 'department') {
+      key = s.department || 'Sin depto.';
+      label = key;
+      color = getDepartmentColor(s.department);
+    } else if (groupBy === 'stage') {
+      key = s.stage || 'Tráfico';
+      label = key;
+      color = getStageColor(key);
     } else if (groupBy === 'status') {
       key = s.status || 'Sin estado';
       label = key;
-    } else if (groupBy === 'deliveryDate') {
-      const isoDay = (s.deliveryDate || '').slice(0, 10);
+    } else if (groupBy === 'priority') {
+      const dKey = (s.deliveryDate || '').slice(0, 10);
+      if (s.urgent) key = 'Urgentes';
+      else if (dKey === todayIso) key = 'Vencen hoy';
+      else if (dKey === tomorrowIso) key = 'Vencen mañana';
+      else key = 'Programadas';
+      label = key;
+    } else if (groupBy === 'deliveryDate' || groupBy === 'entryDate') {
+      const raw = groupBy === 'entryDate' ? (s.entryDate || s.scheduledDate) : s.deliveryDate;
+      const isoDay = (raw || '').slice(0, 10);
       key = isoDay || 'Sin fecha';
       label = isoDay ? `${isoDay.slice(8, 10)}/${isoDay.slice(5, 7)}/${isoDay.slice(0, 4)}` : 'Sin fecha';
+    } else {
+      key = s.responsible || s.brand || 'General';
+      label = key;
     }
     if (!groupsMap.has(key)) {
       groupsMap.set(key, { key, label, color, items: [] });
@@ -200,7 +251,10 @@ function renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours) {
     return `
       <tr draggable="true" data-sb-idx="${idx}" class="sb-strip-row bg-[#2a2419] border-y border-amber-500/30 text-[10px] text-obsidian-amber cursor-grab active:cursor-grabbing">
         <td class="px-2 py-1.5 text-center font-mono text-[#8C8C8C]">≡</td>
-        <td colspan="8" class="px-2 py-1.5 font-mono uppercase tracking-[0.12em] font-semibold">${escapeHtml(s.title)}</td>
+        <td colspan="10" class="px-2 py-1">
+          <input type="text" data-sb-edit-title="${idx}" value="${escapeHtml(s.title)}"
+            class="w-full bg-transparent border border-transparent hover:border-amber-500/40 focus:border-obsidian-amber focus:bg-[#191919] rounded px-1.5 py-0.5 font-mono uppercase tracking-[0.12em] font-semibold text-obsidian-amber focus:outline-none" />
+        </td>
         <td class="px-2 py-1.5 text-center">
           <button type="button" data-sb-remove="${idx}" class="text-[#8C8C8C] hover:text-rose-400 cursor-pointer">×</button>
         </td>
@@ -215,23 +269,39 @@ function renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours) {
   const isOverRow = sketchState.stripboardViewMode === 'day' && runningHoursRef.total > dailyHours;
   const firstCross = isOverRow && !runningHoursRef.crossed;
   if (firstCross) runningHoursRef.crossed = true;
+  const isFree = String(s.uid || '').startsWith('free-');
 
   return `
     <tr draggable="true" data-sb-idx="${idx}" data-sb-ot="${escapeHtml(s.otId || '')}" data-sb-task="${s.taskIndex !== undefined ? s.taskIndex : ''}" class="sb-strip-row ${zebra} ${firstCross ? 'border-t-2 border-t-rose-500/80' : ''} hover:bg-obsidian-elevated/70 transition-colors cursor-grab active:cursor-grabbing">
       <td class="px-2 py-1.5 border-r border-obsidian-border text-center font-mono text-[#8C8C8C]">${visIdx + 1}</td>
       <td class="px-2 py-1.5 border-r border-obsidian-border">
-        <span class="font-mono font-semibold text-obsidian-amber px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border whitespace-nowrap block text-center">${escapeHtml(s.code || 'LIBRE')}</span>
-      </td>
-      <td class="px-2 py-1.5 border-r border-obsidian-border truncate">
-        <span class="inline-flex items-center gap-1.5 max-w-full">
-          <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
-          <span class="truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(s.client || 'Interno')}</span>
+        <span class="inline-flex items-center justify-center gap-1 w-full font-mono font-semibold text-obsidian-amber px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border whitespace-nowrap">
+          ${getPriorityDotHtml(s, undefined, undefined, 'w-1.5 h-1.5')}
+          <span>${escapeHtml(s.code || 'LIBRE')}</span>
         </span>
       </td>
+      <td class="px-2 py-1.5 border-r border-obsidian-border truncate font-medium" style="color:${escapeHtml(cColor)}">${escapeHtml(s.client || 'Interno')}</td>
       <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C] truncate">${escapeHtml(s.brand || '—')}</td>
-      <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4] font-medium">${escapeHtml(s.title)}</td>
-      <td class="px-2 py-1.5 border-r border-obsidian-border font-mono text-[10px] text-center ${isOverRow ? 'bg-rose-500/10 text-rose-300 font-semibold' : 'text-obsidian-amber'}">${hrs}h${sketchState.stripboardViewMode === 'day' ? ` <span class="text-[9px] text-[#8C8C8C]">(${runningHoursRef.total}h)</span>` : ''}</td>
+      <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4] font-medium">
+        ${isFree
+          ? `<input type="text" data-sb-edit-title="${idx}" value="${escapeHtml(s.title)}" class="w-full bg-transparent border border-transparent hover:border-obsidian-border focus:border-obsidian-amber focus:bg-[#191919] rounded px-1.5 py-0.5 text-[#D4D4D4] font-medium focus:outline-none" />`
+          : escapeHtml(s.title)
+        }
+      </td>
+      <td class="px-2 py-1.5 border-r border-obsidian-border font-mono text-[10px] text-center ${isOverRow ? 'bg-rose-500/10 text-rose-300 font-semibold' : 'text-obsidian-amber'}">
+        <div class="inline-flex items-center justify-center gap-1">
+          <input type="number" min="0.5" max="24" step="0.5" value="${hrs}" data-sb-hours-idx="${idx}"
+            class="w-11 bg-[#191919] border border-obsidian-border rounded px-1 py-0.5 text-center font-mono text-[10px] text-obsidian-amber focus:outline-none" />
+          ${sketchState.stripboardViewMode === 'day' ? `<span class="text-[9px] text-[#8C8C8C]">(${runningHoursRef.total}h)</span>` : ''}
+        </div>
+      </td>
       <td class="px-2 py-1.5 border-r border-obsidian-border font-mono text-[10px] text-[#8C8C8C] text-center">${escapeHtml(formatShortDate(s.deliveryDate) || 'Hoy')}</td>
+      <td class="px-2 py-1.5 border-r border-obsidian-border truncate" style="color:${escapeHtml(getDepartmentColor(s.department))}">${escapeHtml(s.department || '—')}</td>
+      <td class="px-2 py-1.5 border-r border-obsidian-border">
+        <select data-sb-stage-idx="${idx}" style="color:${escapeHtml(getStageColor(s.stage || 'Tráfico'))}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1 py-0.5 text-[10px] focus:outline-none cursor-pointer">
+          ${trafficStages.map((st) => `<option value="${escapeHtml(st)}" ${(s.stage || 'Tráfico') === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('')}
+        </select>
+      </td>
       <td class="px-2 py-1.5 border-r border-obsidian-border">
         <select data-sb-status-idx="${idx}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1 py-0.5 text-[10px] text-[#D4D4D4] focus:outline-none cursor-pointer">
           ${trafficStatuses.map((st) => `<option value="${escapeHtml(st)}" ${s.status === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('')}
@@ -259,22 +329,19 @@ export function renderStripboard() {
     if (item.type === 'break') {
       return (
         trafficFilter.type === 'all' &&
-        sketchState.stripboardStatusFilter === 'all' &&
+        sketchState.trafficDeptFilter === 'all' &&
+        sketchState.trafficStageFilter === 'all' &&
+        sketchState.trafficStatusFilter === 'all' &&
+        sketchState.trafficDateFilter === 'all' &&
         !sketchState.stripboardSearch.trim() &&
-        sketchState.stripboardGroupBy === 'none' &&
-        sketchState.stripboardSortBy === 'manual'
+        sketchState.stripboardGroupBy === 'none'
       );
     }
-    if (trafficFilter.type === 'client' && item.client !== trafficFilter.client) return false;
-    if (trafficFilter.type === 'brand' && (item.client !== trafficFilter.client || item.brand !== trafficFilter.brand)) return false;
-    if (sketchState.stripboardStatusFilter !== 'all' && item.status !== sketchState.stripboardStatusFilter) return false;
-    if (sketchState.stripboardSearch.trim()) {
-      const q = sketchState.stripboardSearch.trim().toLowerCase();
-      if (![item.code, item.client, item.brand, item.title, item.status, item.notes].some((v) => String(v || '').toLowerCase().includes(q))) {
-        return false;
-      }
-    }
-    return true;
+    return matchesCommonTrafficFilters(item, {
+      state: sketchState,
+      checkResponsible: false,
+      searchQuery: sketchState.stripboardSearch,
+    });
   };
 
   const allPool = getAllMyTaskPool();
@@ -282,18 +349,15 @@ export function renderStripboard() {
     ? ensureStripboardListSeeded()
     : ensureStripboardDaySeeded(sketchState.stripboardDate);
 
-  const visibleStrips = strips.filter(matchesTrafficFilter);
-  if (sketchState.stripboardSortBy === 'delivery-asc') {
-    visibleStrips.sort((a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || ''));
-  } else if (sketchState.stripboardSortBy === 'delivery-desc') {
-    visibleStrips.sort((a, b) => (b.deliveryDate || '').localeCompare(a.deliveryDate || ''));
-  } else if (sketchState.stripboardSortBy === 'code') {
-    visibleStrips.sort((a, b) => (a.code || '').localeCompare(b.code || ''));
-  }
+  const filteredStrips = strips.filter(matchesTrafficFilter);
+  const visibleStrips = sketchState.stripboardViewMode !== 'day'
+    ? sortTrafficItemsByEntryDate(filteredStrips, sketchState.trafficSortBy)
+    : filteredStrips;
 
   const taskStrips = visibleStrips.filter((s) => s.type !== 'break');
-  const activeCount = taskStrips.filter((s) => s.status !== 'Entregado').length;
-  const doneCount = taskStrips.filter((s) => s.status === 'Entregado').length;
+  const doneStages = new Set(['Cerrar OT y Facturar', 'Facturada', 'Pagada']);
+  const activeCount = taskStrips.filter((s) => s.status === 'En proceso' && !doneStages.has(s.stage)).length;
+  const doneCount = taskStrips.filter((s) => doneStages.has(s.stage)).length;
   const dayReservedHours = getDayReservedHours(sketchState.stripboardDate);
   const dayOverloaded = dayReservedHours > dailyHours;
 
@@ -303,7 +367,7 @@ export function renderStripboard() {
     let tbodyHtml = '';
 
     if (!visibleStrips.length) {
-      tbodyHtml = '<tr><td colspan="10" class="p-8 text-center text-[11px] text-[#8C8C8C]">Sin tiras programadas para este filtro o día.</td></tr>';
+      tbodyHtml = '<tr><td colspan="12" class="p-8 text-center text-[11px] text-[#8C8C8C]">Sin tiras programadas para este filtro o día.</td></tr>';
     } else if (sketchState.stripboardGroupBy !== 'none') {
       const groups = buildStripGroups(visibleStrips, sketchState.stripboardGroupBy);
       let visCounter = 0;
@@ -311,12 +375,9 @@ export function renderStripboard() {
         const groupHours = grp.items.reduce((sum, s) => sum + (Number(s.estimatedHours) || 0), 0);
         const headerRow = `
           <tr class="bg-[#191919] border-y border-obsidian-border text-[10px] font-semibold uppercase tracking-[0.1em] text-[#8C8C8C] select-none">
-            <td colspan="10" class="px-2.5 py-1.5">
+            <td colspan="12" class="px-2.5 py-1.5">
               <div class="flex items-center justify-between">
-                <span class="inline-flex items-center gap-1.5 text-[#D4D4D4]">
-                  ${grp.color ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(grp.color)}"></span>` : ''}
-                  <span>${escapeHtml(grp.label)}</span>
-                </span>
+                <span class="font-semibold" style="${grp.color ? `color:${escapeHtml(grp.color)}` : 'color:#D4D4D4'}">${escapeHtml(grp.label)}</span>
                 <span class="font-mono text-[9.5px] text-[#8C8C8C]">${grp.items.length} ${grp.items.length === 1 ? 'tarea' : 'tareas'} · ${groupHours}h</span>
               </div>
             </td>
@@ -329,147 +390,87 @@ export function renderStripboard() {
       tbodyHtml = visibleStrips.map((s, visIdx) => renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours)).join('');
     }
 
-    mainContentHtml = `
-      <div class="flex-1 overflow-auto border border-obsidian-border rounded-xl bg-[#202020]">
-        <table class="w-full text-left text-[10.5px] border-collapse">
-          <thead>
-            <tr class="bg-[#191919] border-b border-obsidian-border text-[9.5px] text-[#8C8C8C] uppercase tracking-wider select-none">
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-8 text-center">#</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-24">Código</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-32">Cliente</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-28">Marca</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border">Tarea</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-20 text-center">Horas</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-24 text-center">Entrega</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-24">Estado</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-36">Notas</th>
-              <th class="px-2 py-1.5 w-8 text-center"></th>
-            </tr>
-          </thead>
-          <tbody id="sb-day-tbody" class="divide-y divide-obsidian-border">
-            ${tbodyHtml}
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else if (sketchState.stripboardViewMode === 'week') {
-    const base = new Date(`${sketchState.stripboardDate}T12:00:00`);
-    const day = base.getDay();
-    const diffToMon = day === 0 ? -6 : 1 - day;
-    const monday = new Date(base);
-    monday.setDate(base.getDate() + diffToMon);
-    const dayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const cols = dayNames.map((name, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const iso = d.toISOString().slice(0, 10);
-      const dayStrips = ensureStripboardDaySeeded(iso).filter((s) => s.type !== 'break' && matchesTrafficFilter(s));
-      const reservedHours = getDayReservedHours(iso);
-      return { name, iso, label: `${name} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`, items: dayStrips, reservedHours, isOver: reservedHours > dailyHours };
-    });
+    let dayNavHtml = '';
+    if (sketchState.stripboardViewMode === 'day') {
+      const { title, subtitle, centerLabel } = formatLongDayHeading(sketchState.stripboardDate);
+      dayNavHtml = renderScheduleNavHeader(title, 'Día anterior', 'Día siguiente', { subtitle, centerLabel });
+    }
 
     mainContentHtml = `
-      <div class="flex-1 grid grid-cols-2 lg:grid-cols-6 gap-2 overflow-auto">
-        ${cols.map((c) => `
-          <div data-sb-week-date="${c.iso}" class="sb-week-col bg-[#202020] border ${c.isOver ? 'border-rose-500/60 bg-rose-500/5' : (c.iso === sketchState.stripboardDate ? 'border-obsidian-amber/50' : 'border-obsidian-border')} rounded-xl p-2 flex flex-col gap-2 min-h-[260px] transition-colors">
-            <div class="flex items-center justify-between text-[10px] uppercase tracking-wider pb-1 border-b border-obsidian-border">
-              <span class="${c.iso === sketchState.stripboardDate ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]'}">${c.label}</span>
-              <span class="font-mono px-1.5 py-0.5 rounded ${c.isOver ? 'bg-rose-500/20 text-rose-300 font-semibold' : 'text-[#8C8C8C]'}">${c.reservedHours}h / ${dailyHours}h</span>
-            </div>
-            <div class="flex flex-col gap-1.5 flex-1">
-              ${c.items.map((item) => `
-                <div draggable="true" data-sb-uid="${escapeHtml(item.uid || '')}" data-sb-ot="${escapeHtml(item.otId || '')}" data-sb-task="${item.taskIndex !== undefined ? item.taskIndex : ''}" class="sb-open-trigger sb-week-card bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border rounded-lg p-2 space-y-1 cursor-grab active:cursor-grabbing transition-colors">
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="font-mono text-[9.5px] text-obsidian-amber">${escapeHtml(item.code || 'LIBRE')}</span>
-                    <span class="font-mono text-[9px] text-[#8C8C8C] bg-[#202020] px-1 py-0.5 rounded">${Number(item.estimatedHours ?? 3) || 0}h</span>
-                  </div>
-                  <div class="text-[11px] text-[#D4D4D4] leading-snug line-clamp-2">${escapeHtml(item.title)}</div>
-                  <div class="text-[9.5px] text-[#8C8C8C] truncate">${escapeHtml(item.client || 'Interno')}</div>
-                </div>
-              `).join('') || '<div class="text-[10px] text-[#5a6169] text-center py-4">Sin tiras</div>'}
-            </div>
-          </div>
-        `).join('')}
+      <div class="flex-1 flex flex-col gap-2 overflow-hidden">
+        ${dayNavHtml}
+        <div class="flex-1 overflow-auto border border-obsidian-border rounded-xl bg-[#202020]">
+          <table class="w-full text-left text-[10.5px] border-collapse">
+            <thead>
+              <tr class="bg-[#191919] border-b border-obsidian-border text-[9.5px] text-[#8C8C8C] uppercase tracking-wider select-none">
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-8 text-center">#<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-24">Código<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-32">Cliente<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-28">Marca<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border">Tarea<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-20 text-center">Horas<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-24 text-center">Entrega<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-24">Depto.<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-28">Etapa<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-28">Estado<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="relative px-2 py-1.5 border-r border-obsidian-border w-36">Notas<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                <th class="px-2 py-1.5 w-8 text-center"></th>
+              </tr>
+            </thead>
+            <tbody id="sb-day-tbody" class="divide-y divide-obsidian-border">
+              ${tbodyHtml}
+            </tbody>
+          </table>
+        </div>
       </div>
     `;
+  } else if (sketchState.stripboardViewMode === 'kanban') {
+    const kanbanPool = sortTrafficItemsByEntryDate(
+      allPool.filter(matchesTrafficFilter).map((t) => ({ ...t, id: t.code || t.otId })),
+      sketchState.trafficSortBy
+    );
+    const kanbanGroupBy = ['priority', 'stage', 'status', 'department', 'client'].includes(sketchState.stripboardGroupBy)
+      ? sketchState.stripboardGroupBy
+      : 'stage';
+    mainContentHtml = renderKanbanScheduleHtml({
+      items: kanbanPool,
+      groupBy: kanbanGroupBy,
+      todayKey: relDate(0).slice(0, 10),
+      tomorrowKey: relDate(1).slice(0, 10),
+      departments: trafficDepartments,
+      stages: trafficStages,
+      statuses: trafficStatuses,
+      members: trafficMembers,
+      wrap: true,
+    });
+  } else if (sketchState.stripboardViewMode === 'week') {
+    mainContentHtml = renderWeekScheduleHtml({
+      anchorDate: sketchState.stripboardDate,
+      dailyHours,
+      showHoursBadge: true,
+      draggableCards: true,
+      emptyColText: 'Sin tiras',
+      getDayItems: (iso) => ensureStripboardDaySeeded(iso).filter((s) => matchesTrafficFilter(s)),
+    });
   } else if (sketchState.stripboardViewMode === 'gantt') {
     const rows = taskStrips.length ? taskStrips : allPool.slice(0, 5);
-    mainContentHtml = `
-      <div class="flex-1 border border-obsidian-border rounded-xl bg-[#202020] p-3 overflow-auto space-y-2">
-        <div class="grid grid-cols-12 text-[9.5px] uppercase tracking-wider text-[#8C8C8C] pb-1.5 border-b border-obsidian-border">
-          <div class="col-span-4">Tarea / OT</div>
-          <div class="col-span-8 grid grid-cols-6 text-center"><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span></div>
-        </div>
-        ${rows.map((r, i) => {
-          const startCol = (i % 3) + 1;
-          const span = Math.min(4, 7 - startCol);
-          const cColor = getClientColor(r.client);
-          return `
-            <div class="grid grid-cols-12 items-center gap-2 py-1 text-[10.5px]">
-              <div class="col-span-4 truncate flex items-center gap-1.5">
-                <span class="font-mono text-[9.5px] text-obsidian-amber shrink-0">${escapeHtml(r.code || 'LIBRE')}</span>
-                <span class="truncate text-[#D4D4D4]">${escapeHtml(r.title)}</span>
-              </div>
-              <div class="col-span-8 grid grid-cols-6 gap-1 items-center bg-[#191919] rounded-md p-1">
-                <div style="grid-column: ${startCol} / span ${span}; background: ${escapeHtml(cColor)}33; border-color: ${escapeHtml(cColor)};" class="border rounded px-2 py-0.5 text-[9.5px] text-[#D4D4D4] truncate">
-                  ${escapeHtml(r.client || 'Interno')} · ${escapeHtml(r.status)}
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  } else {
-    const year = Number(sketchState.stripboardDate.slice(0, 4));
-    const month = Number(sketchState.stripboardDate.slice(5, 7)) - 1;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cells = Array.from({ length: daysInMonth }, (_, i) => {
-      const dNum = i + 1;
-      const iso = `${sketchState.stripboardDate.slice(0, 8)}${String(dNum).padStart(2, '0')}`;
-      const dayTasks = ensureStripboardDaySeeded(iso).filter((s) => s.type !== 'break' && matchesTrafficFilter(s));
-      return { dNum, iso, dayTasks };
+    mainContentHtml = renderGanttScheduleHtml({
+      anchorDate: sketchState.stripboardDate,
+      items: rows,
+      scale: sketchState.ganttScale,
     });
-
-    mainContentHtml = `
-      <div class="flex-1 grid grid-cols-7 gap-1.5 overflow-auto">
-        ${cells.map((c) => `
-          <button type="button" data-sb-pick-date="${c.iso}" class="bg-[#202020] hover:bg-obsidian-elevated border ${c.iso === sketchState.stripboardDate ? 'border-obsidian-amber' : 'border-obsidian-border'} rounded-lg p-2 flex flex-col gap-1 min-h-[82px] text-left cursor-pointer transition-colors">
-            <div class="flex items-center justify-between w-full">
-              <span class="font-mono text-[10px] ${c.iso === sketchState.stripboardDate ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]'}">${c.dNum}</span>
-              ${c.dayTasks.length ? `<span class="text-[9px] font-mono text-[#8C8C8C]">${c.dayTasks.length}</span>` : ''}
-            </div>
-            <div class="flex flex-col gap-0.5 w-full">
-              ${c.dayTasks.slice(0, 3).map((t) => `<span class="text-[9px] font-mono text-obsidian-amber bg-[#191919] px-1 py-0.5 rounded truncate">${escapeHtml(t.code || 'LIBRE')}</span>`).join('')}
-              ${c.dayTasks.length > 3 ? `<span class="text-[9px] font-mono text-[#8C8C8C]">+${c.dayTasks.length - 3} más</span>` : ''}
-            </div>
-          </button>
-        `).join('')}
-      </div>
-    `;
+  } else {
+    mainContentHtml = renderMonthScheduleHtml({
+      anchorDate: sketchState.stripboardDate,
+      dateAttr: 'data-sb-pick-date',
+      getDayItems: (iso) => ensureStripboardDaySeeded(iso).filter((s) => matchesTrafficFilter(s)),
+    });
   }
 
   container.innerHTML = `
     <!-- Toolbar Stripboard -->
     <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-obsidian-border shrink-0">
-      <div class="flex items-center gap-1">
-        <button type="button" id="sb-prev-day" class="w-6 h-6 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center cursor-pointer">
-          <span data-icon="chevron-left" data-icon-size="w-3 h-3"></span>
-        </button>
-        <input type="date" id="sb-date-input" value="${sketchState.stripboardDate}" style="color-scheme: dark;" class="h-6 bg-[#191919] border border-obsidian-border rounded-md px-2 text-[11px] text-[#D4D4D4] focus:outline-none cursor-pointer" />
-        <button type="button" id="sb-today-btn" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[11px] text-[#D4D4D4] cursor-pointer">Hoy</button>
-        <button type="button" id="sb-next-day" class="w-6 h-6 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center cursor-pointer">
-          <span data-icon="chevron-right" data-icon-size="w-3 h-3"></span>
-        </button>
-      </div>
-
-      <div class="inline-flex items-center bg-[#191919] border border-obsidian-border rounded-lg p-0.5 text-[10.5px]">
-        ${[['list', 'Lista'], ['day', 'Día'], ['week', 'Semana'], ['gantt', 'Gantt'], ['month', 'Mes']].map(([mode, lbl]) => `
-          <button type="button" data-sb-mode="${mode}" class="px-2.5 py-0.5 rounded-md transition-colors cursor-pointer ${sketchState.stripboardViewMode === mode ? 'bg-obsidian-elevated text-[#D4D4D4] font-medium' : 'text-[#8C8C8C] hover:text-[#D4D4D4]'}">${lbl}</button>
-        `).join('')}
-      </div>
-
-      <div class="flex items-center gap-2 text-[10.5px] text-[#8C8C8C]">
+      <div class="flex flex-wrap items-center gap-2 text-[10.5px] text-[#8C8C8C]">
         <span class="hidden xl:inline">Tareas: <strong class="text-[#D4D4D4] font-mono">${taskStrips.length}</strong></span>
         <span class="hidden xl:inline">·</span>
         <span class="hidden xl:inline">En Mesa: <strong class="text-obsidian-amber font-mono">${activeCount}</strong></span>
@@ -479,31 +480,24 @@ export function renderStripboard() {
         <span class="px-1.5 py-0.5 rounded border font-mono ${dayOverloaded ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 font-semibold' : 'bg-[#191919] border-obsidian-border text-[#D4D4D4]'}">
           Día: ${dayReservedHours}h / ${dailyHours}h${dayOverloaded ? ' · Sobrecarga' : ''}
         </span>
+        <button type="button" id="sb-add-break" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Separador</button>
+        <button type="button" id="sb-add-free" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Tarea Libre</button>
       </div>
 
-      <div class="flex flex-wrap items-center gap-1.5">
+      <div class="flex flex-wrap items-center gap-2">
         <div class="relative flex items-center">
           <span data-icon="search" data-icon-size="w-3 h-3" class="text-[#8C8C8C] absolute left-2 pointer-events-none"></span>
           <input type="text" id="sb-search-input" value="${escapeHtml(sketchState.stripboardSearch)}" placeholder="Buscar..." class="h-6 w-28 focus:w-40 bg-[#191919] border border-obsidian-border rounded-md pl-6 pr-2 text-[10.5px] text-[#D4D4D4] placeholder-[#5a6169] focus:outline-none transition-all" />
         </div>
-        <select id="sb-status-filter" class="h-6 bg-[#191919] border border-obsidian-border rounded-md px-1.5 text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
-          <option value="all" ${sketchState.stripboardStatusFilter === 'all' ? 'selected' : ''}>Estado: Todos</option>
-          ${trafficStatuses.map((st) => `<option value="${escapeHtml(st)}" ${sketchState.stripboardStatusFilter === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('')}
-        </select>
-        <select id="sb-group-by" class="h-6 bg-[#191919] border border-obsidian-border rounded-md px-1.5 text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
-          <option value="none" ${sketchState.stripboardGroupBy === 'none' ? 'selected' : ''}>Sin agrupar</option>
-          <option value="client" ${sketchState.stripboardGroupBy === 'client' ? 'selected' : ''}>Agrupar: Cliente</option>
-          <option value="status" ${sketchState.stripboardGroupBy === 'status' ? 'selected' : ''}>Agrupar: Estado</option>
-          <option value="deliveryDate" ${sketchState.stripboardGroupBy === 'deliveryDate' ? 'selected' : ''}>Agrupar: Entrega</option>
-        </select>
-        <select id="sb-sort-by" class="h-6 bg-[#191919] border border-obsidian-border rounded-md px-1.5 text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
-          <option value="manual" ${sketchState.stripboardSortBy === 'manual' ? 'selected' : ''}>Orden: Manual</option>
-          <option value="delivery-asc" ${sketchState.stripboardSortBy === 'delivery-asc' ? 'selected' : ''}>Entrega: Próximas</option>
-          <option value="delivery-desc" ${sketchState.stripboardSortBy === 'delivery-desc' ? 'selected' : ''}>Entrega: Lejanas</option>
-          <option value="code" ${sketchState.stripboardSortBy === 'code' ? 'selected' : ''}>Orden: Código</option>
-        </select>
-        <button type="button" id="sb-add-break" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Separador</button>
-        <button type="button" id="sb-add-free" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Tarea Libre</button>
+        <div class="inline-flex items-center bg-[#191919] border border-obsidian-border rounded-lg p-0.5 text-[10.5px]">
+          ${[['list', 'Lista'], ['kanban', 'Kanban'], ['gantt', 'Gantt']].map(([mode, lbl]) => `
+            <button type="button" data-sb-mode="${mode}" class="px-2.5 py-0.5 rounded-md transition-colors cursor-pointer ${sketchState.stripboardViewMode === mode ? 'bg-obsidian-elevated text-[#D4D4D4] font-medium' : 'text-[#8C8C8C] hover:text-[#D4D4D4]'}">${lbl}</button>
+          `).join('')}
+          <span class="w-px h-3.5 bg-obsidian-border mx-1"></span>
+          ${[['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']].map(([mode, lbl]) => `
+            <button type="button" data-sb-mode="${mode}" class="px-2.5 py-0.5 rounded-md transition-colors cursor-pointer ${sketchState.stripboardViewMode === mode ? 'bg-obsidian-elevated text-[#D4D4D4] font-medium' : 'text-[#8C8C8C] hover:text-[#D4D4D4]'}">${lbl}</button>
+          `).join('')}
+        </div>
       </div>
     </div>
 
@@ -514,6 +508,21 @@ export function renderStripboard() {
   `;
 
   if (window.hydrateIcons) window.hydrateIcons(container);
+  bindTableColResizers(container.querySelector('table'));
+
+  if (['day', 'week', 'gantt', 'month'].includes(sketchState.stripboardViewMode)) {
+    const busyDates = new Set(
+      allPool.map((t) => (t.scheduledDate || t.deliveryDate || '').slice(0, 10)).filter(Boolean)
+    );
+    renderInspectorMiniCalendar({
+      anchorDate: sketchState.stripboardDate,
+      busyDates,
+      onSelectDate: (iso) => {
+        sketchState.stripboardDate = iso;
+        renderStripboard();
+      },
+    });
+  }
 
   const sbSearchInput = container.querySelector('#sb-search-input');
   if (sbSearchInput) {
@@ -529,25 +538,22 @@ export function renderStripboard() {
     });
   }
 
-  container.querySelector('#sb-status-filter')?.addEventListener('change', (e) => {
-    sketchState.stripboardStatusFilter = e.target.value;
-    renderStripboard();
-  });
-  container.querySelector('#sb-group-by')?.addEventListener('change', (e) => {
-    sketchState.stripboardGroupBy = e.target.value;
-    renderStripboard();
-  });
-  container.querySelector('#sb-sort-by')?.addEventListener('change', (e) => {
-    sketchState.stripboardSortBy = e.target.value;
-    renderStripboard();
-  });
-
   container.querySelector('#sb-prev-day')?.addEventListener('click', () => {
-    sketchState.stripboardDate = shiftIsoDate(sketchState.stripboardDate, -1);
+    sketchState.stripboardDate = shiftScheduleDate(
+      sketchState.stripboardDate,
+      sketchState.stripboardViewMode,
+      -1,
+      sketchState.ganttScale
+    );
     renderStripboard();
   });
   container.querySelector('#sb-next-day')?.addEventListener('click', () => {
-    sketchState.stripboardDate = shiftIsoDate(sketchState.stripboardDate, 1);
+    sketchState.stripboardDate = shiftScheduleDate(
+      sketchState.stripboardDate,
+      sketchState.stripboardViewMode,
+      1,
+      sketchState.ganttScale
+    );
     renderStripboard();
   });
   container.querySelector('#sb-today-btn')?.addEventListener('click', () => {
@@ -567,6 +573,28 @@ export function renderStripboard() {
       renderStripboard();
     });
   });
+
+  bindGanttScaleEvents(container, (nextScale) => {
+    sketchState.ganttScale = nextScale;
+    renderStripboard();
+  });
+
+  bindScheduleNavEvents(
+    container,
+    (dir) => {
+      sketchState.stripboardDate = shiftScheduleDate(
+        sketchState.stripboardDate,
+        sketchState.stripboardViewMode,
+        dir,
+        sketchState.ganttScale
+      );
+      renderStripboard();
+    },
+    () => {
+      sketchState.stripboardDate = relDate(0).slice(0, 10);
+      renderStripboard();
+    }
+  );
 
   container.querySelector('#sb-load-pending')?.addEventListener('click', () => {
     const existing = new Set(strips.map((s) => s.uid));
@@ -592,7 +620,9 @@ export function renderStripboard() {
       deliveryDate: `${sketchState.stripboardDate}T18:00:00`,
       scheduledDate: sketchState.stripboardDate,
       estimatedHours: 2,
-      status: 'Desarrollo',
+      department: 'Estudio',
+      stage: 'Tráfico',
+      status: 'En proceso',
       notes: ''
     });
     renderStripboard();
@@ -615,6 +645,38 @@ export function renderStripboard() {
       if (item.otId && item.taskIndex !== undefined) {
         const ot = trafficOrders.find((o) => o.id === item.otId);
         if (ot?.subtasks?.[item.taskIndex]) ot.subtasks[item.taskIndex].status = sel.value;
+      }
+      renderStripboard();
+      notifySketchChange('orders');
+    });
+  });
+
+  container.querySelectorAll('[data-sb-stage-idx]').forEach((sel) => {
+    sel.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const item = strips[Number(sel.dataset.sbStageIdx)];
+      if (!item) return;
+      item.stage = sel.value;
+      if (item.otId && item.taskIndex !== undefined) {
+        const ot = trafficOrders.find((o) => o.id === item.otId);
+        if (ot?.subtasks?.[item.taskIndex]) ot.subtasks[item.taskIndex].stage = sel.value;
+      }
+      renderStripboard();
+      notifySketchChange('orders');
+    });
+  });
+
+  container.querySelectorAll('[data-sb-hours-idx]').forEach((inp) => {
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const item = strips[Number(inp.dataset.sbHoursIdx)];
+      if (!item) return;
+      const val = Math.max(0.5, Math.min(24, Number(inp.value) || 0.5));
+      item.estimatedHours = val;
+      if (item.otId && item.taskIndex !== undefined) {
+        const ot = trafficOrders.find((o) => o.id === item.otId);
+        if (ot?.subtasks?.[item.taskIndex]) ot.subtasks[item.taskIndex].estimatedHours = val;
       }
       renderStripboard();
       notifySketchChange('orders');
@@ -710,9 +772,80 @@ export function renderStripboard() {
     });
   });
 
+  container.querySelectorAll('[data-sb-edit-title]').forEach((inp) => {
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const item = strips[Number(inp.dataset.sbEditTitle)];
+      if (!item) return;
+      const next = inp.value.trim();
+      if (next) item.title = next;
+      else inp.value = item.title;
+    });
+  });
+
+  container.querySelectorAll('[data-sb-week-title]').forEach((inp) => {
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const dayList = ensureStripboardDaySeeded(inp.dataset.sbWeekDay);
+      const item = dayList.find((s) => s.uid === inp.dataset.sbWeekTitle);
+      if (!item) return;
+      const next = inp.value.trim();
+      if (next) item.title = next;
+      else inp.value = item.title;
+    });
+  });
+
+  container.querySelectorAll('[data-sb-week-hours]').forEach((inp) => {
+    inp.addEventListener('click', (e) => e.stopPropagation());
+    inp.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const dayList = ensureStripboardDaySeeded(inp.dataset.sbWeekDay);
+      const item = dayList.find((s) => s.uid === inp.dataset.sbWeekHours);
+      if (!item) return;
+      item.estimatedHours = Math.max(0.5, Math.min(24, Number(inp.value) || 0.5));
+      renderStripboard();
+    });
+  });
+
+  container.querySelectorAll('[data-sb-week-remove]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const uid = btn.dataset.sbWeekRemove;
+      const dayIso = btn.dataset.sbWeekDay;
+      if (!uid || !dayIso) return;
+      const dayList = ensureStripboardDaySeeded(dayIso);
+      const rmIdx = dayList.findIndex((s) => s.uid === uid);
+      if (rmIdx !== -1) {
+        dayList.splice(rmIdx, 1);
+        renderStripboard();
+      }
+    });
+  });
+
   container.querySelectorAll('.sb-open-trigger').forEach((card) => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button, select, input')) return;
       openOtFromStrip(card.dataset.sbOt, card.dataset.sbTask);
+    });
+  });
+
+  if (sketchState.stripboardViewMode === 'kanban') {
+    bindKanbanScheduleEvents({
+      container,
+      orders: trafficOrders,
+      onOpenItem: (otId, taskIdx) => openOtFromStrip(otId, taskIdx),
+      onChanged: () => {
+        renderStripboard();
+        notifySketchChange('orders');
+      },
+    });
+  }
+
+  container.querySelectorAll('[data-sched-ot]').forEach((el) => {
+    el.addEventListener('click', () => {
+      openOtFromStrip(el.dataset.schedOt, el.dataset.schedTask || '');
     });
   });
 

@@ -3,19 +3,44 @@
  */
 
 import {
+  bindTableColResizers,
   escapeHtml,
   formatShortDate,
   getClientColor,
+  getDepartmentColor,
+  getPriorityDotHtml,
+  getStageColor,
+  getStatusColor,
+  matchesCommonTrafficFilters,
   notifySketchChange,
   onSketchChange,
+  relDate,
+  renderOtActivityHtml,
   sketchState,
+  sortTrafficItemsByEntryDate,
   studioSettings,
+  trafficDepartments,
   trafficMembers,
   trafficOrders,
+  trafficStages,
   trafficStatuses,
   ensureOtData
 } from './store.js';
 import { renderGallerySectionHtml, bindGalleryEvents } from './gallery.js';
+import { renderTrafficTree } from './traffic.js';
+import {
+  bindGanttScaleEvents,
+  bindKanbanScheduleEvents,
+  bindScheduleNavEvents,
+  formatLongDayHeading,
+  renderGanttScheduleHtml,
+  renderInspectorMiniCalendar,
+  renderKanbanScheduleHtml,
+  renderMonthScheduleHtml,
+  renderScheduleNavHeader,
+  renderWeekScheduleHtml,
+  shiftScheduleDate,
+} from './schedule-views.js';
 import {
   ensureStripboardDaySeeded,
   getDayReservedHours,
@@ -24,6 +49,7 @@ import {
 
 let initialized = false;
 let jumpStripboardCb = null;
+let backToTrafficCb = null;
 
 /**
  * Sync active state of .myots-mode-btn buttons with sketchState.myOtsMode.
@@ -33,22 +59,23 @@ function syncMyOtsModeButtons() {
     const active = b.dataset.myotsMode === sketchState.myOtsMode;
     b.classList.toggle('bg-obsidian-elevated', active);
     b.classList.toggle('text-[#D4D4D4]', active);
+    b.classList.toggle('font-medium', active);
     b.classList.toggle('text-[#8C8C8C]', !active);
-    b.classList.toggle('hover:bg-obsidian-elevated', !active);
+    b.classList.toggle('hover:text-[#D4D4D4]', !active);
   });
 }
 
 /**
- * Ensure #my-ots-member-select and #my-ots-count exist in #view-my-ots and are connected.
+ * Ensure #my-ots-member-label and #my-ots-count exist in #view-my-ots.
  */
 function ensureMyOtsHeaderControls() {
   const topbar = document.getElementById('my-ots-topbar');
   if (!topbar) return;
 
-  let memberSel = document.getElementById('my-ots-member-select');
+  let memberLabel = document.getElementById('my-ots-member-label');
   let countEl = document.getElementById('my-ots-count');
 
-  if (!memberSel || !countEl) {
+  if (!memberLabel || !countEl) {
     let controlsWrap = document.getElementById('my-ots-extra-controls');
     if (!controlsWrap) {
       controlsWrap = document.createElement('div');
@@ -61,11 +88,11 @@ function ensureMyOtsHeaderControls() {
         topbar.appendChild(controlsWrap);
       }
     }
-    if (!memberSel) {
-      memberSel = document.createElement('select');
-      memberSel.id = 'my-ots-member-select';
-      memberSel.className = 'h-6 bg-[#191919] border border-obsidian-border rounded-md px-1.5 text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer';
-      controlsWrap.appendChild(memberSel);
+    if (!memberLabel) {
+      memberLabel = document.createElement('span');
+      memberLabel.id = 'my-ots-member-label';
+      memberLabel.className = 'text-[11px] font-medium text-[#D4D4D4] whitespace-nowrap';
+      controlsWrap.appendChild(memberLabel);
     }
     if (!countEl) {
       countEl = document.createElement('span');
@@ -75,19 +102,7 @@ function ensureMyOtsHeaderControls() {
     }
   }
 
-  memberSel.innerHTML = trafficMembers
-    .map((m) => `<option value="${escapeHtml(m)}" ${m === sketchState.myOtsMember ? 'selected' : ''}>${escapeHtml(m)}</option>`)
-    .join('');
-
-  if (!memberSel.dataset.bound) {
-    memberSel.dataset.bound = '1';
-    memberSel.addEventListener('change', (e) => {
-      sketchState.myOtsMember = e.target.value;
-      sketchState.activeMyOtId = null;
-      sketchState.activeTaskIndex = null;
-      renderMyOts();
-    });
-  }
+  memberLabel.textContent = sketchState.myOtsMember || 'Andrés';
 }
 
 /**
@@ -170,22 +185,30 @@ export function renderOtTaskTree(ot, taskTreeList, selectedTaskIndex = null, onS
  */
 export function renderOtInfoRowHtml(ot, formatDateFn = formatShortDate) {
   const cColor = getClientColor(ot.client);
+  const brandStr = String(ot.brand || '').trim();
+  const productStr = String(ot.product || '').trim();
+  const brandIsClient = !brandStr || brandStr.toLowerCase() === String(ot.client || '').trim().toLowerCase() || brandStr.toLowerCase() === 'institucional';
+  const brandVal = brandIsClient ? '—' : brandStr;
+  const productVal = brandIsClient
+    ? (productStr || 'Institucional')
+    : (productStr && productStr.toLowerCase() !== 'institucional' ? productStr : '—');
   return `
-    <div class="bg-[#202020] border border-obsidian-border rounded-xl p-2.5 grid grid-cols-2 sm:grid-cols-5 lg:grid-cols-10 gap-1.5 text-[10.5px]">
+    <div class="bg-[#202020] border border-obsidian-border rounded-xl p-2.5 grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-11 gap-1.5 text-[10.5px]">
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">No. OT</label>
         <input type="text" readonly value="${escapeHtml(ot.id)}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-obsidian-amber font-mono font-semibold text-[10.5px] focus:outline-none">
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Cliente</label>
-        <div class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium truncate flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
-          <span class="truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</span>
-        </div>
+        <div class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</div>
       </div>
       <div>
-        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Marca/Prod.</label>
-        <input type="text" value="${escapeHtml(ot.brand)}${ot.product && ot.product !== ot.brand ? ' · ' + escapeHtml(ot.product) : ''}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#D4D4D4] focus:outline-none">
+        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Marca</label>
+        <input type="text" value="${escapeHtml(brandVal)}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#D4D4D4] focus:outline-none">
+      </div>
+      <div>
+        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Producto</label>
+        <input type="text" value="${escapeHtml(productVal)}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#D4D4D4] focus:outline-none">
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Medio</label>
@@ -200,13 +223,25 @@ export function renderOtInfoRowHtml(ot, formatDateFn = formatShortDate) {
         <input type="text" value="${escapeHtml(ot.title)}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#D4D4D4] focus:outline-none">
       </div>
       <div>
+        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Depto.</label>
+        <select data-ot-id="${escapeHtml(ot.id)}" style="color:${escapeHtml(getDepartmentColor(ot.department))}" class="myots-dept-sel w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium focus:outline-none cursor-pointer">
+          ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" ${ot.department === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Etapa</label>
+        <select data-ot-id="${escapeHtml(ot.id)}" style="color:${escapeHtml(getStageColor(ot.stage || 'Tráfico'))}" class="myots-stage-sel w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium focus:outline-none cursor-pointer">
+          ${trafficStages.map((st) => `<option value="${escapeHtml(st)}" ${(ot.stage || 'Tráfico') === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Estado</label>
-        <select data-ot-id="${escapeHtml(ot.id)}" class="myots-status-sel w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
+        <select data-ot-id="${escapeHtml(ot.id)}" style="color:${escapeHtml(getStatusColor(ot.status))}" class="myots-status-sel w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium focus:outline-none cursor-pointer">
           ${trafficStatuses.map((s) => `<option value="${escapeHtml(s)}" ${ot.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
         </select>
       </div>
       <div>
-        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Firma</label>
+        <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Responsable</label>
         <input type="text" readonly value="${escapeHtml(ot.responsible)}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] text-[#8C8C8C] focus:outline-none">
       </div>
       <div>
@@ -255,7 +290,7 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
               <th class="px-2 py-1.5 border-r border-obsidian-border w-24">De:</th>
               <th class="px-2 py-1.5 border-r border-obsidian-border w-24">Para:</th>
               <th class="px-2 py-1.5 border-r border-obsidian-border">Descripción</th>
-              <th class="px-2 py-1.5 border-r border-obsidian-border w-24">Firma</th>
+              <th class="px-2 py-1.5 border-r border-obsidian-border w-24">Responsable</th>
               <th class="px-2 py-1.5 border-r border-obsidian-border">Notas</th>
               <th class="px-2 py-1.5 w-9 text-center"><span data-icon="lock" data-icon-size="w-3 h-3"></span></th>
             </tr>
@@ -330,8 +365,26 @@ function renderInspectorPanel(activeOt, inspTask) {
   const rightBodyEl = document.getElementById('right-body');
   if (!rightBodyEl) return;
 
-  if (!inspTask || !activeOt) {
+  if (!activeOt) {
     rightBodyEl.innerHTML = '';
+    return;
+  }
+
+  if (!inspTask) {
+    const cColor = getClientColor(activeOt.client);
+    rightBodyEl.innerHTML = `
+      <div class="space-y-3 text-[11px]">
+        <div class="pb-2 border-b border-obsidian-border space-y-1">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-[10px] font-semibold text-obsidian-amber px-1.5 py-0.5 rounded bg-[#191919] border border-obsidian-border">${escapeHtml(activeOt.id)}</span>
+            <span class="text-[10px] text-[#8C8C8C]">${escapeHtml(activeOt.status || '')}</span>
+          </div>
+          <div class="text-[12px] font-medium text-[#D4D4D4] leading-snug">${escapeHtml(activeOt.title || '')}</div>
+          <div class="text-[10px] font-medium truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(activeOt.client || '')}</div>
+        </div>
+        ${renderOtActivityHtml(activeOt)}
+      </div>
+    `;
     return;
   }
 
@@ -383,6 +436,7 @@ function renderInspectorPanel(activeOt, inspTask) {
         <button type="button" id="insp-go-sb-day" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">Ver Día</button>
         <button type="button" id="insp-go-sb-week" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">Ver Semana</button>
       </div>
+      ${renderOtActivityHtml(activeOt)}
     </div>
   `;
 
@@ -455,12 +509,15 @@ export function renderMyOts() {
   const listEl = document.getElementById('my-ots-list');
   const listBodyEl = document.getElementById('my-ots-list-body');
   const kanbanEl = document.getElementById('my-ots-kanban');
+  const schedEl = document.getElementById('my-ots-schedule-view');
   const leftEnvTree = document.getElementById('left-envelope-tree');
   const taskTreeList = document.getElementById('envelope-task-tree-list');
   if (!cardsEl || !listEl || !kanbanEl) return;
 
   ensureMyOtsHeaderControls();
   syncMyOtsModeButtons();
+  document.getElementById('my-ots-mode-switch')?.classList.toggle('hidden', sketchState.myOtsMode === 'cards');
+  document.getElementById('my-ots-extra-controls')?.classList.toggle('hidden', sketchState.myOtsMode === 'cards');
   const countEl = document.getElementById('my-ots-count');
 
   const isMyTasksScope = sketchState.myOtsScope === 'my-tasks';
@@ -492,7 +549,7 @@ export function renderMyOts() {
     });
   }
 
-  const mine = sketchState.myOtsScope === 'archived'
+  let mine = sketchState.myOtsScope === 'archived'
     ? trafficOrders.filter((o) => o.archived)
     : (sketchState.myOtsScope === 'traffic-open'
       ? trafficOrders.filter((o) => !o.archived)
@@ -500,15 +557,42 @@ export function renderMyOts() {
         ? myTasks
         : trafficOrders.filter((o) => !o.archived && o.responsible === sketchState.myOtsMember)));
 
+  if (sketchState.myOtsMode !== 'cards') {
+    mine = sortTrafficItemsByEntryDate(
+      mine.filter((o) =>
+        matchesCommonTrafficFilters(o, {
+          state: sketchState,
+          checkResponsible: false,
+        })
+      ),
+      sketchState.trafficSortBy
+    );
+  }
+
   if (countEl) {
     const unit = isMyTasksScope ? (mine.length === 1 ? 'Tarea' : 'Tareas') : (mine.length === 1 ? 'OT' : 'OTs');
     countEl.textContent = `${mine.length} ${unit}`;
   }
 
+  const isDayMode = sketchState.myOtsMode === 'day';
+  const isTableMode = sketchState.myOtsMode === 'list' || isDayMode;
+  const isSchedMode = ['week', 'gantt', 'month'].includes(sketchState.myOtsMode);
+  const dayHeaderEl = document.getElementById('my-ots-day-header');
+  if (dayHeaderEl) dayHeaderEl.classList.toggle('hidden', !isDayMode);
   cardsEl.classList.toggle('hidden', sketchState.myOtsMode !== 'cards');
-  listEl.classList.toggle('hidden', sketchState.myOtsMode !== 'list');
+  listEl.classList.toggle('hidden', !isTableMode);
   kanbanEl.classList.toggle('hidden', sketchState.myOtsMode !== 'kanban');
+  if (schedEl) schedEl.classList.toggle('hidden', !isSchedMode);
   leftEnvTree?.classList.toggle('hidden', sketchState.myOtsMode !== 'cards' || !mine.length);
+  const leftTrafficTree = document.getElementById('left-traffic-tree');
+  if (leftTrafficTree && !document.getElementById('view-my-ots')?.classList.contains('hidden')) {
+    const showFilters = sketchState.myOtsMode !== 'cards';
+    leftTrafficTree.classList.toggle('hidden', !showFilters);
+    if (showFilters) {
+      sketchState.trafficScope = 'my-ots';
+      renderTrafficTree();
+    }
+  }
 
   const headerLeftEl = document.getElementById('my-ots-header-left');
   const headerCodeEl = document.getElementById('my-ots-header-code');
@@ -547,22 +631,38 @@ export function renderMyOts() {
       if (centerTitle) centerTitle.textContent = activeTask && !isMyTasksScope ? `${rootLabel} / Tareas` : rootLabel;
     }
 
-    if (headerLeftEl) {
-      headerLeftEl.innerHTML = `
-        <h2 class="text-[15px] font-medium text-[#D4D4D4] truncate">${escapeHtml(displayTitle)}</h2>
-        <label class="flex items-center gap-1.5 text-[11px] cursor-pointer shrink-0">
-          <input type="checkbox" ${activeOt.urgent ? 'checked' : ''} class="accent-rose-500 rounded">
-          <span class="text-rose-400">Urgente</span>
-        </label>
-      `;
-    }
-    if (headerCodeEl) {
-      headerCodeEl.textContent = displayCode;
-      headerCodeEl.classList.remove('hidden');
-    }
-    if (infoRowEl) {
-      infoRowEl.innerHTML = renderOtInfoRowHtml(activeOt, formatShortDate);
-      infoRowEl.classList.remove('hidden');
+    if (sketchState.myOtsMode === 'cards') {
+      if (headerLeftEl) {
+        headerLeftEl.classList.remove('hidden');
+        headerLeftEl.innerHTML = `
+          <h2 class="text-[15px] font-medium text-[#D4D4D4] truncate">${escapeHtml(displayTitle)}</h2>
+          <label class="flex items-center gap-1.5 text-[11px] cursor-pointer shrink-0">
+            <input type="checkbox" ${activeOt.urgent ? 'checked' : ''} class="accent-rose-500 rounded">
+            <span class="text-rose-400">Urgente</span>
+          </label>
+        `;
+      }
+      if (headerCodeEl) {
+        headerCodeEl.textContent = displayCode;
+        headerCodeEl.classList.remove('hidden');
+      }
+      if (infoRowEl) {
+        infoRowEl.innerHTML = renderOtInfoRowHtml(activeOt, formatShortDate);
+        infoRowEl.classList.remove('hidden');
+      }
+    } else {
+      if (headerLeftEl) {
+        headerLeftEl.innerHTML = '';
+        headerLeftEl.classList.add('hidden');
+      }
+      if (headerCodeEl) {
+        headerCodeEl.textContent = '';
+        headerCodeEl.classList.add('hidden');
+      }
+      if (infoRowEl) {
+        infoRowEl.innerHTML = '';
+        infoRowEl.classList.add('hidden');
+      }
     }
   } else {
     if (headerLeftEl) headerLeftEl.innerHTML = '';
@@ -608,33 +708,73 @@ export function renderMyOts() {
         }
       }
     );
-  } else if (sketchState.myOtsMode === 'list' && listBodyEl) {
-    if (!mine.length) {
-      listBodyEl.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-[11px] text-[#8C8C8C]">${isMyTasksScope ? 'No tienes tareas asignadas.' : 'No tienes OTs asignadas.'}</td></tr>`;
+  } else if (isTableMode && listBodyEl) {
+    let tableItems = mine;
+    if (isDayMode) {
+      const anchorDate = sketchState.trafficScheduleDate;
+      const busyDates = new Set(mine.map((o) => (o.deliveryDate || '').slice(0, 10)).filter(Boolean));
+      renderInspectorMiniCalendar({
+        anchorDate,
+        busyDates,
+        onSelectDate: (iso) => {
+          sketchState.trafficScheduleDate = iso;
+          renderMyOts();
+        },
+      });
+      if (dayHeaderEl) {
+        const { title, subtitle } = formatLongDayHeading(anchorDate);
+        dayHeaderEl.innerHTML = renderScheduleNavHeader(title, 'Día anterior', 'Día siguiente', { subtitle });
+        if (window.hydrateIcons) window.hydrateIcons(dayHeaderEl);
+        bindScheduleNavEvents(
+          dayHeaderEl,
+          (dir) => {
+            sketchState.trafficScheduleDate = shiftScheduleDate(sketchState.trafficScheduleDate, 'day', dir, sketchState.ganttScale);
+            renderMyOts();
+          },
+          () => {
+            sketchState.trafficScheduleDate = relDate(0).slice(0, 10);
+            renderMyOts();
+          }
+        );
+      }
+      tableItems = mine.filter((o) => (o.deliveryDate || '').slice(0, 10) === anchorDate);
+      if (countEl) {
+        const unit = isMyTasksScope ? (tableItems.length === 1 ? 'Tarea' : 'Tareas') : (tableItems.length === 1 ? 'OT' : 'OTs');
+        countEl.textContent = `${tableItems.length} ${unit}`;
+      }
+    }
+    if (!tableItems.length) {
+      listBodyEl.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-[11px] text-[#8C8C8C]">${isDayMode ? 'Sin entregas programadas para este día.' : (isMyTasksScope ? 'No tienes tareas asignadas.' : 'No tienes OTs asignadas.')}</td></tr>`;
       return;
     }
-    listBodyEl.innerHTML = mine.map((ot, idx) => {
+    listBodyEl.innerHTML = tableItems.map((ot, idx) => {
       const zebra = idx % 2 === 1 ? 'bg-[#262626]' : 'bg-[#1d1d1d]';
       const cColor = getClientColor(ot.client);
       const realOtId = ot.otId || ot.id;
       const taskIdxAttr = ot.taskIndex !== undefined ? ot.taskIndex : '';
+      const deptVal = ot.department || 'Tráfico';
+      const stageVal = ot.stage || 'Tráfico';
       return `
         <tr data-myots-open="${escapeHtml(realOtId)}" data-myots-task="${taskIdxAttr}" class="${zebra} hover:bg-obsidian-elevated/70 transition-colors text-[10.5px] cursor-pointer">
+          <td class="px-1 py-1.5 border-r border-obsidian-border align-middle text-center">
+            ${getPriorityDotHtml(ot)}
+          </td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle">
             <span class="font-mono font-semibold text-obsidian-amber px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border whitespace-nowrap block text-center">${escapeHtml(ot.id)}</span>
           </td>
-          <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-medium truncate">
-            <span class="inline-flex items-center gap-1.5 max-w-full">
-              <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
-              <span class="truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</span>
-            </span>
-          </td>
+          <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-medium truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle truncate text-[#8C8C8C]">${escapeHtml(ot.brand)}${ot.product && ot.product !== ot.brand ? ' • ' + escapeHtml(ot.product) : ''}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle text-[#8C8C8C] truncate">${escapeHtml(ot.media)}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle"><span class="font-mono text-[#D4D4D4] px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border truncate block">${escapeHtml(ot.ref)}</span></td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle text-[#D4D4D4]"><div class="line-clamp-2 leading-tight">${escapeHtml(ot.title)}</div></td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-mono text-[10px] text-[#8C8C8C] text-center">${escapeHtml(formatShortDate(ot.entryDate))}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-mono text-[10px] text-[#8C8C8C] text-center">${escapeHtml(formatShortDate(ot.deliveryDate))}</td>
+          <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle truncate" style="color:${escapeHtml(getDepartmentColor(deptVal))}">${escapeHtml(deptVal)}</td>
+          <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle">
+            <select data-ot-id="${escapeHtml(realOtId)}" data-task-index="${taskIdxAttr}" class="myots-stage-sel w-full bg-[#191919] border border-obsidian-border rounded px-1 py-0.5 text-[10px] text-[#D4D4D4] focus:outline-none cursor-pointer">
+              ${trafficStages.map((st) => `<option value="${escapeHtml(st)}" ${stageVal === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('')}
+            </select>
+          </td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle">
             <select data-ot-id="${escapeHtml(realOtId)}" data-task-index="${taskIdxAttr}" class="myots-status-sel w-full bg-[#191919] border border-obsidian-border rounded px-1 py-0.5 text-[10px] text-[#D4D4D4] focus:outline-none cursor-pointer">
               ${trafficStatuses.map((s) => `<option value="${escapeHtml(s)}" ${ot.status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('')}
@@ -644,6 +784,8 @@ export function renderMyOts() {
         </tr>
       `;
     }).join('');
+
+    bindTableColResizers(listEl.querySelector('table'));
 
     listBodyEl.querySelectorAll('tr[data-myots-open]').forEach((row) => {
       row.addEventListener('click', (e) => {
@@ -656,75 +798,134 @@ export function renderMyOts() {
       });
     });
   } else if (sketchState.myOtsMode === 'kanban') {
-    const kanbanStatuses = ['Tráfico', 'Recibido', 'Desarrollo', 'Cliente', 'Entregado'];
-    kanbanEl.innerHTML = kanbanStatuses.map((st) => {
-      const colOts = mine.filter((o) => o.status === st);
-      return `
-        <div data-kanban-status="${escapeHtml(st)}" class="myots-kanban-col w-60 shrink-0 bg-[#202020] border border-obsidian-border rounded-xl p-2 flex flex-col gap-2">
-          <div class="flex items-center justify-between px-1 py-0.5">
-            <span class="text-[10px] uppercase tracking-[0.12em] text-[#8C8C8C]">${escapeHtml(st)}</span>
-            <span class="text-[10px] font-mono text-[#8C8C8C]">${colOts.length}</span>
-          </div>
-          <div class="flex flex-col gap-2 min-h-[120px]">
-            ${colOts.map((ot) => {
-              const cColor = getClientColor(ot.client);
-              const realOtId = ot.otId || ot.id;
-              const taskIdxAttr = ot.taskIndex !== undefined ? ot.taskIndex : '';
-              return `
-                <div draggable="true" data-kanban-ot="${escapeHtml(realOtId)}" data-kanban-task="${taskIdxAttr}" class="myots-kanban-card bg-[#191919] hover:bg-[#262626] border border-obsidian-border rounded-lg p-2.5 space-y-1.5 cursor-grab active:cursor-grabbing transition-colors">
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="font-mono text-[10px] font-semibold text-obsidian-amber">${escapeHtml(ot.id)}</span>
-                    <span class="font-mono text-[9.5px] text-[#8C8C8C]">${escapeHtml(formatShortDate(ot.deliveryDate))}</span>
-                  </div>
-                  <div class="flex items-center gap-1.5 text-[10px] truncate">
-                    <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
-                    <span class="truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</span>
-                  </div>
-                  <div class="text-[11px] text-[#D4D4D4] leading-snug line-clamp-2">${escapeHtml(ot.title)}</div>
-                  <div class="text-[10px] text-[#8C8C8C] truncate">${escapeHtml(ot.ref)} · ${escapeHtml(ot.media)}</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }).join('');
+    const groupMode = ['priority', 'stage', 'status', 'department', 'client'].includes(sketchState.myOtsGroupBy)
+      ? sketchState.myOtsGroupBy
+      : 'stage';
+    kanbanEl.innerHTML = renderKanbanScheduleHtml({
+      items: mine,
+      groupBy: groupMode,
+      todayKey: relDate(0).slice(0, 10),
+      tomorrowKey: relDate(1).slice(0, 10),
+      departments: trafficDepartments,
+      stages: trafficStages,
+      statuses: trafficStatuses,
+      members: trafficMembers,
+      wrap: false,
+    });
+    bindKanbanScheduleEvents({
+      container: kanbanEl,
+      orders: trafficOrders,
+      onOpenItem: (otId, taskIdx) => {
+        sketchState.activeMyOtId = otId;
+        sketchState.activeTaskIndex = taskIdx !== '' ? Number(taskIdx) : null;
+        sketchState.myOtsMode = 'cards';
+        renderMyOts();
+      },
+      onChanged: () => {
+        renderMyOts();
+        notifySketchChange('orders');
+      },
+    });
+  } else if (isSchedMode && schedEl) {
+    const anchorDate = sketchState.trafficScheduleDate;
+    const matchDate = (o, iso) => (o.deliveryDate || '').slice(0, 10) === iso;
 
-    let draggedOtId = null;
-    let draggedTaskIdx = '';
-    kanbanEl.querySelectorAll('.myots-kanban-card').forEach((card) => {
-      card.addEventListener('dragstart', () => {
-        draggedOtId = card.dataset.kanbanOt;
-        draggedTaskIdx = card.dataset.kanbanTask || '';
-        card.classList.add('opacity-50');
+    if (sketchState.myOtsMode === 'week') {
+      schedEl.innerHTML = renderWeekScheduleHtml({
+        anchorDate,
+        showHoursBadge: false,
+        draggableCards: false,
+        emptyColText: 'Sin entregas',
+        getDayItems: (iso) => mine.filter((o) => matchDate(o, iso)),
       });
-      card.addEventListener('dragend', () => {
-        card.classList.remove('opacity-50');
+    } else if (sketchState.myOtsMode === 'gantt') {
+      schedEl.innerHTML = renderGanttScheduleHtml({
+        anchorDate,
+        items: mine,
+        scale: sketchState.ganttScale,
+      });
+      bindGanttScaleEvents(schedEl, (nextScale) => {
+        sketchState.ganttScale = nextScale;
+        renderMyOts();
+      });
+    } else if (sketchState.myOtsMode === 'month') {
+      schedEl.innerHTML = renderMonthScheduleHtml({
+        anchorDate,
+        dateAttr: 'data-myots-pick-date',
+        getDayItems: (iso) => mine.filter((o) => matchDate(o, iso)),
+      });
+    }
+
+    if (window.hydrateIcons) window.hydrateIcons(schedEl);
+    const busyDates = new Set(mine.map((o) => (o.deliveryDate || '').slice(0, 10)).filter(Boolean));
+    renderInspectorMiniCalendar({
+      anchorDate,
+      busyDates,
+      onSelectDate: (iso) => {
+        sketchState.trafficScheduleDate = iso;
+        renderMyOts();
+      },
+    });
+    bindScheduleNavEvents(
+      schedEl,
+      (dir) => {
+        sketchState.trafficScheduleDate = shiftScheduleDate(
+          sketchState.trafficScheduleDate,
+          sketchState.myOtsMode,
+          dir,
+          sketchState.ganttScale
+        );
+        renderMyOts();
+      },
+      () => {
+        sketchState.trafficScheduleDate = relDate(0).slice(0, 10);
+        renderMyOts();
+      }
+    );
+    schedEl.querySelectorAll('[data-sched-ot]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const otId = el.dataset.schedOt;
+        if (!otId) return;
+        sketchState.activeMyOtId = otId;
+        const tIdx = el.dataset.schedTask;
+        sketchState.activeTaskIndex = tIdx !== undefined && tIdx !== '' ? Number(tIdx) : null;
+        sketchState.myOtsMode = 'cards';
+        renderMyOts();
       });
     });
-
-    kanbanEl.querySelectorAll('.myots-kanban-col').forEach((col) => {
-      col.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        col.classList.add('border-[#3a3a3a]');
-      });
-      col.addEventListener('dragleave', () => col.classList.remove('border-[#3a3a3a]'));
-      col.addEventListener('drop', (e) => {
-        e.preventDefault();
-        col.classList.remove('border-[#3a3a3a]');
-        const target = trafficOrders.find((o) => o.id === draggedOtId);
-        if (target && col.dataset.kanbanStatus) {
-          if (draggedTaskIdx !== '' && target.subtasks?.[Number(draggedTaskIdx)]) {
-            target.subtasks[Number(draggedTaskIdx)].status = col.dataset.kanbanStatus;
-          } else {
-            target.status = col.dataset.kanbanStatus;
-          }
-          renderMyOts();
-          notifySketchChange('orders');
-        }
+    schedEl.querySelectorAll('[data-myots-pick-date]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        sketchState.trafficScheduleDate = btn.dataset.myotsPickDate;
+        sketchState.myOtsMode = 'day';
+        renderMyOts();
       });
     });
   }
+
+  document.querySelectorAll('.myots-dept-sel').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const target = trafficOrders.find((o) => o.id === sel.dataset.otId);
+      if (!target) return;
+      target.department = sel.value;
+      sel.style.color = getDepartmentColor(sel.value);
+      notifySketchChange('orders');
+    });
+  });
+
+  document.querySelectorAll('.myots-stage-sel').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const target = trafficOrders.find((o) => o.id === sel.dataset.otId);
+      if (!target) return;
+      const tIdx = sel.dataset.taskIndex;
+      if (tIdx !== undefined && tIdx !== '' && target.subtasks?.[Number(tIdx)]) {
+        target.subtasks[Number(tIdx)].stage = sel.value;
+      } else {
+        target.stage = sel.value;
+      }
+      sel.style.color = getStageColor(sel.value);
+      notifySketchChange('orders');
+    });
+  });
 
   document.querySelectorAll('.myots-status-sel').forEach((sel) => {
     sel.addEventListener('change', () => {
@@ -736,6 +937,7 @@ export function renderMyOts() {
       } else {
         target.status = sel.value;
       }
+      sel.style.color = getStatusColor(sel.value);
       notifySketchChange('orders');
     });
   });
@@ -756,8 +958,9 @@ export function renderMyOts() {
 /**
  * Initialize Detalle de OT module, mode buttons, bitácora commit listeners, and store subscriptions.
  */
-export function initOtDetail({ onJumpStripboard } = {}) {
+export function initOtDetail({ onJumpStripboard, onBackToTraffic } = {}) {
   jumpStripboardCb = onJumpStripboard || null;
+  backToTrafficCb = onBackToTraffic || null;
   if (initialized) return;
   initialized = true;
 
@@ -766,6 +969,9 @@ export function initOtDetail({ onJumpStripboard } = {}) {
   document.querySelectorAll('.myots-mode-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       sketchState.myOtsMode = btn.dataset.myotsMode;
+      if (btn.dataset.myotsMode === 'kanban' || btn.dataset.myotsMode === 'list') {
+        sketchState.myOtsLastCollectionMode = btn.dataset.myotsMode;
+      }
       syncMyOtsModeButtons();
       renderMyOts();
     });

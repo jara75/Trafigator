@@ -75,7 +75,6 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 
 ## 5. Reglas de Roles y Planes (para nuevas pantallas)
 
-- **Roles en Trafikeitor:** `Dueño` (`director`) | `Miembro` (`member`, con cargo `role_title` y permiso `allowed_client_id`: `'*'` o cliente específico) | `Cliente` (revisor gratuito en todos los planes) | `Invitado` *(pendiente de implementar completamente en el Módulo Estudio / Miembros)*.
-- **Consumo de puestos:** Solo `Miembro` consume puesto en la membresía; **`Dueño`, `Cliente` e `Invitado` NO consumen puestos**.
+- **Roles en Trafikeitor:** `Dueño` (`director`, **no** cuenta en el cupo de puestos) | `Miembro` (`member`, con cargo `role_title` y permiso `allowed_client_id`: `'*'` o cliente específico) | `Cliente` (revisor gratuito en todos los planes) | `Invitado` *(pendiente de implementar completamente en el Módulo Estudio / Miembros)*.
 - **Planes:** Prueba gratis `14 días` (5 puestos), Plan Solo `USD $12/mes` (1 puesto sin invitaciones internas), Plan Estudio `USD $49/mes` (5 puestos + `USD $5` por adicional hasta máximo `10`).
 

@@ -82,12 +82,14 @@ function resetSubNavButtons() {
 }
 
 function hideAllWorkspaceViews() {
+  document.getElementById('view-desktop')?.classList.add('hidden');
   document.getElementById('view-new-ot')?.classList.add('hidden');
   document.getElementById('view-traffic')?.classList.add('hidden');
   document.getElementById('view-my-ots')?.classList.add('hidden');
   document.getElementById('view-envelope-open')?.classList.add('hidden');
   document.getElementById('view-gallery')?.classList.add('hidden');
   document.getElementById('view-stripboard')?.classList.add('hidden');
+  document.getElementById('view-review')?.classList.add('hidden');
   document.getElementById('left-traffic-tree')?.classList.add('hidden');
   document.getElementById('left-envelope-tree')?.classList.add('hidden');
   document.getElementById('left-stripboard-pool')?.classList.add('hidden');
@@ -124,6 +126,37 @@ export function initNavigation(handlers = {}) {
     syncLeftState(w);
   });
   makeColResizer('resizer-right', 'pane-right', -1, 120, 460);
+
+  const rightPane = document.getElementById('pane-right');
+  const rightResizer = document.getElementById('resizer-right');
+  const btnRightCollapse = document.getElementById('btn-right-collapse');
+  const btnRightExpand = document.getElementById('btn-right-expand');
+  let lastOpenRightW = 220;
+
+  const setRightCollapsed = (collapsed) => {
+    if (!rightPane) return;
+    if (collapsed) {
+      const curW = Math.round(rightPane.getBoundingClientRect().width);
+      if (curW >= 120) lastOpenRightW = curW;
+      rightPane.classList.add('hidden');
+      rightResizer?.classList.add('hidden');
+      if (btnRightExpand) {
+        btnRightExpand.classList.remove('hidden');
+        btnRightExpand.classList.add('flex');
+      }
+    } else {
+      rightPane.classList.remove('hidden');
+      rightPane.style.width = `${lastOpenRightW}px`;
+      rightResizer?.classList.remove('hidden');
+      if (btnRightExpand) {
+        btnRightExpand.classList.add('hidden');
+        btnRightExpand.classList.remove('flex');
+      }
+    }
+  };
+
+  btnRightCollapse?.addEventListener('click', () => setRightCollapsed(true));
+  btnRightExpand?.addEventListener('click', () => setRightCollapsed(false));
 
   document.querySelectorAll('.ot-sub-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -162,12 +195,17 @@ export function initNavigation(handlers = {}) {
       const isStripboardView = otView === 'my-tasks';
 
       if (viewNewOt) viewNewOt.classList.toggle('hidden', isDrillDown);
+      document.getElementById('view-desktop')?.classList.add('hidden');
       if (viewTraffic) viewTraffic.classList.toggle('hidden', !isTrafficGridView);
+      document.getElementById('settings-modal')?.classList.add('hidden');
       if (viewMyOts) viewMyOts.classList.toggle('hidden', !isMyOtsView);
       if (viewEnvelopeOpen) viewEnvelopeOpen.classList.add('hidden');
       if (viewGallery) viewGallery.classList.toggle('hidden', !isArchiveGridView);
       if (viewStripboard) viewStripboard.classList.toggle('hidden', !isStripboardView);
-      if (leftTrafficTree) leftTrafficTree.classList.toggle('hidden', !isTrafficGridView && !isArchiveGridView && !isStripboardView);
+      if (leftTrafficTree) {
+        const showLeftFilters = isTrafficGridView || isArchiveGridView || isStripboardView || (isMyOtsView && sketchState.myOtsMode !== 'cards');
+        leftTrafficTree.classList.toggle('hidden', !showLeftFilters);
+      }
       if (leftEnvelopeTree) leftEnvelopeTree.classList.add('hidden');
       if (leftStripboardPool) leftStripboardPool.classList.add('hidden');
 
@@ -188,7 +226,10 @@ export function initNavigation(handlers = {}) {
         handlers.onGallery?.(otView);
         notifySketchChange('navigation:gallery', { otView });
       } else if (isMyOtsView) {
+        sketchState.trafficScope = 'my-ots';
         sketchState.myOtsScope = 'active';
+        sketchState.myOtsMode = sketchState.myOtsLastCollectionMode || 'kanban';
+        sketchState.trafficDateFilter = 'all';
         sketchState.activeMyOtId = null;
         sketchState.activeTaskIndex = null;
         sketchState.galleryPage = 1;
@@ -212,6 +253,8 @@ export function initNavigation(handlers = {}) {
     const centerTitle = document.getElementById('center-page-title');
     if (centerTitle) centerTitle.textContent = 'Escritorio';
     hideAllWorkspaceViews();
+    document.getElementById('view-desktop')?.classList.remove('hidden');
+    handlers.onDesktop?.();
     document.getElementById('left-menu-track')?.classList.add('-translate-x-1/2');
   });
 
@@ -220,6 +263,8 @@ export function initNavigation(handlers = {}) {
     if (centerTitle) centerTitle.textContent = 'Escritorio';
     resetSubNavButtons();
     hideAllWorkspaceViews();
+    document.getElementById('view-desktop')?.classList.remove('hidden');
+    handlers.onDesktop?.();
     document.getElementById('left-menu-track')?.classList.remove('-translate-x-1/2');
   });
 }

@@ -242,7 +242,13 @@
   <main id="pane-center" class="flex-1 bg-obsidian-bg min-w-0 overflow-hidden flex flex-col">
     <!-- Fila superior del centro -->
     <div class="h-10 px-4 flex items-center justify-between shrink-0">
-      <h1 id="center-page-title" class="text-[13px] font-medium text-[#8C8C8C] truncate">Escritorio</h1>
+      <div class="flex items-center gap-1.5 min-w-0">
+        <button type="button" id="btn-center-back-traffic" title="Volver"
+          class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center shrink-0 transition-colors cursor-pointer">
+          <span data-icon="chevron-left" data-icon-size="w-3.5 h-3.5"></span>
+        </button>
+        <h1 id="center-page-title" class="text-[13px] font-medium text-[#8C8C8C] truncate">Escritorio</h1>
+      </div>
       <div class="flex items-center gap-1 text-[#8C8C8C]">
         <button type="button" title="Compartir"
           class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
@@ -256,6 +262,18 @@
           class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
           <span data-icon="plus" data-icon-size="w-3 h-3"></span>
         </button>
+        <button type="button" id="btn-undo-orders" title="Deshacer (⌘Z)" disabled
+          class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-colors cursor-pointer">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+        </button>
+        <button type="button" id="btn-redo-orders" title="Rehacer (⌘⇧Z)" disabled
+          class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-colors cursor-pointer">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/></svg>
+        </button>
+        <button type="button" id="btn-right-expand" title="Mostrar Inspector"
+          class="hidden w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] items-center justify-center transition-colors cursor-pointer">
+          <span data-icon="panel-right-open" data-icon-size="w-3.5 h-3.5"></span>
+        </button>
         <button type="button" title="Más opciones"
           class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
           <span data-icon="more-vertical" data-icon-size="w-3 h-3"></span>
@@ -265,6 +283,7 @@
 
     <!-- Contenido del centro -->
     <div id="center-body" class="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+      <div id="view-desktop" class="flex flex-col gap-3"></div>
       <div id="view-new-ot" class="hidden max-w-lg mx-auto">
         <div class="mb-3">
           <div class="text-[9.5px] font-normal uppercase tracking-[0.12em] text-[#8C8C8C] mb-0.5">NUEVA ORDEN DE TRABAJO
@@ -390,12 +409,19 @@
       <!-- Vista Tráfico: Grid de 11 columnas establecido -->
       <div id="view-traffic" class="hidden flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <div class="flex items-baseline gap-2.5">
+          <div class="flex items-center gap-2.5">
             <div id="traffic-filter-title" class="text-[13px] font-medium text-[#D4D4D4]">Todas las OTs</div>
             <span id="traffic-visible-count" class="text-[10.5px] font-mono text-[#8C8C8C]">0 OTs</span>
+            <div id="traffic-scope-switch"
+              class="inline-flex items-center bg-[#191919] border border-obsidian-border rounded-lg p-0.5 text-[10.5px]">
+              <button type="button" data-traffic-scope="active"
+                class="traffic-scope-btn px-2.5 py-0.5 rounded-md transition-colors cursor-pointer bg-obsidian-elevated text-[#D4D4D4] font-medium">OTs</button>
+              <button type="button" data-traffic-scope="all-tasks"
+                class="traffic-scope-btn px-2.5 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Tareas</button>
+            </div>
           </div>
 
-          <!-- Barra de filtros: Buscar, Agrupar por, Ordenar y Filtrar por -->
+          <!-- Barra de búsqueda y modos de vista -->
           <div class="flex flex-wrap items-center gap-2 text-[11px]">
             <div class="relative flex items-center">
               <span data-icon="search" data-icon-size="w-3 h-3"
@@ -408,78 +434,45 @@
               </button>
             </div>
 
-            <div class="flex items-center gap-1 bg-[#222222] border border-obsidian-border rounded-lg px-2 py-1">
-              <span class="text-[9.5px] uppercase tracking-[0.08em] text-[#8C8C8C]">Agrupar:</span>
-              <select id="traffic-group-by"
-                class="bg-transparent text-[#D4D4D4] text-[11px] focus:outline-none cursor-pointer">
-                <option value="none">Sin agrupar</option>
-                <option value="client">Cliente</option>
-                <option value="responsible">Responsable</option>
-                <option value="entryDate">Entrada</option>
-                <option value="deliveryDate">Entrega</option>
-                <option value="media">Medio</option>
-              </select>
-            </div>
-
-            <div class="flex items-center gap-1 bg-[#222222] border border-obsidian-border rounded-lg px-2 py-1">
-              <span class="text-[9.5px] uppercase tracking-[0.08em] text-[#8C8C8C]">Orden:</span>
-              <select id="traffic-sort-by"
-                class="bg-transparent text-[#D4D4D4] text-[11px] focus:outline-none cursor-pointer">
-                <option value="newest">+ Recientes</option>
-                <option value="oldest">+ Antiguas</option>
-              </select>
-            </div>
-
-            <div class="flex items-center gap-1 bg-[#222222] border border-obsidian-border rounded-lg px-2 py-1">
-              <span class="text-[9.5px] uppercase tracking-[0.08em] text-[#8C8C8C]">Estado:</span>
-              <select id="traffic-status-filter"
-                class="bg-transparent text-[#D4D4D4] text-[11px] focus:outline-none cursor-pointer">
-                <option value="all">Todos</option>
-              </select>
-            </div>
-
-            <div class="flex items-center gap-1 bg-[#222222] border border-obsidian-border rounded-lg px-2 py-1">
-              <span class="text-[9.5px] uppercase tracking-[0.08em] text-[#8C8C8C]">Resp.:</span>
-              <select id="traffic-resp-filter"
-                class="bg-transparent text-[#D4D4D4] text-[11px] focus:outline-none cursor-pointer">
-                <option value="all">Todos</option>
-              </select>
-            </div>
-
-            <div class="flex items-center gap-1 bg-[#222222] border border-obsidian-border rounded-lg px-2 py-1">
-              <span class="text-[9.5px] uppercase tracking-[0.08em] text-[#8C8C8C]">Filtrar:</span>
-              <select id="traffic-date-filter"
-                class="bg-transparent text-[#D4D4D4] text-[11px] focus:outline-none cursor-pointer">
-                <option value="all">Todas</option>
-                <option value="recent">Recientes</option>
-                <option value="today">Vence hoy</option>
-                <option value="tomorrow">Vencen mañana</option>
-              </select>
+            <div id="traffic-view-switch" class="inline-flex items-center bg-[#191919] border border-obsidian-border rounded-lg p-0.5 text-[10.5px]">
+              <button type="button" data-traffic-view="list" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer bg-obsidian-elevated text-[#D4D4D4] font-medium">Lista</button>
+              <button type="button" data-traffic-view="kanban" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Kanban</button>
+              <button type="button" data-traffic-view="gantt" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Gantt</button>
+              <span class="w-px h-3.5 bg-obsidian-border mx-1"></span>
+              <button type="button" data-traffic-view="day" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Día</button>
+              <button type="button" data-traffic-view="week" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Semana</button>
+              <button type="button" data-traffic-view="month" class="traffic-view-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Mes</button>
             </div>
           </div>
         </div>
 
-        <div class="border border-obsidian-border rounded-xl bg-[#202020] overflow-hidden flex flex-col">
+        <div id="traffic-day-header" class="hidden"></div>
+        <div id="traffic-table-wrap" class="border border-obsidian-border rounded-xl bg-[#202020] overflow-hidden flex flex-col">
           <div class="flex-1 overflow-x-auto">
-            <table id="traffic-table" class="table-fixed text-left text-[10.5px] border-collapse"
-              style="width: max-content;">
+            <table id="traffic-table" class="w-full table-fixed text-left text-[10.5px] border-collapse"
+              style="min-width: 1531px;">
               <thead>
                 <tr
                   class="bg-[#191919] border-b border-obsidian-border text-[9.5px] text-[#8C8C8C] uppercase tracking-wider font-semibold select-none">
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 84px;">No. OT<div
+                  <th class="px-1 py-1.5 border-r border-obsidian-border text-center" style="width: 28px;" title="Prioridad (Urgente)">!</th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 75px;">No. OT<div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 118px;">Cliente<div
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 44px;">Cliente<div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 188px;">Marca/Prod.
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 115px;">Marca<div
+                      class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
+                    </div>
+                  </th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 115px;">Producto
                     <div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 151px;">Medio<div
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 115px;">Medio<div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
@@ -488,7 +481,8 @@
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 276px;">Descripción
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 276px; min-width: 276px;">
+                    Descripción
                     <div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
@@ -501,7 +495,15 @@
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 100px;">Estado<div
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 92px;">Depto.<div
+                      class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
+                    </div>
+                  </th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 112px;">Etapa<div
+                      class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
+                    </div>
+                  </th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 82px;">Estado<div
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
@@ -510,16 +512,14 @@
                       class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
                     </div>
                   </th>
-                  <th class="relative px-1.5 py-1.5" style="width: 189px;">Notas<div
-                      class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70">
-                    </div>
-                  </th>
+                  <th class="relative px-1.5 py-1.5 text-center" style="width: 36px;"></th>
                 </tr>
               </thead>
               <tbody id="traffic-table-body" class="divide-y divide-obsidian-border text-[#D4D4D4]"></tbody>
             </table>
           </div>
         </div>
+        <div id="traffic-schedule-view" class="hidden flex-1 min-h-0 flex flex-col"></div>
       </div>
 
       <!-- Vista Mis OTs: Sobre abierto (blog/cards), Lista y Kanban -->
@@ -528,16 +528,14 @@
           class="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-obsidian-border">
           <div id="my-ots-header-left" class="flex items-center gap-2.5 min-w-0 flex-1"></div>
           <div class="flex items-center gap-12 shrink-0 ml-auto">
-            <div class="inline-flex items-center gap-2">
-              <button type="button" data-myots-mode="cards" title="OT"
-                class="myots-mode-btn p-1.5 rounded-lg bg-obsidian-elevated text-[#D4D4D4] transition-colors cursor-pointer"><span
-                  data-icon="module-ot" data-icon-size="w-3.5 h-3.5"></span></button>
-              <button type="button" data-myots-mode="list" title="Lista"
-                class="myots-mode-btn p-1.5 rounded-lg text-[#8C8C8C] hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span
-                  data-icon="list" data-icon-size="w-3.5 h-3.5"></span></button>
-              <button type="button" data-myots-mode="kanban" title="Kanban"
-                class="myots-mode-btn p-1.5 rounded-lg text-[#8C8C8C] hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span
-                  data-icon="layout-grid" data-icon-size="w-3.5 h-3.5"></span></button>
+            <div id="my-ots-mode-switch" class="inline-flex items-center bg-[#191919] border border-obsidian-border rounded-lg p-0.5 text-[10.5px]">
+              <button type="button" data-myots-mode="list" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Lista</button>
+              <button type="button" data-myots-mode="kanban" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer bg-obsidian-elevated text-[#D4D4D4] font-medium">Kanban</button>
+              <button type="button" data-myots-mode="gantt" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Gantt</button>
+              <span class="w-px h-3.5 bg-obsidian-border mx-1"></span>
+              <button type="button" data-myots-mode="day" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Día</button>
+              <button type="button" data-myots-mode="week" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Semana</button>
+              <button type="button" data-myots-mode="month" class="myots-mode-btn px-2 py-0.5 rounded-md transition-colors cursor-pointer text-[#8C8C8C] hover:text-[#D4D4D4]">Mes</button>
             </div>
             <div id="my-ots-header-code"
               class="hidden font-mono font-bold text-[22px] leading-none tracking-tight text-obsidian-amber"></div>
@@ -550,7 +548,8 @@
         <!-- Modo 1: Sobre abierto (sin modal, integrado en el workspace) -->
         <div id="my-ots-cards" class="flex flex-col gap-3"></div>
 
-        <!-- Modo 2: Lista -->
+        <!-- Modo 2: Lista (y Día filtrado por fecha) -->
+        <div id="my-ots-day-header" class="hidden"></div>
         <div id="my-ots-list"
           class="hidden border border-obsidian-border rounded-xl bg-[#202020] overflow-hidden flex flex-col">
           <div class="flex-1 overflow-x-auto">
@@ -558,16 +557,19 @@
               <thead>
                 <tr
                   class="bg-[#191919] border-b border-obsidian-border text-[9.5px] text-[#8C8C8C] uppercase tracking-wider font-semibold select-none">
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 84px;">No. OT</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 118px;">Cliente</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 188px;">Marca/Prod.</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 151px;">Medio</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 122px;">Referencia</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 276px;">Descripción</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 102px;">Entrada</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 103px;">Entrega</th>
-                  <th class="px-1.5 py-1.5 border-r border-obsidian-border" style="width: 100px;">Estado</th>
-                  <th class="px-1.5 py-1.5" style="width: 189px;">Notas</th>
+                  <th class="px-1 py-1.5 border-r border-obsidian-border text-center" style="width: 28px;" title="Urgente">!</th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 84px;">No. OT<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 118px;">Cliente<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 188px;">Marca/Prod.<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 115px;">Medio<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 122px;">Referencia<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 276px;">Descripción<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 102px;">Entrada<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 103px;">Entrega<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 92px;">Depto.<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 112px;">Etapa<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5 border-r border-obsidian-border" style="width: 100px;">Estado<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                  <th class="relative px-1.5 py-1.5" style="width: 189px;">Notas<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
                 </tr>
               </thead>
               <tbody id="my-ots-list-body" class="divide-y divide-obsidian-border text-[#D4D4D4]"></tbody>
@@ -577,6 +579,9 @@
 
         <!-- Modo 3: Kanban -->
         <div id="my-ots-kanban" class="hidden flex gap-3 overflow-x-auto pb-2 items-start"></div>
+
+        <!-- Modos 4–7: Día, Semana, Gantt, Mes -->
+        <div id="my-ots-schedule-view" class="hidden flex-1 min-h-0 flex flex-col"></div>
       </div>
 
       <!-- Vista Sobre Abierto (sin modal, integrada en el workspace) -->
@@ -587,6 +592,84 @@
 
       <!-- Vista Mis Tareas: Stripboard (Agenda de Producción) -->
       <div id="view-stripboard" class="hidden flex-1 min-h-0 flex flex-col gap-2"></div>
+
+      <!-- Vista Revisión Colaborativa (integrada en el panel central) -->
+      <div id="view-review" class="hidden flex-1 min-h-0 flex flex-col"></div>
+
+      <!-- Vista Ajustes (Piñón) integrada en el panel central -->
+      <div id="settings-modal" class="hidden flex-1 min-h-0 flex items-center justify-center p-2">
+        <div
+          class="w-full max-w-4xl min-h-[540px] max-h-[84vh] bg-[#191919] border border-obsidian-borderActive rounded-xl shadow-2xl flex overflow-hidden text-[11px]">
+          <!-- Barra lateral de Ajustes -->
+          <aside
+            class="w-56 bg-[#161616] border-r border-obsidian-border p-3 flex flex-col justify-between shrink-0 overflow-y-auto">
+            <div class="space-y-4">
+              <div class="px-2 flex items-center justify-between">
+                <div>
+                  <div class="text-[9.5px] uppercase tracking-[0.12em] text-[#8C8C8C]">CONFIGURACIÓN</div>
+                  <div class="text-[13px] font-medium text-[#D4D4D4]">Ajustes</div>
+                </div>
+              </div>
+
+              <div class="space-y-0.5">
+                <div class="px-2 py-1 text-[9.5px] uppercase tracking-[0.12em] text-[#6d6d6d]">ESTUDIO</div>
+                <button type="button" data-settings-tab="studio"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="briefcase" data-icon-size="w-3.5 h-3.5"></span><span>Perfil del Estudio</span>
+                </button>
+                <button type="button" data-settings-tab="team"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="users" data-icon-size="w-3.5 h-3.5"></span><span>Miembros del Equipo</span>
+                </button>
+                <button type="button" data-settings-tab="clients"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="building-2" data-icon-size="w-3.5 h-3.5"></span><span>Clientes</span>
+                </button>
+                <button type="button" data-settings-tab="billing"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="credit-card" data-icon-size="w-3.5 h-3.5"></span><span>Membresía y Facturación</span>
+                </button>
+                <button type="button" data-settings-tab="data"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="database" data-icon-size="w-3.5 h-3.5"></span><span>API Keys y Datos</span>
+                </button>
+              </div>
+
+              <div class="space-y-0.5">
+                <div class="px-2 py-1 text-[9.5px] uppercase tracking-[0.12em] text-[#6d6d6d]">APLICACIÓN</div>
+                <button type="button" data-settings-tab="prefs"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="sliders-horizontal" data-icon-size="w-3.5 h-3.5"></span><span>Preferencias</span>
+                </button>
+                <button type="button" data-settings-tab="help"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="help-circle" data-icon-size="w-3.5 h-3.5"></span><span>Ayuda y Legal</span>
+                </button>
+                <button type="button" data-settings-tab="products"
+                  class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
+                  <span data-icon="layout-grid" data-icon-size="w-3.5 h-3.5"></span><span>Otros Productos</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-obsidian-border px-2 text-[10px] text-[#6d6d6d] font-mono">
+              Trafikeitor · El Marcante
+            </div>
+          </aside>
+
+          <!-- Contenido de la pestaña activa -->
+          <div class="flex-1 flex flex-col min-w-0">
+            <div class="h-12 px-5 border-b border-obsidian-border flex items-center justify-between shrink-0">
+              <h3 id="settings-tab-title" class="text-[13px] font-medium text-[#D4D4D4]">Perfil del Estudio</h3>
+              <button type="button" id="btn-close-settings-modal"
+                class="w-7 h-7 rounded-md hover:bg-obsidian-elevated text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+                <span data-icon="x" data-icon-size="w-4 h-4"></span>
+              </button>
+            </div>
+            <div id="settings-tab-body" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -597,9 +680,70 @@
   </div>
 
   <!-- Columna 3: Derecha delgada -->
-  <aside id="pane-right" style="width: 220px;" class="bg-obsidian-panel shrink-0 overflow-hidden flex flex-col">
-    <div class="h-10 px-3 flex items-center justify-between shrink-0">
-      <span class="text-[10px] font-normal uppercase tracking-[0.12em] text-[#8C8C8C] truncate">INSPECTOR</span>
+  <aside id="pane-right" style="width: 220px;" class="relative bg-obsidian-panel shrink-0 flex flex-col">
+    <!-- Línea de Usuario: Avatar + íconos de trabajo del usuario -->
+    <div class="h-10 px-3 border-b border-obsidian-border flex items-center justify-between gap-2 shrink-0">
+      <button type="button" id="btn-user-menu" title="Andrés Jaramillo · Dueño"
+        class="w-6 h-6 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-obsidian-amber text-[9.5px] font-mono font-semibold flex items-center justify-center shrink-0 transition-colors cursor-pointer">
+        <span id="user-avatar-initials">AJ</span>
+      </button>
+      <div class="flex items-center gap-1 text-[#8C8C8C]">
+        <button type="button" id="btn-work-notifications" title="Notificaciones de trabajo y revisión"
+          class="relative w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+          <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+          <span class="w-1.5 h-1.5 rounded-full bg-obsidian-amber absolute top-1 right-1"></span>
+        </button>
+        <button type="button" id="btn-user-reviews" title="Comentarios de revisión"
+          class="w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+          <span data-icon="message-square" data-icon-size="w-3 h-3"></span>
+        </button>
+        <button type="button" id="btn-user-schedule" title="Mi jornada"
+          class="w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+          <span data-icon="clock" data-icon-size="w-3 h-3"></span>
+        </button>
+        <button type="button" id="btn-right-collapse" title="Colapsar panel"
+          class="w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+          <span data-icon="panel-right-close" data-icon-size="w-3 h-3"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Popover de opciones de Usuario -->
+    <div id="user-menu-popover"
+      class="hidden absolute left-3 top-10 z-40 w-52 bg-[#202020] border border-obsidian-borderActive rounded-xl shadow-2xl p-1.5 text-[11px]">
+      <div class="px-2 py-1.5 border-b border-obsidian-border mb-1">
+        <div class="flex items-center justify-between gap-2">
+          <span class="font-medium text-[#D4D4D4] truncate">Andrés Jaramillo</span>
+          <span
+            class="px-1.5 py-0.5 rounded bg-amber-500/15 text-obsidian-amber text-[9px] font-mono shrink-0">Dueño</span>
+        </div>
+        <div class="text-[9.5px] text-[#8C8C8C] truncate">direccion@elmarcante.com</div>
+      </div>
+      <button type="button" data-user-action="profile"
+        class="w-full px-2 py-1.5 rounded-lg hover:bg-obsidian-elevated text-[#D4D4D4] flex items-center gap-2 text-left transition-colors cursor-pointer">
+        <span data-icon="user" data-icon-size="w-3 h-3" data-icon-class="text-[#8C8C8C]"></span>
+        <span>Configuración de usuario</span>
+      </button>
+      <button type="button" data-user-action="switch"
+        class="w-full px-2 py-1.5 rounded-lg hover:bg-obsidian-elevated text-[#D4D4D4] flex items-center gap-2 text-left transition-colors cursor-pointer">
+        <span data-icon="users" data-icon-size="w-3 h-3" data-icon-class="text-[#8C8C8C]"></span>
+        <span>Cambiar de cuenta</span>
+      </button>
+      <div class="my-1 border-t border-obsidian-border"></div>
+      <button type="button" data-user-action="logout"
+        class="w-full px-2 py-1.5 rounded-lg hover:bg-rose-500/10 text-rose-300 flex items-center gap-2 text-left transition-colors cursor-pointer">
+        <span data-icon="log-out" data-icon-size="w-3 h-3"></span>
+        <span>Salir</span>
+      </button>
+    </div>
+
+    <!-- Título: Inspector -->
+    <div class="h-8 px-3 flex items-center justify-between shrink-0">
+      <span class="text-[10px] font-normal uppercase tracking-[0.12em] text-[#8C8C8C] truncate">Inspector</span>
     </div>
     <div id="right-body" class="flex-1 min-h-0 overflow-y-auto px-3 pb-3"></div>
   </aside>
@@ -666,8 +810,6 @@
             <button type="button" data-color="#34d399" style="background:#34d399"
               class="nc-color-swatch w-4 h-4 rounded-full cursor-pointer transition-transform hover:scale-110"></button>
             <button type="button" data-color="#38bdf8" style="background:#38bdf8"
-              class="nc-color-swatch w-4 h-4 rounded-full cursor-pointer transition-transform hover:scale-110"></button>
-            <button type="button" data-color="#f59e0b" style="background:#f59e0b"
               class="nc-color-swatch w-4 h-4 rounded-full cursor-pointer transition-transform hover:scale-110"></button>
             <button type="button" data-color="#a78bfa" style="background:#a78bfa"
               class="nc-color-swatch w-4 h-4 rounded-full cursor-pointer transition-transform hover:scale-110"></button>
@@ -748,81 +890,6 @@
             Cliente</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Modal unificado de Ajustes (Piñón) -->
-  <div id="settings-modal" class="hidden fixed inset-0 bg-black/70 z-40 flex items-center justify-center p-4">
-    <div
-      class="w-full max-w-4xl h-[600px] max-h-[88vh] bg-[#191919] border border-obsidian-borderActive rounded-xl shadow-2xl flex overflow-hidden text-[11px]">
-      <!-- Barra lateral de Ajustes -->
-      <aside
-        class="w-56 bg-[#161616] border-r border-obsidian-border p-3 flex flex-col justify-between shrink-0 overflow-y-auto">
-        <div class="space-y-4">
-          <div class="px-2 flex items-center justify-between">
-            <div>
-              <div class="text-[9.5px] uppercase tracking-[0.12em] text-[#8C8C8C]">CONFIGURACIÓN</div>
-              <div class="text-[13px] font-medium text-[#D4D4D4]">Ajustes</div>
-            </div>
-          </div>
-
-          <div class="space-y-0.5">
-            <div class="px-2 py-1 text-[9.5px] uppercase tracking-[0.12em] text-[#6d6d6d]">ESTUDIO</div>
-            <button type="button" data-settings-tab="studio"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="briefcase" data-icon-size="w-3.5 h-3.5"></span><span>Perfil del Estudio</span>
-            </button>
-            <button type="button" data-settings-tab="team"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="users" data-icon-size="w-3.5 h-3.5"></span><span>Miembros del Equipo</span>
-            </button>
-            <button type="button" data-settings-tab="clients"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="building-2" data-icon-size="w-3.5 h-3.5"></span><span>Clientes</span>
-            </button>
-            <button type="button" data-settings-tab="billing"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="credit-card" data-icon-size="w-3.5 h-3.5"></span><span>Membresía y Facturación</span>
-            </button>
-            <button type="button" data-settings-tab="data"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="database" data-icon-size="w-3.5 h-3.5"></span><span>API Keys y Datos</span>
-            </button>
-          </div>
-
-          <div class="space-y-0.5">
-            <div class="px-2 py-1 text-[9.5px] uppercase tracking-[0.12em] text-[#6d6d6d]">APLICACIÓN</div>
-            <button type="button" data-settings-tab="prefs"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="sliders-horizontal" data-icon-size="w-3.5 h-3.5"></span><span>Preferencias</span>
-            </button>
-            <button type="button" data-settings-tab="help"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="help-circle" data-icon-size="w-3.5 h-3.5"></span><span>Ayuda y Legal</span>
-            </button>
-            <button type="button" data-settings-tab="products"
-              class="settings-nav-btn w-full px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-left transition-colors cursor-pointer">
-              <span data-icon="layout-grid" data-icon-size="w-3.5 h-3.5"></span><span>Otros Productos</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="pt-3 border-t border-obsidian-border px-2 text-[10px] text-[#6d6d6d] font-mono">
-          Trafikeitor · El Marcante
-        </div>
-      </aside>
-
-      <!-- Contenido de la pestaña activa -->
-      <div class="flex-1 flex flex-col min-w-0">
-        <div class="h-12 px-5 border-b border-obsidian-border flex items-center justify-between shrink-0">
-          <h3 id="settings-tab-title" class="text-[13px] font-medium text-[#D4D4D4]">Perfil del Estudio</h3>
-          <button type="button" id="btn-close-settings-modal"
-            class="w-7 h-7 rounded-md hover:bg-obsidian-elevated text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
-            <span data-icon="x" data-icon-size="w-4 h-4"></span>
-          </button>
-        </div>
-        <div id="settings-tab-body" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
-      </div>
     </div>
   </div>
 

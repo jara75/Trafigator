@@ -1,12 +1,20 @@
 import {
   clientsData,
+  defaultTrafficStatuses,
+  departmentColors,
   studioSettings,
+  studioTagPalette,
   studioTeamList,
+  trafficDepartments,
   trafficOrders,
+  trafficStatuses,
   standaloneDocuments,
   standaloneDevFiles,
+  statusColors,
   sketchState,
   escapeHtml,
+  getDepartmentColor,
+  getStatusColor,
   syncTrafficMembers,
   notifySketchChange,
   onSketchChange,
@@ -24,22 +32,43 @@ const settingsTabLabels = {
   products: 'Otros Productos',
 };
 
+let previousCenterViewId = null;
+
 /**
- * Open the unified Settings modal on the specified tab.
+ * Open the unified Settings view inside the center panel on the specified tab.
  */
 export function openSettingsModal(tab = 'studio') {
   const settingsModal = document.getElementById('settings-modal');
+  const centerViewIds = ['view-desktop', 'view-new-ot', 'view-traffic', 'view-my-ots', 'view-envelope-open', 'view-gallery', 'view-stripboard'];
+  const visibleView = centerViewIds.find((id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  });
+  if (visibleView) previousCenterViewId = visibleView;
+
+  centerViewIds.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+  ['left-traffic-tree', 'left-envelope-tree', 'left-stripboard-pool'].forEach((id) =>
+    document.getElementById(id)?.classList.add('hidden')
+  );
+  const centerTitle = document.getElementById('center-page-title');
+  if (centerTitle) centerTitle.textContent = 'Ajustes';
+
   sketchState.activeSettingsTab = tab;
   if (settingsModal) settingsModal.classList.remove('hidden');
   renderSettingsTab();
 }
 
 /**
- * Close the unified Settings modal.
+ * Close the unified Settings view and restore the previous center view.
  */
 export function closeSettingsModal() {
   const settingsModal = document.getElementById('settings-modal');
   if (settingsModal) settingsModal.classList.add('hidden');
+  const restoreId = previousCenterViewId || 'view-traffic';
+  document.getElementById(restoreId)?.classList.remove('hidden');
+  if (restoreId === 'view-traffic' || restoreId === 'view-gallery' || restoreId === 'view-stripboard') {
+    document.getElementById('left-traffic-tree')?.classList.remove('hidden');
+  }
 }
 
 /**
@@ -67,29 +96,97 @@ export function renderSettingsTab() {
   const usedSeats = studioTeamList.filter((m) => !m.isOwner).length;
 
   if (activeTab === 'studio') {
+    const deptPresets = {
+      publicidad: ['Tráfico', 'Cuentas', 'Creativos', 'Producción', 'Desarrollo', 'Medios', 'Cliente', 'Facturación'],
+      diseno: ['Cuentas', 'Dirección de Arte', 'Diseño Gráfico', 'Branding', 'Producción', 'Cliente'],
+      software: ['Producto', 'UX/UI', 'Frontend', 'Backend', 'QA', 'DevOps', 'Cliente'],
+      contenido: ['Estrategia', 'Guion', 'Grabación', 'Edición', 'Diseño', 'Publicación', 'Cliente'],
+    };
+
     settingsTabBody.innerHTML = `
-      <div class="space-y-4">
-        <div class="bg-[#202020] border border-obsidian-border rounded-xl p-4 space-y-3">
+      <div class="space-y-3">
+        <div class="bg-[#202020] border border-obsidian-border rounded-xl p-3.5 space-y-2.5">
           <div class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Identidad del Estudio</div>
-          <div class="grid grid-cols-3 gap-3">
+          <div class="grid grid-cols-3 gap-2.5">
             <label class="col-span-2 block space-y-1">
               <span class="text-[10px] text-[#8C8C8C]">Nombre del Estudio</span>
-              <input id="st-studio-name" type="text" value="${escapeHtml(studioSettings.name)}" class="w-full h-8 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] focus:outline-none focus:border-[#3f3f3f]" />
+              <input id="st-studio-name" type="text" value="${escapeHtml(studioSettings.name)}" class="w-full h-7 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] focus:outline-none focus:border-[#3f3f3f]" />
             </label>
             <label class="block space-y-1">
               <span class="text-[10px] text-[#8C8C8C]">Siglas</span>
-              <input id="st-studio-initials" type="text" maxlength="3" value="${escapeHtml(studioSettings.initials)}" class="w-full h-8 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] font-mono uppercase focus:outline-none focus:border-[#3f3f3f]" />
+              <input id="st-studio-initials" type="text" maxlength="3" value="${escapeHtml(studioSettings.initials)}" class="w-full h-7 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] font-mono uppercase focus:outline-none focus:border-[#3f3f3f]" />
             </label>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-2 gap-2.5">
             <label class="block space-y-1">
               <span class="text-[10px] text-[#8C8C8C]">Jornada diaria estándar (Stripboard)</span>
-              <input id="st-studio-hours" type="number" min="4" max="14" value="${studioSettings.dailyHours}" class="w-full h-8 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] font-mono focus:outline-none focus:border-[#3f3f3f]" />
+              <input id="st-studio-hours" type="number" min="4" max="14" value="${studioSettings.dailyHours}" class="w-full h-7 bg-[#191919] border border-obsidian-border rounded-lg px-2.5 text-[#D4D4D4] font-mono focus:outline-none focus:border-[#3f3f3f]" />
             </label>
             <div class="flex items-end justify-end">
-              <button type="button" id="st-save-studio" class="h-8 px-3.5 rounded-lg bg-obsidian-amber hover:bg-amber-400 text-[#191919] font-semibold cursor-pointer transition-colors">Guardar Estudio</button>
+              <button type="button" id="st-save-studio" class="h-7 px-3.5 rounded-lg bg-obsidian-amber hover:bg-amber-400 text-[#191919] font-semibold cursor-pointer transition-colors">Guardar Estudio</button>
             </div>
           </div>
+        </div>
+
+        <!-- Departamentos configurables -->
+        <div class="bg-[#202020] border border-obsidian-border rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Departamentos <span class="font-normal normal-case text-[#6d6d6d]">(clic en el punto para cambiar color)</span></span>
+            <select id="st-dept-preset" class="h-6 bg-[#191919] border border-obsidian-border rounded px-1.5 text-[10px] text-[#8C8C8C] focus:outline-none cursor-pointer">
+              <option value="">Plantilla rápida...</option>
+              <option value="publicidad">Publicidad / Agencia</option>
+              <option value="diseno">Diseño / Branding</option>
+              <option value="software">Web / Software</option>
+              <option value="contenido">Creación de Contenido</option>
+            </select>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            ${trafficDepartments.map((dept, idx) => {
+      const col = getDepartmentColor(dept);
+      return `
+                <span class="inline-flex items-center gap-1.5 bg-[#191919] border border-obsidian-border rounded-md px-2 py-1 text-[10.5px]">
+                  <button type="button" data-st-cycle-dept="${escapeHtml(dept)}" title="Cambiar color"
+                    class="w-2.5 h-2.5 rounded-full shrink-0 cursor-pointer hover:scale-125 transition-transform" style="background:${escapeHtml(col)}"></button>
+                  <span class="text-[#D4D4D4]">${escapeHtml(dept)}</span>
+                  <button type="button" data-st-del-dept="${idx}" title="Quitar"
+                    class="text-[#6d6d6d] hover:text-rose-400 text-[11px] leading-none cursor-pointer ml-0.5">×</button>
+                </span>
+              `;
+    }).join('')}
+          </div>
+          <form id="st-add-dept-form" class="flex gap-1.5 pt-0.5">
+            <input id="st-new-dept" type="text" placeholder="Nuevo departamento..." class="flex-1 h-7 bg-[#191919] border border-obsidian-border rounded-lg px-2 text-[10.5px] text-[#D4D4D4] placeholder-[#5a6169] focus:outline-none focus:border-[#3f3f3f]" />
+            <button type="submit" class="h-7 px-2.5 rounded-lg bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Agregar</button>
+          </form>
+        </div>
+
+        <!-- Estados configurables (los 4 por defecto protegidos) -->
+        <div class="bg-[#202020] border border-obsidian-border rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Estados</span>
+            <span class="text-[9.5px] text-[#6d6d6d]">Los 4 base no se pueden borrar</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            ${trafficStatuses.map((st, idx) => {
+      const col = getStatusColor(st);
+      const isDefault = defaultTrafficStatuses.includes(st);
+      return `
+                <span class="inline-flex items-center gap-1.5 bg-[#191919] border border-obsidian-border rounded-md px-2 py-1 text-[10.5px]">
+                  <button type="button" data-st-cycle-status="${escapeHtml(st)}" title="Cambiar color"
+                    class="w-2.5 h-2.5 rounded-full shrink-0 cursor-pointer hover:scale-125 transition-transform" style="background:${escapeHtml(col)}"></button>
+                  <span class="text-[#D4D4D4]">${escapeHtml(st)}</span>
+                  ${isDefault
+          ? `<span data-icon="lock" data-icon-size="w-2.5 h-2.5" data-icon-class="text-[#5a6169] ml-0.5" title="Estado por defecto"></span>`
+          : `<button type="button" data-st-del-status="${idx}" title="Quitar" class="text-[#6d6d6d] hover:text-rose-400 text-[11px] leading-none cursor-pointer ml-0.5">×</button>`
+        }
+                </span>
+              `;
+    }).join('')}
+          </div>
+          <form id="st-add-status-form" class="flex gap-1.5 pt-0.5">
+            <input id="st-new-status" type="text" placeholder="Nuevo estado..." class="flex-1 h-7 bg-[#191919] border border-obsidian-border rounded-lg px-2 text-[10.5px] text-[#D4D4D4] placeholder-[#5a6169] focus:outline-none focus:border-[#3f3f3f]" />
+            <button type="submit" class="h-7 px-2.5 rounded-lg bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Agregar</button>
+          </form>
         </div>
       </div>
     `;
@@ -105,6 +202,68 @@ export function renderSettingsTab() {
       if (fn) fn.textContent = studioSettings.name;
       if (fi) fi.textContent = studioSettings.initials;
       notifySketchChange('settings');
+      renderSettingsTab();
+    });
+    settingsTabBody.querySelector('#st-dept-preset')?.addEventListener('change', (e) => {
+      const list = deptPresets[e.target.value];
+      if (!list) return;
+      trafficDepartments.splice(0, trafficDepartments.length, ...list);
+      list.forEach((d, i) => {
+        if (!departmentColors[d]) departmentColors[d] = studioTagPalette[i % studioTagPalette.length];
+      });
+      notifySketchChange('orders');
+      renderSettingsTab();
+    });
+    settingsTabBody.querySelectorAll('[data-st-cycle-dept]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dept = btn.dataset.stCycleDept;
+        const cur = getDepartmentColor(dept);
+        const curIdx = studioTagPalette.indexOf(cur);
+        departmentColors[dept] = studioTagPalette[(curIdx + 1) % studioTagPalette.length];
+        notifySketchChange('orders');
+        renderSettingsTab();
+      });
+    });
+    settingsTabBody.querySelectorAll('[data-st-del-dept]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        trafficDepartments.splice(Number(btn.dataset.stDelDept), 1);
+        notifySketchChange('orders');
+        renderSettingsTab();
+      });
+    });
+    settingsTabBody.querySelector('#st-add-dept-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = settingsTabBody.querySelector('#st-new-dept')?.value.trim();
+      if (!val || trafficDepartments.includes(val)) return;
+      trafficDepartments.push(val);
+      departmentColors[val] = studioTagPalette[(trafficDepartments.length - 1) % studioTagPalette.length];
+      notifySketchChange('orders');
+      renderSettingsTab();
+    });
+    settingsTabBody.querySelectorAll('[data-st-cycle-status]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const st = btn.dataset.stCycleStatus;
+        const cur = getStatusColor(st);
+        const curIdx = studioTagPalette.indexOf(cur);
+        statusColors[st] = studioTagPalette[(curIdx + 1) % studioTagPalette.length];
+        notifySketchChange('orders');
+        renderSettingsTab();
+      });
+    });
+    settingsTabBody.querySelectorAll('[data-st-del-status]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        trafficStatuses.splice(Number(btn.dataset.stDelStatus), 1);
+        notifySketchChange('orders');
+        renderSettingsTab();
+      });
+    });
+    settingsTabBody.querySelector('#st-add-status-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const val = settingsTabBody.querySelector('#st-new-status')?.value.trim();
+      if (!val || trafficStatuses.includes(val)) return;
+      trafficStatuses.push(val);
+      statusColors[val] = studioTagPalette[(trafficStatuses.length - 1) % studioTagPalette.length];
+      notifySketchChange('orders');
       renderSettingsTab();
     });
   } else if (activeTab === 'team') {

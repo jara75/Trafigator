@@ -32,6 +32,24 @@ export function shiftIsoDate(dateStr, deltaDays) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Shared 3-level priority dot matching Escritorio: Urgente (rose), Vence hoy (amber), Vence mañana (sky).
+ */
+export function getPriorityDotHtml(item, todayKey = relDate(0).slice(0, 10), tomorrowKey = relDate(1).slice(0, 10), sizeCls = 'w-2 h-2') {
+  if (!item) return '';
+  if (item.urgent) {
+    return `<span class="inline-block ${sizeCls} rounded-full bg-rose-500 shrink-0" title="Urgente"></span>`;
+  }
+  const dKey = (item.deliveryDate || '').slice(0, 10);
+  if (dKey === todayKey) {
+    return `<span class="inline-block ${sizeCls} rounded-full bg-amber-400 shrink-0" title="Vence hoy"></span>`;
+  }
+  if (dKey === tomorrowKey) {
+    return `<span class="inline-block ${sizeCls} rounded-full bg-sky-400 shrink-0" title="Vence mañana"></span>`;
+  }
+  return '';
+}
+
 export const clientsData = [
   {
     name: 'Shambhala Ecohotel',
@@ -51,7 +69,7 @@ export const clientsData = [
   },
   {
     name: 'Café Origen',
-    color: '#f59e0b',
+    color: '#a78bfa',
     brands: {
       'Tostión Media': ['Institucional', 'Molido 500g', 'Grano 1kg'],
       'Cold Brew': ['Institucional', 'Botella 300ml'],
@@ -73,6 +91,20 @@ export const studioSettings = {
   language: 'es'
 };
 
+export const userAccounts = [
+  { fullName: 'Andrés Jaramillo', shortName: 'Andrés', email: 'direccion@elmarcante.com', role: 'Dueño', departments: ['Todos'], dailyHours: 8 },
+  { fullName: 'Camila Rojas', shortName: 'Camila', email: 'camila@elmarcante.com', role: 'Tráfico', departments: ['Tráfico', 'Cuentas'], dailyHours: 8 },
+  { fullName: 'Mateo Silva', shortName: 'Mateo', email: 'mateo@elmarcante.com', role: 'Creativo', departments: ['Creativos', 'Producción'], dailyHours: 8 },
+  { fullName: 'Sofía Pardo', shortName: 'Sofía', email: 'sofia@elmarcante.com', role: 'Producción', departments: ['Producción', 'Medios'], dailyHours: 8 },
+];
+
+export const userProfile = {
+  ...userAccounts[0],
+  defaultView: 'kanban',
+  notifyWhatsapp: true,
+  notifyEmail: true,
+};
+
 export const studioTeamList = [
   { name: 'El Marcante', email: 'direccion@elmarcante.com', role: 'Dueño / Admin', scope: 'Todos los clientes', isOwner: true, status: 'Activo' },
   { name: 'Camila', email: 'camila@elmarcante.com', role: 'Creativo', scope: 'Todos los clientes', isOwner: false, status: 'Activo' },
@@ -80,7 +112,105 @@ export const studioTeamList = [
   { name: 'Sofía', email: 'sofia@elmarcante.com', role: 'Ejecutiva de Tráfico', scope: 'Todos los clientes', isOwner: false, status: 'Activo' }
 ];
 
-export const trafficStatuses = ['Tráfico', 'Recibido', 'Creativos', 'Desarrollo', 'Cliente', 'Entregado', 'Facturación', 'Cerrado', 'Archivada', 'Cancelado'];
+export const studioTagPalette = ['#34d399', '#38bdf8', '#f59e0b', '#a78bfa', '#fb7185', '#2dd4bf', '#fb923c', '#818cf8'];
+
+export const trafficDepartments = ['Tráfico', 'Cuentas', 'Creativos', 'Producción', 'Desarrollo', 'Medios', 'Cliente', 'Facturación'];
+
+export const departmentColors = {
+  'Tráfico': '#f59e0b',
+  'Cuentas': '#38bdf8',
+  'Creativos': '#a78bfa',
+  'Producción': '#fb923c',
+  'Desarrollo': '#2dd4bf',
+  'Medios': '#818cf8',
+  'Cliente': '#34d399',
+  'Facturación': '#fb7185'
+};
+
+export const defaultTrafficStatuses = ['En proceso', 'Suspendida', 'Cancelada', 'Archivada'];
+
+export const trafficStatuses = ['En proceso', 'Suspendida', 'Cancelada', 'Archivada'];
+
+export const statusColors = {
+  'En proceso': '#34d399',
+  'Suspendida': '#f59e0b',
+  'Cancelada': '#fb7185',
+  'Archivada': '#8C8C8C'
+};
+
+export const defaultTrafficStages = ['Tráfico', 'Recibida', 'Cerrar OT y Facturar', 'Facturada', 'Pagada'];
+
+export const trafficStages = ['Tráfico', 'Recibida', 'Cerrar OT y Facturar', 'Facturada', 'Pagada'];
+
+export const stageColors = {
+  'Tráfico': '#38bdf8',
+  'Recibida': '#a78bfa',
+  'Cerrar OT y Facturar': '#f59e0b',
+  'Facturada': '#eab308',
+  'Pagada': '#34d399'
+};
+
+export const getDepartmentColor = (name) => departmentColors[name] || '#8C8C8C';
+export const getStageColor = (name) => stageColors[name] || '#8C8C8C';
+export const getStatusColor = (name) => statusColors[name] || '#8C8C8C';
+
+/**
+ * Attach Excel-like independent column resizers to any table with `.traffic-col-resizer` handles.
+ */
+export function bindTableColResizers(tableEl) {
+  if (!tableEl) return;
+  tableEl.querySelectorAll('.traffic-col-resizer').forEach((handle) => {
+    if (handle.dataset.resizerBound === '1') return;
+    handle.dataset.resizerBound = '1';
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const th = handle.parentElement;
+      if (!th) return;
+      const headerRow = th.parentElement;
+      const allThs = headerRow ? Array.from(headerRow.children) : [];
+
+      // Freeze current pixel widths on all columns so resizing one never shifts the others
+      allThs.forEach((col) => {
+        const w = Math.round(col.getBoundingClientRect().width);
+        col.style.width = `${w}px`;
+        col.style.minWidth = `${w}px`;
+      });
+
+      const startX = e.clientX;
+      const startColW = Math.round(th.getBoundingClientRect().width);
+      const startTableW = Math.round(tableEl.getBoundingClientRect().width);
+
+      tableEl.classList.remove('w-full');
+      tableEl.style.tableLayout = 'fixed';
+      tableEl.style.minWidth = '0px';
+      tableEl.style.width = `${startTableW}px`;
+
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      handle.classList.add('bg-obsidian-cyan');
+
+      const onMove = (ev) => {
+        const nextColW = Math.max(36, Math.round(startColW + (ev.clientX - startX)));
+        const delta = nextColW - startColW;
+        th.style.width = `${nextColW}px`;
+        th.style.minWidth = `${nextColW}px`;
+        tableEl.style.width = `${Math.max(200, startTableW + delta)}px`;
+      };
+
+      const onUp = () => {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        handle.classList.remove('bg-obsidian-cyan');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+}
 
 export const trafficMembers = ['Camila', 'Mateo', 'Sofía', 'Andrés', 'Valentina', 'Sebastián', 'Lucía', 'Daniel'];
 
@@ -100,33 +230,33 @@ export function syncTrafficMembers(removedName = null) {
 }
 
 export const trafficOrders = [
-  { id: 'OT-26-001', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Institucional', media: 'IG Carousel 1080x1350', ref: 'Temporada Verde', title: 'Campaña lanzamiento temporada baja y escapadas', entryDate: relDate(-5, '09:00'), deliveryDate: relDate(3, '17:00'), status: 'Desarrollo', responsible: 'Camila', notes: 'Esperando fotos finales de cabañas', urgent: true },
-  { id: 'OT-26-002', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiro Detox', media: 'Landing + Reel 9:16', ref: 'Equilibrio 2026', title: 'Piezas digitales para retiro de fin de semana', entryDate: relDate(-4, '10:30'), deliveryDate: relDate(4, '12:00'), status: 'Recibido', responsible: 'Mateo', notes: 'Revisar copy de itinerario', urgent: false },
-  { id: 'OT-26-003', client: 'Club Premium', brand: 'Membresía Black', product: 'Institucional', media: 'Email + Banner Web', ref: 'Black Benefits', title: 'Actualización beneficios Q4 para socios Black', entryDate: relDate(-2, '08:45'), deliveryDate: relDate(3, '18:00'), status: 'Cliente', responsible: 'Sofía', notes: 'Enviado a aprobación de gerencia', urgent: false },
-  { id: 'OT-26-004', client: 'Club Premium', brand: 'Eventos', product: 'Gala Anual', media: 'Impreso + Invitación Digital', ref: 'Noche Dorada', title: 'Invitación VIP y señalética del salón principal', entryDate: relDate(-1, '14:15'), deliveryDate: relDate(5, '16:00'), status: 'Tráfico', responsible: 'Andrés', notes: 'Cotizar papel texturizado', urgent: true },
-  { id: 'OT-26-005', client: 'Café Origen', brand: 'Tostado Especial', product: 'Empaque 340g', media: 'Troquel + Arte Final', ref: 'Sierra Nevada', title: 'Ajuste tabla nutricional y código de barras', entryDate: relDate(0, '11:00'), deliveryDate: relDate(4, '15:00'), status: 'Desarrollo', responsible: 'Valentina', notes: 'Validar Pantone dorado', urgent: false },
-  { id: 'OT-26-006', client: 'Café Origen', brand: 'Cold Brew', product: 'Institucional', media: 'Pauta Meta Ads', ref: 'Verano Frío', title: 'Adaptaciones 3 formatos para pauta pagada', entryDate: relDate(0, '09:20'), deliveryDate: relDate(6, '17:00'), status: 'Entregado', responsible: 'Sebastián', notes: 'Listo para pauta lunes', urgent: false },
-  { id: 'OT-26-007', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Institucional', media: 'Video Reel 9:16', ref: 'Amanecer Bosque', title: 'Edición reel experiencia desayuno en terraza', entryDate: relDate(-6, '09:10'), deliveryDate: relDate(3, '16:00'), status: 'Desarrollo', responsible: 'Camila', notes: 'Falta colorización final', urgent: false },
-  { id: 'OT-26-008', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Institucional', media: 'Brochure PDF', ref: 'Carta Masajes', title: 'Diagramación menú de terapias y precios 2026', entryDate: relDate(-5, '15:20'), deliveryDate: relDate(5, '18:00'), status: 'Cliente', responsible: 'Sofía', notes: 'En revisión con dirección', urgent: false },
-  { id: 'OT-26-009', client: 'Club Premium', brand: 'Membresía Black', product: 'Kit Bienvenida', media: 'Impreso Offset', ref: 'Welcome Box', title: 'Caja rígida y tarjeta personalizada nuevos socios', entryDate: relDate(-4, '11:00'), deliveryDate: relDate(6, '12:00'), status: 'Desarrollo', responsible: 'Andrés', notes: 'Prueba de barniz UV pendiente', urgent: true },
-  { id: 'OT-26-010', client: 'Club Premium', brand: 'Eventos', product: 'Torneo Golf', media: 'Pendones + Backing', ref: 'Copa Otoño', title: 'Señalética de hoyos y backing premiación', entryDate: relDate(-3, '16:40'), deliveryDate: relDate(7, '10:00'), status: 'Tráfico', responsible: 'Andrés', notes: 'Confirmar medidas con club', urgent: false },
-  { id: 'OT-26-011', client: 'Café Origen', brand: 'Tostado Especial', product: 'Institucional', media: 'Post + Stories IG', ref: 'Cosecha Altura', title: 'Carrusel educativo proceso de lavado', entryDate: relDate(-3, '08:30'), deliveryDate: relDate(4, '17:00'), status: 'Recibido', responsible: 'Valentina', notes: 'Textos aprobados por marca', urgent: false },
-  { id: 'OT-26-012', client: 'Café Origen', brand: 'Cold Brew', product: 'Lata 250ml', media: 'Render 3D', ref: 'Pack x4', title: 'Renders de producto sobre hielo para e-commerce', entryDate: relDate(-2, '13:15'), deliveryDate: relDate(5, '19:00'), status: 'Desarrollo', responsible: 'Camila', notes: 'Ajustar reflejos metálicos', urgent: true },
-  { id: 'OT-26-013', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Reservas Web', media: 'Banner Hero Web', ref: 'Puente Festivo', title: 'Actualización banner principal tarifa especial', entryDate: relDate(-2, '10:00'), deliveryDate: relDate(4, '14:00'), status: 'Recibido', responsible: 'Mateo', notes: 'Subir versión desktop y móvil', urgent: false },
-  { id: 'OT-26-014', client: 'Club Premium', brand: 'Membresía Black', product: 'App Socios', media: 'UI Pantalla', ref: 'Concierge 2.0', title: 'Flujo de reserva prioritaria en restaurantes', entryDate: relDate(-2, '17:00'), deliveryDate: relDate(8, '18:00'), status: 'Desarrollo', responsible: 'Lucía', notes: 'Validar endpoints con backend', urgent: false },
-  { id: 'OT-26-015', client: 'Café Origen', brand: 'Tostado Especial', product: 'Suscripción', media: 'Email Marketing', ref: 'Club Grano', title: 'Newsletter mensual recomendación del barista', entryDate: relDate(-1, '09:45'), deliveryDate: relDate(6, '11:00'), status: 'Cliente', responsible: 'Sofía', notes: 'Pendiente asunto A/B test', urgent: false },
-  { id: 'OT-26-016', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiro Detox', media: 'Pauta Google Ads', ref: 'Search Bienestar', title: 'Copies y extensiones campaña de búsqueda', entryDate: relDate(-1, '11:30'), deliveryDate: relDate(5, '16:00'), status: 'Tráfico', responsible: 'Sebastián', notes: 'Definir presupuesto diario', urgent: false },
-  { id: 'OT-26-017', client: 'Club Premium', brand: 'Eventos', product: 'Cata Privada', media: 'Invitación WhatsApp', ref: 'Reserva Cava', title: 'Pieza vertical animada para envío a VIPs', entryDate: relDate(-1, '15:00'), deliveryDate: relDate(7, '18:30'), status: 'Entregado', responsible: 'Valentina', notes: 'Enviado archivo MP4 liviano', urgent: false },
-  { id: 'OT-26-018', client: 'Café Origen', brand: 'Cold Brew', product: 'Activación POP', media: 'Hablador + Cenefa', ref: 'Tiendas Gourmet', title: 'Material punto de venta neveras exhibidoras', entryDate: relDate(-1, '16:20'), deliveryDate: relDate(9, '17:00'), status: 'Desarrollo', responsible: 'Andrés', notes: 'Troquel estándar 15x20cm', urgent: false },
-  { id: 'OT-26-019', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Institucional', media: 'Dossier Corporativo', ref: 'Eventos Empresa', title: 'Presentación salones para retiros corporativos', entryDate: relDate(0, '08:15'), deliveryDate: relDate(10, '17:00'), status: 'Tráfico', responsible: 'Sofía', notes: 'Recopilar planos de capacidad', urgent: false },
-  { id: 'OT-26-020', client: 'Club Premium', brand: 'Membresía Black', product: 'Institucional', media: 'Landing Page', ref: 'Alianza Aerolíneas', title: 'Maquetación página beneficios salas VIP', entryDate: relDate(0, '09:50'), deliveryDate: relDate(6, '18:00'), status: 'Recibido', responsible: 'Mateo', notes: 'Integrar formulario de registro', urgent: false },
-  { id: 'OT-26-021', client: 'Café Origen', brand: 'Tostado Especial', product: 'Empaque 340g', media: 'Etiqueta Adhesiva', ref: 'Edición Microlote', title: 'Diseño sello numerado cosecha limitada', entryDate: relDate(0, '10:40'), deliveryDate: relDate(4, '15:00'), status: 'Desarrollo', responsible: 'Camila', notes: 'Usar papel kraft texturizado', urgent: true },
-  { id: 'OT-26-022', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Institucional', media: 'Reel + Carrusel', ref: 'Sonoterapia', title: 'Cobertura sesión de cuencos y edición rápida', entryDate: relDate(0, '12:00'), deliveryDate: relDate(5, '17:00'), status: 'Recibido', responsible: 'Valentina', notes: 'Grabación programada sábado', urgent: false },
-  { id: 'OT-26-023', client: 'Club Premium', brand: 'Eventos', product: 'Gala Anual', media: 'Registro QR Web', ref: 'Check-in Gala', title: 'Sistema de confirmación y código QR invitados', entryDate: relDate(0, '14:00'), deliveryDate: relDate(8, '12:00'), status: 'Desarrollo', responsible: 'Lucía', notes: 'Probar lectura en tablet puerta', urgent: false },
-  { id: 'OT-26-024', client: 'Café Origen', brand: 'Cold Brew', product: 'Institucional', media: 'Pauta TikTok', ref: 'Receta Tonic', title: 'Video tutorial 15s preparación Cold Brew Tonic', entryDate: relDate(0, '15:10'), deliveryDate: relDate(7, '16:00'), status: 'Tráfico', responsible: 'Sebastián', notes: 'Revisar música sin copyright', urgent: false },
-  { id: 'OT-26-025', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Institucional', media: 'Facturación Cierre', ref: 'Fee Noviembre', title: 'Consolidado horas y entregables mes actual', entryDate: relDate(-7, '09:00'), deliveryDate: relDate(9, '17:00'), status: 'Facturación', responsible: 'Daniel', notes: 'Adjuntar orden de compra', urgent: false },
-  { id: 'OT-26-026', client: 'Club Premium', brand: 'Membresía Black', product: 'Institucional', media: 'Reporte Mensual', ref: 'KPIs Octubre', title: 'Informe resultados pauta y aperturas email', entryDate: relDate(-8, '10:00'), deliveryDate: relDate(0, '14:00'), status: 'Archivada', responsible: 'Sofía', notes: 'Presentado en comité', urgent: false, archived: true },
-  { id: 'OT-25-118', client: 'Café Origen', brand: 'Tostado Especial', product: 'Lanzamiento', media: 'Campaña Integral', ref: 'Cosecha 2025', title: 'Cierre campaña anual origen y empaques', entryDate: relDate(-45, '09:00'), deliveryDate: relDate(-20, '18:00'), status: 'Archivada', responsible: 'Camila', notes: 'Archivada tras aprobación final', urgent: false, archived: true }
+  { id: 'OT-26-001', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Alojamiento', media: 'IG Carousel 1080x1350', ref: 'Temporada Verde', title: 'Campaña lanzamiento temporada baja y escapadas', entryDate: relDate(-5, '09:00'), deliveryDate: relDate(3, '17:00'), department: 'Desarrollo', status: 'En proceso', responsible: 'Andrés', notes: 'Esperando fotos finales de cabañas', urgent: true },
+  { id: 'OT-26-002', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiro Detox', media: 'Landing + Reel 9:16', ref: 'Equilibrio 2026', title: 'Piezas digitales para retiro de fin de semana', entryDate: relDate(-4, '10:30'), deliveryDate: relDate(4, '12:00'), department: 'Creativos', status: 'En proceso', responsible: 'Camila', notes: 'Revisar copy de itinerario', urgent: false },
+  { id: 'OT-26-003', client: 'Club Premium', brand: 'Club Premium', product: 'Institucional', media: 'Email + Banner Web', ref: 'Black Benefits', title: 'Actualización beneficios Q4 para socios Black', entryDate: relDate(-2, '08:45'), deliveryDate: relDate(3, '18:00'), department: 'Cliente', status: 'En proceso', responsible: 'Mateo', notes: 'Enviado a aprobación de gerencia', urgent: false },
+  { id: 'OT-26-004', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Impreso + Invitación Digital', ref: 'Noche Dorada', title: 'Invitación VIP y señalética del salón principal', entryDate: relDate(-1, '14:15'), deliveryDate: relDate(5, '16:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Sofía', notes: 'Cotizar papel texturizado', urgent: true },
+  { id: 'OT-26-005', client: 'Café Origen', brand: 'Tostión Media', product: 'Empaque 340g', media: 'Troquel + Arte Final', ref: 'Sierra Nevada', title: 'Ajuste tabla nutricional y código de barras', entryDate: relDate(0, '11:00'), deliveryDate: relDate(0, '15:00'), department: 'Producción', status: 'En proceso', responsible: 'Andrés', notes: 'Validar Pantone dorado', urgent: false },
+  { id: 'OT-26-006', client: 'Café Origen', brand: 'Cold Brew', product: 'Botella 300ml', media: 'Pauta Meta Ads', ref: 'Verano Frío', title: 'Adaptaciones 3 formatos para pauta pagada', entryDate: relDate(0, '09:20'), deliveryDate: relDate(0, '17:00'), department: 'Medios', status: 'En proceso', responsible: 'Camila', notes: 'Listo para pauta lunes', urgent: false },
+  { id: 'OT-26-007', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Restaurante', media: 'Video Reel 9:16', ref: 'Amanecer Bosque', title: 'Edición reel experiencia desayuno en terraza', entryDate: relDate(-6, '09:10'), deliveryDate: relDate(3, '16:00'), department: 'Creativos', status: 'En proceso', responsible: 'Mateo', notes: 'Falta colorización final', urgent: false },
+  { id: 'OT-26-008', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Rituales', media: 'Brochure PDF', ref: 'Carta Masajes', title: 'Diagramación menú de terapias y precios 2026', entryDate: relDate(-5, '15:20'), deliveryDate: relDate(5, '18:00'), department: 'Cliente', status: 'En proceso', responsible: 'Sofía', notes: 'En revisión con dirección', urgent: false },
+  { id: 'OT-26-009', client: 'Club Premium', brand: 'Club Roja', product: 'Edición Especial', media: 'Impreso Offset', ref: 'Welcome Box', title: 'Caja rígida y tarjeta personalizada nuevos socios', entryDate: relDate(-4, '11:00'), deliveryDate: relDate(6, '12:00'), department: 'Producción', status: 'En proceso', responsible: 'Andrés', notes: 'Prueba de barniz UV pendiente', urgent: true },
+  { id: 'OT-26-010', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Pendones + Backing', ref: 'Copa Otoño', title: 'Señalética de hoyos y backing premiación', entryDate: relDate(-3, '16:40'), deliveryDate: relDate(7, '10:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Camila', notes: 'Confirmar medidas con club', urgent: false },
+  { id: 'OT-26-011', client: 'Café Origen', brand: 'Tostión Media', product: 'Molido 500g', media: 'Post + Stories IG', ref: 'Cosecha Altura', title: 'Carrusel educativo proceso de lavado', entryDate: relDate(-3, '08:30'), deliveryDate: relDate(4, '17:00'), department: 'Cuentas', status: 'En proceso', responsible: 'Mateo', notes: 'Textos aprobados por marca', urgent: false },
+  { id: 'OT-26-012', client: 'Café Origen', brand: 'Cold Brew', product: 'Lata 250ml', media: 'Render 3D', ref: 'Pack x4', title: 'Renders de producto sobre hielo para e-commerce', entryDate: relDate(-2, '13:15'), deliveryDate: relDate(5, '19:00'), department: 'Creativos', status: 'En proceso', responsible: 'Sofía', notes: 'Ajustar reflejos metálicos', urgent: true },
+  { id: 'OT-26-013', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Habitaciones', media: 'Banner Hero Web', ref: 'Puente Festivo', title: 'Actualización banner principal tarifa especial', entryDate: relDate(-2, '10:00'), deliveryDate: relDate(1, '14:00'), department: 'Desarrollo', status: 'En proceso', responsible: 'Andrés', notes: 'Subir versión desktop y móvil', urgent: false },
+  { id: 'OT-26-014', client: 'Club Premium', brand: 'Club Premium', product: 'App Socios', media: 'UI Pantalla', ref: 'Concierge 2.0', title: 'Flujo de reserva prioritaria en restaurantes', entryDate: relDate(-2, '17:00'), deliveryDate: relDate(1, '18:00'), department: 'Desarrollo', status: 'En proceso', responsible: 'Camila', notes: 'Validar endpoints con backend', urgent: false },
+  { id: 'OT-26-015', client: 'Café Origen', brand: 'Tostión Media', product: 'Grano 1kg', media: 'Email Marketing', ref: 'Club Grano', title: 'Newsletter mensual recomendación del barista', entryDate: relDate(-1, '09:45'), deliveryDate: relDate(6, '11:00'), department: 'Cliente', status: 'En proceso', responsible: 'Mateo', notes: 'Pendiente asunto A/B test', urgent: false },
+  { id: 'OT-26-016', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiros', media: 'Pauta Google Ads', ref: 'Search Bienestar', title: 'Copies y extensiones campaña de búsqueda', entryDate: relDate(-1, '11:30'), deliveryDate: relDate(5, '16:00'), department: 'Medios', status: 'En proceso', responsible: 'Sofía', notes: 'Definir presupuesto diario', urgent: false },
+  { id: 'OT-26-017', client: 'Club Premium', brand: 'Club Roja', product: 'Eventos', media: 'Invitación WhatsApp', ref: 'Reserva Cava', title: 'Pieza vertical animada para envío a VIPs', entryDate: relDate(-1, '15:00'), deliveryDate: relDate(7, '18:30'), department: 'Creativos', status: 'En proceso', responsible: 'Andrés', notes: 'Enviado archivo MP4 liviano', urgent: false },
+  { id: 'OT-26-018', client: 'Café Origen', brand: 'Cold Brew', product: 'Activación POP', media: 'Hablador + Cenefa', ref: 'Tiendas Gourmet', title: 'Material punto de venta neveras exhibidoras', entryDate: relDate(-1, '16:20'), deliveryDate: relDate(9, '17:00'), department: 'Producción', status: 'En proceso', responsible: 'Camila', notes: 'Troquel estándar 15x20cm', urgent: false },
+  { id: 'OT-26-019', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Eventos', media: 'Dossier Corporativo', ref: 'Eventos Empresa', title: 'Presentación salones para retiros corporativos', entryDate: relDate(0, '08:15'), deliveryDate: relDate(10, '17:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Mateo', notes: 'Recopilar planos de capacidad', urgent: false },
+  { id: 'OT-26-020', client: 'Club Premium', brand: 'Club Premium', product: 'Institucional', media: 'Landing Page', ref: 'Alianza Aerolíneas', title: 'Maquetación página beneficios salas VIP', entryDate: relDate(0, '09:50'), deliveryDate: relDate(6, '18:00'), department: 'Desarrollo', status: 'En proceso', responsible: 'Sofía', notes: 'Integrar formulario de registro', urgent: false },
+  { id: 'OT-26-021', client: 'Café Origen', brand: 'Tostión Media', product: 'Empaque 340g', media: 'Etiqueta Adhesiva', ref: 'Edición Microlote', title: 'Diseño sello numerado cosecha limitada', entryDate: relDate(0, '10:40'), deliveryDate: relDate(4, '15:00'), department: 'Creativos', status: 'En proceso', responsible: 'Andrés', notes: 'Usar papel kraft texturizado', urgent: true },
+  { id: 'OT-26-022', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiros', media: 'Reel + Carrusel', ref: 'Sonoterapia', title: 'Cobertura sesión de cuencos y edición rápida', entryDate: relDate(0, '12:00'), deliveryDate: relDate(5, '17:00'), department: 'Producción', status: 'En proceso', responsible: 'Camila', notes: 'Grabación programada sábado', urgent: false },
+  { id: 'OT-26-023', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Registro QR Web', ref: 'Check-in Gala', title: 'Sistema de confirmación y código QR invitados', entryDate: relDate(0, '14:00'), deliveryDate: relDate(8, '12:00'), department: 'Desarrollo', status: 'En proceso', responsible: 'Mateo', notes: 'Probar lectura en tablet puerta', urgent: false },
+  { id: 'OT-26-024', client: 'Café Origen', brand: 'Cold Brew', product: 'Botella 300ml', media: 'Pauta TikTok', ref: 'Receta Tonic', title: 'Video tutorial 15s preparación Cold Brew Tonic', entryDate: relDate(0, '15:10'), deliveryDate: relDate(7, '16:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Sofía', notes: 'Revisar música sin copyright', urgent: false },
+  { id: 'OT-26-025', client: 'Shambhala Ecohotel', brand: 'Shambhala Ecohotel', product: 'Institucional', media: 'Facturación Cierre', ref: 'Fee Noviembre', title: 'Consolidado horas y entregables mes actual', entryDate: relDate(-7, '09:00'), deliveryDate: relDate(9, '17:00'), department: 'Facturación', status: 'En proceso', responsible: 'Andrés', notes: 'Adjuntar orden de compra', urgent: false },
+  { id: 'OT-26-026', client: 'Club Premium', brand: 'Club Premium', product: 'Institucional', media: 'Reporte Mensual', ref: 'KPIs Octubre', title: 'Informe resultados pauta y aperturas email', entryDate: relDate(-8, '10:00'), deliveryDate: relDate(0, '14:00'), department: 'Cuentas', status: 'Archivada', responsible: 'Camila', notes: 'Presentado en comité', urgent: false, archived: true },
+  { id: 'OT-25-118', client: 'Café Origen', brand: 'Tostión Media', product: 'Lanzamiento', media: 'Campaña Integral', ref: 'Cosecha 2025', title: 'Cierre campaña anual origen y empaques', entryDate: relDate(-45, '09:00'), deliveryDate: relDate(-20, '18:00'), department: 'Cuentas', status: 'Archivada', responsible: 'Andrés', notes: 'Archivada tras aprobación final', urgent: false, archived: true }
 ];
 
 export const standaloneDocuments = [
@@ -167,18 +297,28 @@ export const sketchState = {
 
   // Traffic view
   trafficScope: 'active',
+  trafficViewMode: 'list',
+  ganttScale: 'week',
+  trafficScheduleDate: relDate(0).slice(0, 10),
   trafficFilter: { type: 'all', client: null, brand: null },
   trafficSearchQuery: '',
-  trafficGroupBy: 'none',
+  trafficGroupBy: 'client',
   trafficSortBy: 'newest',
   trafficDateFilter: 'all',
+  trafficDeptFilter: 'all',
+  trafficStageFilter: 'all',
   trafficStatusFilter: 'all',
   trafficRespFilter: 'all',
   collapsedTrafficClients: new Set(),
+  collapsedTrafficGroups: new Set(),
+  trafficGroupsSeeded: false,
+  expandedTrafficOts: new Set(),
 
   // OT detail / My OTs view
-  myOtsMode: 'cards',
-  myOtsMember: 'Camila',
+  myOtsMode: 'kanban',
+  myOtsLastCollectionMode: 'kanban',
+  myOtsGroupBy: 'stage',
+  myOtsMember: 'Andrés',
   activeMyOtId: null,
   myOtsScope: 'active',
   activeTaskIndex: null,
@@ -241,13 +381,187 @@ export function onSketchChange(topic, fn) {
 /**
  * Emit a change event on a store channel.
  */
+const MAX_ORDER_HISTORY = 20;
+let orderHistoryStack = [];
+let orderHistoryIndex = -1;
+let isApplyingOrderHistory = false;
+
+function ensureOrderHistorySeeded() {
+  if (orderHistoryStack.length === 0) {
+    orderHistoryStack.push(JSON.stringify(trafficOrders));
+    orderHistoryIndex = 0;
+  }
+}
+
+export function canUndoOrders() {
+  ensureOrderHistorySeeded();
+  return orderHistoryIndex > 0;
+}
+
+export function canRedoOrders() {
+  ensureOrderHistorySeeded();
+  return orderHistoryIndex < orderHistoryStack.length - 1;
+}
+
+function applyOrderSnapshot(snapStr) {
+  const parsed = JSON.parse(snapStr);
+  isApplyingOrderHistory = true;
+  try {
+    trafficOrders.splice(0, trafficOrders.length, ...parsed);
+    notifySketchChange('orders', { fromHistory: true });
+    notifySketchChange('history', { canUndo: canUndoOrders(), canRedo: canRedoOrders() });
+  } finally {
+    isApplyingOrderHistory = false;
+  }
+}
+
+export function undoOrders() {
+  if (!canUndoOrders()) return false;
+  orderHistoryIndex -= 1;
+  applyOrderSnapshot(orderHistoryStack[orderHistoryIndex]);
+  return true;
+}
+
+export function redoOrders() {
+  if (!canRedoOrders()) return false;
+  orderHistoryIndex += 1;
+  applyOrderSnapshot(orderHistoryStack[orderHistoryIndex]);
+  return true;
+}
+
+function formatNowDisplay() {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
+export function recordOtActivity(otOrId, text, actor = sketchState.myOtsMember || 'Andrés') {
+  const ot = typeof otOrId === 'string' ? trafficOrders.find((o) => o.id === otOrId) : otOrId;
+  if (!ot || !text) return;
+  if (!Array.isArray(ot.activityLog)) ot.activityLog = [];
+  ot.activityLog.unshift({
+    at: formatNowDisplay(),
+    actor: actor || 'Estudio',
+    text,
+  });
+  if (ot.activityLog.length > 50) ot.activityLog.length = 50;
+}
+
+export function renderOtActivityHtml(ot) {
+  if (!ot) return '';
+  ensureOtData(ot);
+  const logs = Array.isArray(ot.activityLog) ? ot.activityLog : [];
+  return `
+    <div class="pt-3 border-t border-obsidian-border space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[10px] uppercase tracking-[0.12em] text-[#8C8C8C]">Historial de Actividad</span>
+        <span class="text-[9.5px] font-mono text-[#8C8C8C]">${logs.length}</span>
+      </div>
+      <div class="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+        ${logs.map((entry) => `
+          <div class="p-2 rounded-lg bg-[#191919] border border-obsidian-border text-[10.5px] space-y-0.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium text-obsidian-cyan truncate">${escapeHtml(entry.actor)}</span>
+              <span class="font-mono text-[9.5px] text-[#8C8C8C] shrink-0">${escapeHtml(entry.at)}</span>
+            </div>
+            <div class="text-[#D4D4D4] leading-snug">${escapeHtml(entry.text)}</div>
+          </div>
+        `).join('') || '<div class="text-[10px] text-[#8C8C8C] py-2">Sin actividad registrada aún.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function appendAutoOrderActivity(prevSnapStr) {
+  if (!prevSnapStr) return;
+  let prevList;
+  try {
+    prevList = JSON.parse(prevSnapStr);
+  } catch (_) {
+    return;
+  }
+  const prevMap = new Map(prevList.map((o) => [o.id, o]));
+  const actor = sketchState.myOtsMember || 'Estudio';
+
+  trafficOrders.forEach((ot) => {
+    const prev = prevMap.get(ot.id);
+    if (!prev) {
+      recordOtActivity(ot, 'abrió la OT', actor);
+      return;
+    }
+    if ((prev.stage || 'Tráfico') !== (ot.stage || 'Tráfico')) {
+      recordOtActivity(ot, `cambió etapa: ${prev.stage || 'Tráfico'} → ${ot.stage || 'Tráfico'}`, actor);
+    }
+    if (prev.status !== ot.status) {
+      recordOtActivity(ot, `cambió estado: ${prev.status} → ${ot.status}`, actor);
+    }
+    if (prev.department !== ot.department) {
+      recordOtActivity(ot, `traficó a ${ot.department || '—'}`, actor);
+    }
+    if (prev.responsible !== ot.responsible) {
+      recordOtActivity(ot, `asignó a ${ot.responsible || 'Sin asignar'}`, actor);
+    }
+    if (Boolean(prev.urgent) !== Boolean(ot.urgent)) {
+      recordOtActivity(ot, ot.urgent ? 'marcó como Urgente' : 'quitó marca de Urgente', actor);
+    }
+    const prevSubs = Array.isArray(prev.subtasks) ? prev.subtasks : [];
+    const curSubs = Array.isArray(ot.subtasks) ? ot.subtasks : [];
+    curSubs.forEach((st, idx) => {
+      const pst = prevSubs[idx];
+      if (!pst) {
+        recordOtActivity(ot, `agregó tarea «${st.title}»`, actor);
+        return;
+      }
+      if ((pst.stage || 'Tráfico') !== (st.stage || 'Tráfico')) {
+        recordOtActivity(ot, `en «${st.title}»: etapa ${pst.stage || 'Tráfico'} → ${st.stage || 'Tráfico'}`, actor);
+      }
+      if (pst.status !== st.status) {
+        recordOtActivity(ot, `en «${st.title}»: estado ${pst.status} → ${st.status}`, actor);
+      }
+      if (Number(pst.estimatedHours) !== Number(st.estimatedHours)) {
+        recordOtActivity(ot, `en «${st.title}»: horas ${pst.estimatedHours ?? 3}h → ${st.estimatedHours}h`, actor);
+      }
+    });
+  });
+}
+
 export function notifySketchChange(topic, payload) {
+  if (topic === 'orders' && !isApplyingOrderHistory && !payload?.filter && !payload?.fromHistory) {
+    ensureOrderHistorySeeded();
+    appendAutoOrderActivity(orderHistoryStack[orderHistoryIndex]);
+    const snap = JSON.stringify(trafficOrders);
+    if (snap !== orderHistoryStack[orderHistoryIndex]) {
+      orderHistoryStack = orderHistoryStack.slice(0, orderHistoryIndex + 1);
+      orderHistoryStack.push(snap);
+      if (orderHistoryStack.length > MAX_ORDER_HISTORY + 1) {
+        orderHistoryStack.shift();
+      }
+      orderHistoryIndex = orderHistoryStack.length - 1;
+      notifySketchChange('history', { canUndo: canUndoOrders(), canRedo: canRedoOrders() });
+    }
+  }
   const listeners = sketchListeners.get(topic);
   if (!listeners) return;
   listeners.forEach((fn) => fn(payload));
 }
 
 export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
+  if (!ot.activityLog) {
+    const baseAt = formatShortDateFn(ot.entryDate) || formatNowDisplay();
+    const resp = ot.responsible || 'Andrés';
+    const dept = ot.department || 'Creativos';
+    const stage = ot.stage || 'Tráfico';
+    ot.activityLog = [
+      { at: formatNowDisplay(), actor: resp, text: `actualizó etapa a ${stage}` },
+      { at: baseAt, actor: resp, text: 'subió «Boceto_Principal.png» (v1)' },
+      { at: baseAt, actor: 'Camila', text: `traficó a ${dept}` },
+      { at: baseAt, actor: 'Camila', text: `asignó la OT a ${resp}` },
+      { at: baseAt, actor: 'Cuentas', text: `abrió la OT para ${ot.client || 'Cliente'}` },
+    ];
+  }
   if (!ot.routes) {
     ot.routes = [
       { date: formatShortDateFn(ot.entryDate), from: 'Cuentas', to: 'Creativos', desc: ot.title, sign: ot.responsible || 'Camila', notes: ot.notes || '', locked: true },
@@ -305,14 +619,15 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
     ot.subtasks = [
       {
         title: 'Redacción de Textos',
-        responsible: 'Mateo',
-        status: ot.status || 'En Revisión',
+        responsible: 'Andrés',
+        department: 'Creativos',
+        status: ot.status || 'En proceso',
         entryDate: ot.entryDate,
         deliveryDate: ot.deliveryDate,
         notes: 'Tono cercano',
         routes: [
-          { date: formatShortDateFn(ot.entryDate), from: 'Cuentas', to: 'Creativos', desc: 'Brief de copy y titulares para campaña', sign: 'Mateo', notes: 'Tono cercano', locked: true },
-          { date: formatShortDateFn(ot.deliveryDate), from: 'Creativos', to: 'Tráfico', desc: 'Propuesta de textos v1 lista para revisión', sign: 'Lucía', notes: 'Revisar CTA', locked: false }
+          { date: formatShortDateFn(ot.entryDate), from: 'Cuentas', to: 'Creativos', desc: 'Brief de copy y titulares para campaña', sign: 'Andrés', notes: 'Tono cercano', locked: true },
+          { date: formatShortDateFn(ot.deliveryDate), from: 'Creativos', to: 'Tráfico', desc: 'Propuesta de textos v1 lista para revisión', sign: 'Andrés', notes: 'Revisar CTA', locked: false }
         ],
         mediaFiles: [
           { name: 'Copy_Campana_v1.docx', meta: 'DOC · 0.14 MB', status: 'En Revisión' },
@@ -321,16 +636,17 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
       },
       {
         title: customTitle,
-        responsible: 'Camila',
-        status: 'Creativos',
+        responsible: 'Andrés',
+        department: ot.department || 'Creativos',
+        status: ot.status || 'En proceso',
         entryDate: ot.entryDate,
         deliveryDate: ot.deliveryDate,
         scheduledDate: (ot.deliveryDate || '').slice(0, 10),
         estimatedHours: 3,
         notes: ot.notes || 'Alta resolución',
         routes: [
-          { date: formatShortDateFn(ot.entryDate), from: 'Tráfico', to: 'Diseño', desc: customTitle, sign: 'Camila', notes: ot.notes || 'Alta resolución', locked: true },
-          { date: formatShortDateFn(ot.deliveryDate), from: 'Diseño', to: 'Producción', desc: 'Entregable v1 listo para revisión', sign: 'Camila', notes: 'Revisar formato', locked: false }
+          { date: formatShortDateFn(ot.entryDate), from: 'Tráfico', to: 'Creativos', desc: customTitle, sign: 'Andrés', notes: ot.notes || 'Alta resolución', locked: true },
+          { date: formatShortDateFn(ot.deliveryDate), from: 'Creativos', to: 'Producción', desc: 'Entregable v1 listo para revisión', sign: 'Andrés', notes: 'Revisar formato', locked: false }
         ],
         mediaFiles: [
           { name: 'Foto_Retocada_01.png', meta: 'IMAGEN · 1.24 MB', status: 'En Revisión' },
@@ -339,9 +655,10 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
       }
     ];
   } else {
-    ot.subtasks.forEach((st, idx) => {
-      if (!st.responsible) st.responsible = idx % 2 === 0 ? 'Mateo' : 'Camila';
-      if (!st.status) st.status = ot.status || 'En Revisión';
+    ot.subtasks.forEach((st) => {
+      if (!st.responsible) st.responsible = ot.responsible || 'Andrés';
+      if (!st.department) st.department = ot.department || 'Creativos';
+      if (!st.status) st.status = ot.status || 'En proceso';
       if (!st.entryDate) st.entryDate = ot.entryDate;
       if (!st.deliveryDate) st.deliveryDate = ot.deliveryDate;
       if (!st.scheduledDate) st.scheduledDate = (st.deliveryDate || ot.deliveryDate || '').slice(0, 10);
@@ -349,4 +666,58 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
       if (st.notes === undefined) st.notes = '';
     });
   }
+}
+
+/**
+ * Shared filter predicate across Tráfico, Mis OTs, Todas las Tareas, and Stripboard.
+ */
+export function matchesCommonTrafficFilters(item, {
+  state = sketchState,
+  checkResponsible = true,
+  searchQuery = '',
+} = {}) {
+  const tf = state.trafficFilter || { type: 'all' };
+  if (tf.type === 'client' && tf.client && item.client !== tf.client) return false;
+  if (tf.type === 'brand' && (item.client !== tf.client || item.brand !== tf.brand)) return false;
+
+  if (state.trafficDeptFilter !== 'all' && (item.department || '—') !== state.trafficDeptFilter) return false;
+  if (state.trafficStageFilter !== 'all' && (item.stage || 'Tráfico') !== state.trafficStageFilter) return false;
+  if (state.trafficStatusFilter !== 'all' && item.status !== state.trafficStatusFilter) return false;
+  if (checkResponsible && state.trafficRespFilter !== 'all' && item.responsible !== state.trafficRespFilter) return false;
+
+  const df = state.trafficDateFilter;
+  if (df && df !== 'all') {
+    const todayKey = relDate(0).slice(0, 10);
+    const tomorrowKey = relDate(1).slice(0, 10);
+    const recentCutoffKey = relDate(-2).slice(0, 10);
+    const dKey = (item.deliveryDate || '').slice(0, 10);
+    if (df === 'today' && dKey !== todayKey) return false;
+    if (df === 'tomorrow' && dKey !== tomorrowKey) return false;
+    if (df === 'recent' && (item.entryDate || '').slice(0, 10) < recentCutoffKey) return false;
+    if (df === 'urgent' && !item.urgent) return false;
+    if (df === 'urgent-today' && !item.urgent && dKey !== todayKey) return false;
+    if (df === 'urgent-today-tomorrow' && !item.urgent && dKey !== todayKey && dKey !== tomorrowKey) return false;
+  }
+
+  const q = String(searchQuery || '').trim().toLowerCase();
+  if (q) {
+    const hay = [
+      item.id, item.code, item.client, item.brand, item.product,
+      item.ref, item.title, item.responsible, item.department,
+      item.stage, item.status, item.notes,
+    ];
+    if (!hay.some((v) => String(v || '').toLowerCase().includes(q))) return false;
+  }
+  return true;
+}
+
+/**
+ * Shared sort by opening date (`entryDate`) across collection views.
+ */
+export function sortTrafficItemsByEntryDate(items, sortBy = sketchState.trafficSortBy) {
+  return [...items].sort((a, b) => {
+    const da = a.entryDate || a.scheduledDate || '';
+    const db = b.entryDate || b.scheduledDate || '';
+    return sortBy === 'oldest' ? da.localeCompare(db) : db.localeCompare(da);
+  });
 }
