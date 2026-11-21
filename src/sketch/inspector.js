@@ -6,10 +6,13 @@
  */
 
 import {
+  addPieceVersion,
   appendOtMessage,
+  deletePieceVersion,
   ensureOtData,
   escapeHtml,
   formatShortDate,
+  getActivePieceVersion,
   getClientColor,
   getDepartmentColor,
   getStageColor,
@@ -209,22 +212,26 @@ function renderFileInspectorBlockHtml(piece, { isArchived = false, standalone = 
   }
   if (!piece) return '';
 
-  const techRows = getFileTechSpecs(piece);
-  const reviewStatus = piece.status || 'En Revisión';
+  const { versions, current, latest, isHistorical } = getActivePieceVersion(piece);
+  const displayMeta = current?.meta || piece.meta;
+  const techRows = getFileTechSpecs({ ...piece, meta: displayMeta });
+  const reviewStatus = current?.status || piece.status || 'En Revisión';
   const statusColor = reviewStatus === 'Aprobado'
     ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
     : reviewStatus === 'Con cambios'
       ? 'text-rose-300 border-rose-500/40 bg-rose-500/10'
       : 'text-obsidian-amber border-amber-500/40 bg-amber-500/10';
-  const openPins = piece.openPins ?? (reviewStatus === 'Aprobado' ? 0 : 2);
-  const uploadedBy = piece.uploadedBy || 'Andrés';
+  const openPins = current?.openPins ?? (reviewStatus === 'Aprobado' ? 0 : 2);
+  const uploadedBy = current?.uploadedBy || piece.uploadedBy || 'Andrés';
+  const uploadedAt = current?.at || '';
+  const origFileName = current?.fileName || piece.name;
 
   return `
     <div class="${standalone ? 'space-y-2.5' : 'pt-2 border-t border-obsidian-border space-y-2'}">
       ${standalone ? `
         <div class="space-y-1">
           <div class="flex items-center justify-between gap-1.5">
-            <span class="font-mono text-[9.5px] font-semibold text-obsidian-amber px-1.5 py-0.5 rounded bg-[#191919] border border-obsidian-border">${escapeHtml(getFileExtension(piece.name))} · v${piece.version || 1}</span>
+            <span class="font-mono text-[9.5px] font-semibold text-obsidian-amber px-1.5 py-0.5 rounded bg-[#191919] border border-obsidian-border">${escapeHtml(getFileExtension(piece.name))} · v${current?.version || 1}</span>
             ${piece.otId ? `<button type="button" id="insp-file-open-ot" class="font-mono text-[9.5px] text-obsidian-cyan hover:underline cursor-pointer">${escapeHtml(piece.otId)} ↗</button>` : ''}
           </div>
           <div class="text-[11.5px] font-medium text-[#D4D4D4] leading-snug break-all">${escapeHtml(piece.name)}</div>
@@ -232,16 +239,26 @@ function renderFileInspectorBlockHtml(piece, { isArchived = false, standalone = 
         </div>
       ` : `
         <div class="flex items-center justify-between gap-1.5">
-          <span class="text-[9.5px] uppercase tracking-[0.1em] text-[#8C8C8C] font-semibold">Archivo seleccionado</span>
+          <span class="text-[9.5px] uppercase tracking-[0.1em] text-[#8C8C8C] font-semibold">Archivo · v${current?.version || 1}</span>
           <span class="font-mono text-[9px] text-[#737373] truncate max-w-[110px]" title="${escapeHtml(piece.name)}">${escapeHtml(piece.name)}</span>
         </div>
       `}
 
-      <!-- Estado de revisión editable -->
+      ${isHistorical ? `
+        <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/40 text-[9.5px] space-y-1.5">
+          <div class="text-obsidian-amber font-medium">Viendo v${current.version} (histórica · solo lectura)</div>
+          <div class="flex gap-1.5">
+            <button type="button" data-insp-select-ver="${latest.version}" class="flex-1 h-6 rounded bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[#D4D4D4] cursor-pointer">Ir a v${latest.version}</button>
+            ${!isArchived ? `<button type="button" id="insp-ver-restore" class="flex-1 h-6 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-obsidian-amber cursor-pointer">Restaurar v${latest.version + 1}</button>` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Estado de revisión editable (solo en versión actual) -->
       <div class="flex items-center justify-between gap-2 text-[10px]">
         <span class="text-[#8C8C8C]">Revisión</span>
-        <select id="insp-file-status" ${isArchived ? 'disabled' : ''}
-          class="h-6 px-2 rounded-md border text-[10px] font-medium focus:outline-none cursor-pointer ${statusColor}">
+        <select id="insp-file-status" ${isArchived || isHistorical ? 'disabled' : ''}
+          class="h-6 px-2 rounded-md border text-[10px] font-medium focus:outline-none ${isArchived || isHistorical ? 'opacity-60 cursor-default' : 'cursor-pointer'} ${statusColor}">
           ${FILE_REVIEW_STATUSES.map((st) => `<option value="${st}" class="bg-[#202020] text-[#D4D4D4]" ${reviewStatus === st ? 'selected' : ''}>${st}</option>`).join('')}
         </select>
       </div>
@@ -254,6 +271,12 @@ function renderFileInspectorBlockHtml(piece, { isArchived = false, standalone = 
             <span class="text-[#D4D4D4] font-mono text-[9.5px] text-right truncate">${escapeHtml(v)}</span>
           </div>
         `).join('')}
+        ${origFileName !== piece.name ? `
+          <div class="flex items-center justify-between gap-2 py-1">
+            <span class="text-[#8C8C8C] shrink-0">Archivo orig.</span>
+            <span class="text-[#8C8C8C] font-mono text-[9px] text-right truncate" title="${escapeHtml(origFileName)}">${escapeHtml(origFileName)}</span>
+          </div>
+        ` : ''}
         ${piece.taskTitle ? `
           <div class="flex items-center justify-between gap-2 py-1">
             <span class="text-[#8C8C8C] shrink-0">Vinculado a</span>
@@ -262,7 +285,7 @@ function renderFileInspectorBlockHtml(piece, { isArchived = false, standalone = 
         ` : ''}
         <div class="flex items-center justify-between gap-2 py-1">
           <span class="text-[#8C8C8C] shrink-0">Subido por</span>
-          <span class="text-[#D4D4D4] text-right truncate">${escapeHtml(uploadedBy)}</span>
+          <span class="text-[#D4D4D4] text-right truncate">${escapeHtml(uploadedBy)}${uploadedAt ? ` · ${escapeHtml(uploadedAt)}` : ''}</span>
         </div>
         <div class="flex items-center justify-between gap-2 py-1">
           <span class="text-[#8C8C8C] shrink-0">Pines RC</span>
@@ -270,9 +293,50 @@ function renderFileInspectorBlockHtml(piece, { isArchived = false, standalone = 
         </div>
       </div>
 
+      <!-- Historial de versiones -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between gap-1.5">
+          <span class="text-[9.5px] uppercase tracking-[0.1em] text-[#8C8C8C] font-semibold">Versiones (${versions.length})</span>
+          ${!isArchived ? `<button type="button" id="insp-ver-toggle-form" class="text-[9.5px] text-obsidian-amber hover:underline cursor-pointer">+ Nueva versión</button>` : ''}
+        </div>
+        ${!isArchived ? `
+          <form id="insp-ver-form" class="hidden p-2 rounded-lg bg-[#191919] border border-obsidian-border space-y-1.5 text-[10px]">
+            <input id="insp-ver-file" type="file" class="w-full text-[9.5px] text-[#8C8C8C] file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:bg-obsidian-elevated file:text-[#D4D4D4] file:text-[9.5px] file:cursor-pointer cursor-pointer" />
+            <input id="insp-ver-note" type="text" placeholder="Nota de cambio (ej. Ajuste logo)..."
+              class="w-full h-6 bg-[#202020] border border-obsidian-border rounded px-2 text-[10px] text-[#D4D4D4] placeholder-[#5a6169] focus:outline-none focus:border-obsidian-amber/60" />
+            <div class="flex justify-end gap-1.5">
+              <button type="button" id="insp-ver-cancel" class="h-6 px-2 rounded bg-[#202020] hover:bg-obsidian-elevated text-[9.5px] text-[#8C8C8C] cursor-pointer">Cancelar</button>
+              <button type="submit" class="h-6 px-2.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[9.5px] text-obsidian-amber font-medium cursor-pointer">Subir v${(latest?.version || 1) + 1}</button>
+            </div>
+          </form>
+        ` : ''}
+        <div class="space-y-1 max-h-32 overflow-y-auto pr-0.5">
+          ${[...versions].reverse().map((v) => {
+            const isViewing = v.version === current?.version;
+            const isLatest = v.version === latest?.version;
+            return `
+              <div data-insp-select-ver="${v.version}" class="px-2 py-1.5 rounded-lg border text-[9.5px] cursor-pointer transition-colors ${isViewing ? 'bg-obsidian-elevated/80 border-obsidian-amber/50' : 'bg-[#191919] border-obsidian-border hover:border-[#3a3a3a]'}">
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="inline-flex items-center gap-1 min-w-0">
+                    <span class="font-mono font-semibold ${isViewing ? 'text-obsidian-amber' : 'text-[#D4D4D4]'}">v${v.version}</span>
+                    ${isLatest ? '<span class="px-1 rounded bg-emerald-500/15 text-emerald-300 text-[8px] font-mono">actual</span>' : ''}
+                    <span class="text-[#8C8C8C] truncate">${escapeHtml(v.status)}</span>
+                  </span>
+                  <span class="inline-flex items-center gap-1 shrink-0">
+                    <span class="font-mono text-[8.5px] text-[#737373]">${escapeHtml(v.at)}</span>
+                    ${!isArchived && versions.length > 1 ? `<button type="button" data-insp-del-ver="${v.version}" title="Eliminar v${v.version}" class="w-3.5 h-3.5 rounded hover:bg-[#2a2a2a] text-[#737373] hover:text-rose-400 flex items-center justify-center cursor-pointer leading-none">×</button>` : ''}
+                  </span>
+                </div>
+                ${v.note ? `<div class="mt-0.5 text-[9px] text-[#8C8C8C] truncate">${escapeHtml(v.note)}</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
       <div class="flex gap-1.5">
         <button type="button" id="insp-file-review" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10px] text-[#D4D4D4] cursor-pointer">
-          Revisar pieza
+          Revisar v${current?.version || 1}
         </button>
         ${standalone && piece.otId ? `
           <button type="button" id="insp-file-open-ot-btn" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10px] text-obsidian-cyan cursor-pointer">
@@ -322,13 +386,76 @@ function bindBatchFileEvents(mount, { piecesList = [], ot = null, onDeleteSelect
 
 function bindFileInspectorEvents(mount, piece, { ot = null, onRerender = null } = {}) {
   if (!mount || !piece) return;
+  const { current, latest } = getActivePieceVersion(piece);
+
   mount.querySelector('#insp-file-status')?.addEventListener('change', (e) => {
-    const prev = piece.status || 'En Revisión';
+    const prev = current?.status || piece.status || 'En Revisión';
     const next = e.target.value;
-    piece.status = next;
+    if (current) current.status = next;
+    if (!current || current.version === latest?.version) piece.status = next;
     if (ot && prev !== next) {
-      recordOtActivity(ot, `cambió «${piece.name}» a ${next}`);
+      recordOtActivity(ot, `cambió «${piece.name}» (v${current?.version || 1}) a ${next}`);
     }
+    if (typeof onRerender === 'function') onRerender();
+  });
+
+  mount.querySelectorAll('[data-insp-select-ver]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-insp-del-ver]')) return;
+      const ver = Number(el.dataset.inspSelectVer);
+      if (!Number.isNaN(ver)) {
+        piece.activeVersion = ver;
+        if (typeof onRerender === 'function') onRerender();
+      }
+    });
+  });
+
+  mount.querySelectorAll('[data-insp-del-ver]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ver = Number(btn.dataset.inspDelVer);
+      if (deletePieceVersion(piece, ver, { ot })) {
+        if (typeof onRerender === 'function') onRerender();
+      }
+    });
+  });
+
+  mount.querySelector('#insp-ver-restore')?.addEventListener('click', () => {
+    if (!current) return;
+    addPieceVersion(piece, {
+      fileName: current.fileName,
+      meta: current.meta,
+      note: `Restaurada desde v${current.version}`,
+      ot,
+    });
+    if (typeof onRerender === 'function') onRerender();
+  });
+
+  const verForm = mount.querySelector('#insp-ver-form');
+  mount.querySelector('#insp-ver-toggle-form')?.addEventListener('click', () => {
+    verForm?.classList.toggle('hidden');
+    verForm?.querySelector('#insp-ver-note')?.focus();
+  });
+  mount.querySelector('#insp-ver-cancel')?.addEventListener('click', () => {
+    verForm?.classList.add('hidden');
+  });
+  verForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fileInput = verForm.querySelector('#insp-ver-file');
+    const noteInput = verForm.querySelector('#insp-ver-note');
+    const pickedFile = fileInput?.files?.[0] || null;
+    const sizeLabel = pickedFile
+      ? (pickedFile.size >= 1024 * 1024
+        ? `${(pickedFile.size / (1024 * 1024)).toFixed(2)} MB`
+        : `${Math.max(1, Math.round(pickedFile.size / 1024))} KB`)
+      : null;
+    const ext = getFileExtension(pickedFile?.name || piece.name);
+    addPieceVersion(piece, {
+      fileName: pickedFile?.name || piece.name,
+      meta: sizeLabel ? `${ext} · ${sizeLabel}` : piece.meta,
+      note: noteInput?.value || '',
+      ot,
+    });
     if (typeof onRerender === 'function') onRerender();
   });
 

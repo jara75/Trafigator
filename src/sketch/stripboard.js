@@ -6,10 +6,13 @@ import {
   bindTableColResizers,
   escapeHtml,
   formatShortDate,
+  getActiveWorkspaces,
   getClientColor,
+  getDepartmentsForWorkspace,
   getDepartmentColor,
   getPriorityDotHtml,
   getStageColor,
+  getWorkspaceById,
   matchesCommonTrafficFilters,
   notifySketchChange,
   onSketchChange,
@@ -58,6 +61,7 @@ export function getAllMyTaskPool() {
           uid: `${ot.id}::${idx}`,
           code: `${ot.id}-${idx + 1}`,
           otId: ot.id,
+          workspaceId: ot.workspaceId || 'diseno-publicidad',
           taskIndex: idx,
           client: ot.client,
           brand: ot.brand,
@@ -249,11 +253,12 @@ function buildStripGroups(visibleStrips, groupBy) {
  */
 function renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours) {
   const idx = strips.indexOf(s);
+  const sbMulti = getActiveWorkspaces().length >= 2;
   if (s.type === 'break') {
     return `
       <tr draggable="true" data-sb-idx="${idx}" class="sb-strip-row bg-[#2a2419] border-y border-amber-500/30 text-[10px] text-obsidian-amber cursor-grab active:cursor-grabbing">
         <td class="px-2 py-1.5 text-center font-mono text-[#8C8C8C]">≡</td>
-        <td colspan="10" class="px-2 py-1">
+        <td colspan="${sbMulti ? 11 : 10}" class="px-2 py-1">
           <input type="text" data-sb-edit-title="${idx}" value="${escapeHtml(s.title)}"
             class="w-full bg-transparent border border-transparent hover:border-amber-500/40 focus:border-obsidian-amber focus:bg-[#191919] rounded px-1.5 py-0.5 font-mono uppercase tracking-[0.12em] font-semibold text-obsidian-amber focus:outline-none" />
         </td>
@@ -273,8 +278,16 @@ function renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours) {
   if (firstCross) runningHoursRef.crossed = true;
   const isFree = String(s.uid || '').startsWith('free-');
 
+  // Espacios: tu jornada es una sola. Las tareas de otros espacios se ven atenuadas, nunca ocultas.
+  const sbWs = s.workspaceId ? getWorkspaceById(s.workspaceId) : null;
+  const sbActiveWs = sketchState.activeWorkspaceId || 'studio';
+  const isOtherSpace = !!(sbMulti && sbWs && sbActiveWs !== 'studio' && s.workspaceId !== sbActiveWs);
+  const wsTdHtml = sbMulti
+    ? `<td class="px-2 py-1.5 border-r border-obsidian-border truncate font-medium" style="color:${escapeHtml(sbWs?.color || '#8C8C8C')}">${escapeHtml(sbWs?.shortName || 'Estudio')}</td>`
+    : '';
+
   return `
-    <tr draggable="true" data-sb-idx="${idx}" data-sb-ot="${escapeHtml(s.otId || '')}" data-sb-task="${s.taskIndex !== undefined ? s.taskIndex : ''}" class="sb-strip-row ${zebra} ${firstCross ? 'border-t-2 border-t-rose-500/80' : ''} hover:bg-obsidian-elevated/70 transition-colors cursor-grab active:cursor-grabbing">
+    <tr draggable="true" data-sb-idx="${idx}" data-sb-ot="${escapeHtml(s.otId || '')}" data-sb-task="${s.taskIndex !== undefined ? s.taskIndex : ''}" class="sb-strip-row ${zebra} ${firstCross ? 'border-t-2 border-t-rose-500/80' : ''} ${isOtherSpace ? 'opacity-45' : ''} hover:bg-obsidian-elevated/70 transition-colors cursor-grab active:cursor-grabbing">
       <td class="px-2 py-1.5 border-r border-obsidian-border text-center font-mono text-[#8C8C8C]">${visIdx + 1}</td>
       <td class="px-2 py-1.5 border-r border-obsidian-border">
         <span class="inline-flex items-center justify-center gap-1 w-full font-mono font-semibold text-obsidian-amber px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border whitespace-nowrap">
@@ -282,6 +295,7 @@ function renderStripRowHtml(s, strips, visIdx, runningHoursRef, dailyHours) {
           <span>${escapeHtml(s.code || 'LIBRE')}</span>
         </span>
       </td>
+      ${wsTdHtml}
       <td class="px-2 py-1.5 border-r border-obsidian-border truncate font-medium" style="color:${escapeHtml(cColor)}">${escapeHtml(s.client || 'Interno')}</td>
       <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C] truncate">${escapeHtml(s.brand || '—')}</td>
       <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4] font-medium">
@@ -342,6 +356,7 @@ export function renderStripboard() {
     return matchesCommonTrafficFilters(item, {
       state: sketchState,
       checkResponsible: false,
+      checkWorkspace: false,
       searchQuery: sketchState.stripboardSearch,
     });
   };
@@ -363,13 +378,26 @@ export function renderStripboard() {
   const dayReservedHours = getDayReservedHours(sketchState.stripboardDate);
   const dayOverloaded = dayReservedHours > dailyHours;
 
+  // Desglose de la jornada: horas del espacio actual vs. horas ocupadas en otros espacios.
+  let daySplitLabel = '';
+  const activeWsId = sketchState.activeWorkspaceId || 'studio';
+  if (getActiveWorkspaces().length >= 2 && activeWsId !== 'studio') {
+    const dayTasks = ensureStripboardDaySeeded(sketchState.stripboardDate).filter((s) => s.type !== 'break');
+    const sumHours = (list) => list.reduce((sum, s) => sum + (Number(s.estimatedHours) || 0), 0);
+    const mineH = sumHours(dayTasks.filter((s) => !s.workspaceId || s.workspaceId === activeWsId));
+    const otherH = sumHours(dayTasks.filter((s) => s.workspaceId && s.workspaceId !== activeWsId));
+    const wsShort = getWorkspaceById(activeWsId)?.shortName || 'Espacio';
+    daySplitLabel = ` (${mineH}h ${wsShort} + ${otherH}h otros)`;
+  }
+
   let mainContentHtml = '';
   if (sketchState.stripboardViewMode === 'list' || sketchState.stripboardViewMode === 'day') {
     const runningHoursRef = { total: 0, crossed: false };
     let tbodyHtml = '';
 
+    const sbTotalCols = getActiveWorkspaces().length >= 2 ? 13 : 12;
     if (!visibleStrips.length) {
-      tbodyHtml = '<tr><td colspan="12" class="p-8 text-center text-[11px] text-[#8C8C8C]">Sin tiras programadas para este filtro o día.</td></tr>';
+      tbodyHtml = `<tr><td colspan="${sbTotalCols}" class="p-8 text-center text-[11px] text-[#8C8C8C]">Sin tiras programadas para este filtro o día.</td></tr>`;
     } else if (sketchState.stripboardGroupBy !== 'none') {
       const groups = buildStripGroups(visibleStrips, sketchState.stripboardGroupBy);
       let visCounter = 0;
@@ -377,7 +405,7 @@ export function renderStripboard() {
         const groupHours = grp.items.reduce((sum, s) => sum + (Number(s.estimatedHours) || 0), 0);
         const headerRow = `
           <tr class="bg-[#191919] border-y border-obsidian-border text-[10px] font-semibold uppercase tracking-[0.1em] text-[#8C8C8C] select-none">
-            <td colspan="12" class="px-2.5 py-1.5">
+            <td colspan="${sbTotalCols}" class="px-2.5 py-1.5">
               <div class="flex items-center justify-between">
                 <span class="font-semibold" style="${grp.color ? `color:${escapeHtml(grp.color)}` : 'color:#D4D4D4'}">${escapeHtml(grp.label)}</span>
                 <span class="font-mono text-[9.5px] text-[#8C8C8C]">${grp.items.length} ${grp.items.length === 1 ? 'tarea' : 'tareas'} · ${groupHours}h</span>
@@ -407,6 +435,7 @@ export function renderStripboard() {
               <tr class="bg-[#191919] border-b border-obsidian-border text-[9.5px] text-[#8C8C8C] uppercase tracking-wider select-none">
                 <th class="relative px-2 py-1.5 border-r border-obsidian-border w-8 text-center">#<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
                 <th class="relative px-2 py-1.5 border-r border-obsidian-border w-24">Código<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
+                ${getActiveWorkspaces().length >= 2 ? '<th class="relative px-2 py-1.5 border-r border-obsidian-border w-24">Espacio<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>' : ''}
                 <th class="relative px-2 py-1.5 border-r border-obsidian-border w-32">Cliente<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
                 <th class="relative px-2 py-1.5 border-r border-obsidian-border w-28">Marca<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
                 <th class="relative px-2 py-1.5 border-r border-obsidian-border">Tarea<div class="traffic-col-resizer absolute inset-y-0 right-0 w-1.5 cursor-col-resize hover:bg-obsidian-cyan/70"></div></th>
@@ -439,7 +468,7 @@ export function renderStripboard() {
       groupBy: kanbanGroupBy,
       todayKey: relDate(0).slice(0, 10),
       tomorrowKey: relDate(1).slice(0, 10),
-      departments: trafficDepartments,
+      departments: getDepartmentsForWorkspace(sketchState.activeWorkspaceId),
       stages: trafficStages,
       statuses: trafficStatuses,
       members: trafficMembers,
@@ -480,7 +509,7 @@ export function renderStripboard() {
         <span class="hidden xl:inline">Entregadas: <strong class="text-emerald-400 font-mono">${doneCount}</strong></span>
         <span class="hidden xl:inline">·</span>
         <span class="px-1.5 py-0.5 rounded border font-mono ${dayOverloaded ? 'bg-rose-500/15 border-rose-500/40 text-rose-300 font-semibold' : 'bg-[#191919] border-obsidian-border text-[#D4D4D4]'}">
-          Día: ${dayReservedHours}h / ${dailyHours}h${dayOverloaded ? ' · Sobrecarga' : ''}
+          Día: ${dayReservedHours}h / ${dailyHours}h${daySplitLabel}${dayOverloaded ? ' · Sobrecarga' : ''}
         </span>
         <button type="button" id="sb-add-break" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Separador</button>
         <button type="button" id="sb-add-free" class="h-6 px-2 rounded-md bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">+ Tarea Libre</button>

@@ -4,9 +4,13 @@
 
 import {
   trafficOrders,
+  trafficMembers,
   sketchState,
   relDate,
   ensureOtData,
+  escapeHtml,
+  getActiveWorkspaces,
+  getDepartmentsForWorkspace,
   onSketchChange,
   notifySketchChange,
 } from './store.js';
@@ -84,7 +88,9 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
   const titleInput = document.getElementById('ot-header-title');
   const orderInput = form?.querySelector('input[readonly]');
   const refInput = form?.querySelector('input[placeholder*="Elefante"]');
-  const respSelect = form?.querySelector('select');
+  const respSelect = document.getElementById('new-ot-responsible');
+  const wsRow = document.getElementById('new-ot-workspace-row');
+  const wsSelect = document.getElementById('new-ot-workspace');
   const mediaInput = form?.querySelector('input[placeholder*="TV 20"]');
   const descInput = document.getElementById('ot-desc-input');
   const urgentCheckbox = document.getElementById('sketch-urgent');
@@ -92,6 +98,29 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
 
   const syncNextCode = () => {
     if (orderInput) orderInput.value = getNextOtCode();
+  };
+
+  // Espacio: visible con 2+ espacios activos; preseleccionado con el espacio actual.
+  const syncWorkspaceSelect = () => {
+    if (!wsSelect) return;
+    const active = getActiveWorkspaces();
+    const prev = wsSelect.value;
+    const preferred = sketchState.activeWorkspaceId && sketchState.activeWorkspaceId !== 'studio'
+      ? sketchState.activeWorkspaceId
+      : (active.some((p) => p.id === prev) ? prev : active[0]?.id);
+    wsSelect.innerHTML = active
+      .map((p) => `<option value="${escapeHtml(p.id)}" ${p.id === preferred ? 'selected' : ''}>${escapeHtml(p.name)}</option>`)
+      .join('');
+    wsRow?.classList.toggle('hidden', active.length < 2);
+  };
+
+  const syncResponsibleSelect = () => {
+    if (!respSelect) return;
+    const prev = respSelect.value;
+    const preferred = trafficMembers.includes(prev) ? prev : (sketchState.myOtsMember || trafficMembers[0]);
+    respSelect.innerHTML = trafficMembers
+      .map((m) => `<option value="${escapeHtml(m)}" ${m === preferred ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+      .join('');
   };
 
   const autoResize = () => {
@@ -105,10 +134,14 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
     form?.reset();
     resetClientBrandProductLabels();
     syncNextCode();
+    syncWorkspaceSelect();
+    syncResponsibleSelect();
     autoResize();
   };
 
   syncNextCode();
+  syncWorkspaceSelect();
+  syncResponsibleSelect();
   autoResize();
 
   if (newOtInitialized) return;
@@ -117,6 +150,8 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
   descInput?.addEventListener('input', autoResize);
 
   onSketchChange('orders', syncNextCode);
+  onSketchChange('workspace', syncWorkspaceSelect);
+  onSketchChange('team', syncResponsibleSelect);
 
   cancelBtn?.addEventListener('click', () => {
     resetForm();
@@ -152,12 +187,15 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
     const title = (titleInput?.value || '').trim();
     const media = (mediaInput?.value || '').trim();
     const desc = (descInput?.value || '').trim();
-    const responsible = respSelect?.value || 'Cuentas';
+    const responsible = respSelect?.value || sketchState.myOtsMember || trafficMembers[0] || '';
+    const workspaceId = wsSelect?.value || getActiveWorkspaces()[0]?.id || 'diseno-publicidad';
+    const wsDepartments = getDepartmentsForWorkspace(workspaceId);
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const newOt = {
       id: otId,
+      workspaceId,
       client,
       brand,
       product,
@@ -166,7 +204,9 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
       title: title || ref || 'Nueva Orden de Trabajo',
       entryDate: relDate(0, timeStr),
       deliveryDate: relDate(5, '17:00'),
-      status: 'Tráfico',
+      department: wsDepartments[0] || '',
+      stage: 'Tráfico',
+      status: 'En proceso',
       responsible,
       notes: desc,
       urgent: !!urgentCheckbox?.checked,
@@ -180,7 +220,7 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
     notifySketchChange('orders', { action: 'create', otId: newOt.id });
 
     if (typeof onCreatedOt === 'function') {
-      onCreatedOt(newOt.id);
+      onCreatedOt(newOt);
     } else {
       notifySketchChange('open-ot', { otId: newOt.id, taskIndex: null, scope: 'traffic-open' });
     }

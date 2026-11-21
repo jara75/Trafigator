@@ -2,7 +2,7 @@
  * Shared temporal schedule views (Día, Semana, Gantt, Mes) reused by Tráfico and Stripboard.
  */
 
-import { escapeHtml, formatShortDate, getClientColor, getDepartmentColor, getPriorityDotHtml, getStageColor, getStatusColor, relDate } from './store.js';
+import { escapeHtml, formatShortDate, getClientColor, getDepartmentColor, getDepartmentsForWorkspace, getPriorityDotHtml, getStageColor, getStatusColor, relDate } from './store.js';
 
 /**
  * Compute Monday Date object for the week containing `anchorIso` (YYYY-MM-DD).
@@ -547,9 +547,10 @@ export function renderKanbanScheduleHtml({
   stages = [],
   statuses = [],
   members = [],
+  workspaces = [],
   wrap = true,
 }) {
-  const groupMode = ['priority', 'stage', 'status', 'department', 'client', 'responsible'].includes(groupBy)
+  const groupMode = ['priority', 'stage', 'status', 'department', 'client', 'responsible', 'workspace'].includes(groupBy)
     ? groupBy
     : 'stage';
 
@@ -557,13 +558,15 @@ export function renderKanbanScheduleHtml({
     ? ['Urgentes', 'Vencen hoy', 'Vencen mañana']
     : (groupMode === 'stage'
       ? stages
+      : (groupMode === 'workspace'
+        ? workspaces.map((w) => w.label)
       : (groupMode === 'department'
         ? departments
         : (groupMode === 'client'
           ? Array.from(new Set(items.map((o) => o.client || 'Sin cliente')))
           : (groupMode === 'responsible'
             ? Array.from(new Set([...members, ...items.map((o) => o.responsible || 'Sin asignar')]))
-            : statuses))));
+            : statuses)))));
 
   const getColValue = (o) => {
     if (groupMode === 'priority') {
@@ -575,6 +578,7 @@ export function renderKanbanScheduleHtml({
     }
     if (groupMode === 'stage') return o.stage || 'Tráfico';
     if (groupMode === 'department') return o.department || '—';
+    if (groupMode === 'workspace') return workspaces.find((w) => w.id === (o.workspaceId || 'diseno-publicidad'))?.label || '';
     if (groupMode === 'client') return o.client || 'Sin cliente';
     if (groupMode === 'responsible') return o.responsible || 'Sin asignar';
     return o.status || 'En proceso';
@@ -598,6 +602,7 @@ export function renderKanbanScheduleHtml({
                 <div class="flex items-center justify-between gap-1">
                   <span class="inline-flex items-center gap-1.5">
                     ${getPriorityDotHtml(ot, todayKey, tomorrowKey, 'w-1.5 h-1.5')}
+                    ${workspaces.length >= 2 ? (() => { const w = workspaces.find((x) => x.id === (ot.workspaceId || 'diseno-publicidad')); return w ? `<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(w.color || '#8C8C8C')}" title="${escapeHtml(w.label)}"></span>` : ''; })() : ''}
                     <span class="font-mono text-[10px] font-semibold text-obsidian-amber">${escapeHtml(ot.id)}</span>
                   </span>
                   <span class="font-mono text-[9.5px] text-[#8C8C8C]">${escapeHtml(formatShortDate(ot.deliveryDate))}</span>
@@ -678,6 +683,9 @@ export function bindKanbanScheduleEvents({ container, orders, onInspectItem, onO
       const gMode = col.dataset.kanbanGroup || 'stage';
       const nextVal = col.dataset.kanbanVal;
       if (!target || !nextVal) return;
+
+      // Una OT solo puede moverse a departamentos de su propio Espacio.
+      if (gMode === 'department' && !getDepartmentsForWorkspace(target.workspaceId || 'diseno-publicidad').includes(nextVal)) return;
 
       if (['stage', 'department', 'status', 'responsible'].includes(gMode)) {
         if (draggedTaskIdx !== '' && target.subtasks?.[Number(draggedTaskIdx)]) {

@@ -8,8 +8,11 @@ import {
   formatShortDate,
   getClientColor,
   getDepartmentColor,
+  getDepartmentsForWorkspace,
   getPriorityDotHtml,
   getStageColor,
+  getActiveWorkspaces,
+  getWorkspaceById,
   getStatusColor,
   matchesCommonTrafficFilters,
   notifySketchChange,
@@ -139,7 +142,7 @@ function commitBlankRouteRow(row, { signedNow = false } = {}) {
   const isSigned = signedNow || !!sign;
   targetRoutes.push({
     date: isSigned ? nowStamp : (date || nowStamp),
-    from: from || 'Cuentas',
+    from: from || getDepartmentsForWorkspace(ot.workspaceId || 'diseno-publicidad')[0] || '—',
     to: to || '—',
     desc: desc || '—',
     sign: sign || 'Sin Firmar',
@@ -271,6 +274,22 @@ export function renderOtInfoRowHtml(ot, formatDateFn = formatShortDate) {
 /**
  * Render the Detalle de OT / Tarea view (bitácora de movimientos + galería de piezas).
  */
+/**
+ * Departamentos disponibles en la Bitácora de una OT: solo los de su Espacio
+ * (más cualquier depto. ya usado en sus rutas, para no perder historial).
+ */
+function getOtRouteDepartments(ot) {
+  const base = getDepartmentsForWorkspace(ot.workspaceId || 'diseno-publicidad');
+  const extra = [];
+  const allRoutes = [...(ot.routes || []), ...(ot.subtasks || []).flatMap((s) => s.routes || [])];
+  allRoutes.forEach((r) => {
+    [r.from, r.to].forEach((d) => {
+      if (d && d !== '—' && !base.includes(d) && !extra.includes(d)) extra.push(d);
+    });
+  });
+  return [...base, ...extra];
+}
+
 export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex = null) {
   ensureOtData(ot, formatDateFn);
   const activeTask = taskIndex !== null && ot.subtasks[taskIndex] ? ot.subtasks[taskIndex] : null;
@@ -278,7 +297,8 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
   const rawPieces = activeTask ? activeTask.mediaFiles : ot.mediaFiles;
   const routesCollapsed = sketchState.routesCollapsed;
   const lastValidTo = [...routes].reverse().find((r) => r.to && r.to !== '—')?.to;
-  const defaultNextFrom = lastValidTo || 'Cuentas';
+  const otDepts = getOtRouteDepartments(ot);
+  const defaultNextFrom = lastValidTo || otDepts[0] || '';
   const activeSigner = sketchState.myOtsMember || 'Andrés';
 
   return `
@@ -336,13 +356,13 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
                 <td class="px-2 py-1.5 border-r border-obsidian-border">
                   <select data-edit-route-col="from" class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] focus:outline-none focus:text-[#D4D4D4] cursor-pointer">
                     <option value="" class="bg-[#202020]">—</option>
-                    ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.from === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                    ${otDepts.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.from === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
                   </select>
                 </td>
                 <td class="px-2 py-1.5 border-r border-obsidian-border">
                   <select data-edit-route-col="to" class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
                     <option value="" class="bg-[#202020]">—</option>
-                    ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.to === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                    ${otDepts.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.to === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
                   </select>
                 </td>
                 <td class="px-2 py-1.5 border-r border-obsidian-border">
@@ -378,13 +398,13 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
               <td class="px-2 py-1.5 border-r border-obsidian-border">
                 <select data-new-route-col="from" class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] focus:outline-none focus:text-[#D4D4D4] cursor-pointer">
                   <option value="" class="bg-[#202020]">—</option>
-                  ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${defaultNextFrom === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                  ${otDepts.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${defaultNextFrom === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
                 </select>
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
                 <select data-new-route-col="to" class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
                   <option value="" class="bg-[#202020]">—</option>
-                  ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]">${escapeHtml(d)}</option>`).join('')}
+                  ${otDepts.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]">${escapeHtml(d)}</option>`).join('')}
                 </select>
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
@@ -449,6 +469,7 @@ export function renderMyOts() {
           myTasks.push({
             id: `${ot.id}-${idx + 1}`,
             otId: ot.id,
+            workspaceId: ot.workspaceId || 'diseno-publicidad',
             taskIndex: idx,
             ot,
             task: st,
@@ -802,8 +823,11 @@ export function renderMyOts() {
         countEl.textContent = `${tableItems.length} ${unit}`;
       }
     }
+    const showWorkspaceCol = getActiveWorkspaces().length >= 2 && (sketchState.activeWorkspaceId || 'studio') === 'studio';
+    const thMyOtsWs = document.getElementById('myots-th-workspace');
+    if (thMyOtsWs) thMyOtsWs.classList.toggle('hidden', !showWorkspaceCol);
     if (!tableItems.length) {
-      listBodyEl.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-[11px] text-[#8C8C8C]">${isDayMode ? 'Sin entregas programadas para este día.' : (isMyTasksScope ? 'No tienes tareas asignadas.' : 'No tienes OTs asignadas.')}</td></tr>`;
+      listBodyEl.innerHTML = `<tr><td colspan="${showWorkspaceCol ? 14 : 13}" class="p-6 text-center text-[11px] text-[#8C8C8C]">${isDayMode ? 'Sin entregas programadas para este día.' : (isMyTasksScope ? 'No tienes tareas asignadas.' : 'No tienes OTs asignadas.')}</td></tr>`;
       return;
     }
     listBodyEl.innerHTML = tableItems.map((ot, idx) => {
@@ -813,6 +837,10 @@ export function renderMyOts() {
       const taskIdxAttr = ot.taskIndex !== undefined ? ot.taskIndex : '';
       const deptVal = ot.department || 'Tráfico';
       const stageVal = ot.stage || 'Tráfico';
+      const ws = showWorkspaceCol ? getWorkspaceById(ot.workspaceId || 'diseno-publicidad') : null;
+      const wsTdHtml = showWorkspaceCol
+        ? `<td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-medium truncate" style="color:${escapeHtml(ws?.color || '#8C8C8C')}">${escapeHtml(ws?.shortName || '—')}</td>`
+        : '';
       return `
         <tr data-myots-open="${escapeHtml(realOtId)}" data-myots-task="${taskIdxAttr}" class="${zebra} hover:bg-obsidian-elevated/70 transition-colors text-[10.5px] cursor-pointer">
           <td class="px-1 py-1.5 border-r border-obsidian-border align-middle text-center">
@@ -821,6 +849,7 @@ export function renderMyOts() {
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle">
             <span class="font-mono font-semibold text-obsidian-amber px-1 py-0.5 bg-[#191919] rounded border border-obsidian-border whitespace-nowrap block text-center">${escapeHtml(ot.id)}</span>
           </td>
+          ${wsTdHtml}
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-medium truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(ot.client)}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle truncate text-[#8C8C8C]">${escapeHtml(ot.brand)}${ot.product && ot.product !== ot.brand ? ' • ' + escapeHtml(ot.product) : ''}</td>
           <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle text-[#8C8C8C] truncate">${escapeHtml(ot.media)}</td>
@@ -863,7 +892,7 @@ export function renderMyOts() {
       });
     });
   } else if (sketchState.myOtsMode === 'kanban') {
-    const groupMode = ['priority', 'stage', 'status', 'department', 'client'].includes(sketchState.myOtsGroupBy)
+    const groupMode = ['priority', 'stage', 'status', 'department', 'client', 'workspace'].includes(sketchState.myOtsGroupBy)
       ? sketchState.myOtsGroupBy
       : 'stage';
     kanbanEl.innerHTML = renderKanbanScheduleHtml({
@@ -871,7 +900,8 @@ export function renderMyOts() {
       groupBy: groupMode,
       todayKey: relDate(0).slice(0, 10),
       tomorrowKey: relDate(1).slice(0, 10),
-      departments: trafficDepartments,
+      departments: getDepartmentsForWorkspace(sketchState.activeWorkspaceId),
+      workspaces: getActiveWorkspaces().map((p) => ({ id: p.id, label: p.shortName || p.name, color: p.color })),
       stages: trafficStages,
       statuses: trafficStatuses,
       members: trafficMembers,
@@ -1009,7 +1039,7 @@ export function initOtDetail({ onJumpStripboard, onBackToTraffic } = {}) {
     activeOt.subtasks.push({
       title: `Nueva sub-tarea ${nextNum}`,
       responsible: activeOt.responsible || sketchState.myOtsMember || 'Andrés',
-      department: activeOt.department || 'Creativos',
+      department: activeOt.department || getDepartmentsForWorkspace(activeOt.workspaceId || 'diseno-publicidad')[1] || '—',
       stage: 'Tráfico',
       status: 'En proceso',
       entryDate: activeOt.entryDate,

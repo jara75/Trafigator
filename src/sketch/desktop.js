@@ -6,13 +6,16 @@
 import {
   escapeHtml,
   formatShortDate,
+  getActiveWorkspaces,
   getClientColor,
   getDepartmentColor,
   getPriorityDotHtml,
   getStageColor,
   getStatusColor,
+  getWorkspaceById,
   notifySketchChange,
   relDate,
+  sketchState,
   trafficOrders,
 } from './store.js';
 import { renderTrafficNotesInspector } from './inspector.js';
@@ -26,7 +29,13 @@ export function renderDesktopOverview(onGoToTraffic, { onOpenOt } = {}) {
 
   const todayKey = relDate(0).slice(0, 10);
   const tomorrowKey = relDate(1).slice(0, 10);
-  const activeOrders = trafficOrders.filter((o) => !o.archived);
+  const activeWsId = sketchState.activeWorkspaceId || 'studio';
+  const showWsTag = getActiveWorkspaces().length >= 2 && activeWsId === 'studio';
+  const activeOrders = trafficOrders.filter((o) => {
+    if (o.archived) return false;
+    if (activeWsId !== 'studio' && (o.workspaceId || 'diseno-publicidad') !== activeWsId) return false;
+    return true;
+  });
 
   const urgentItems = activeOrders
     .filter((o) => !!o.urgent)
@@ -53,6 +62,7 @@ export function renderDesktopOverview(onGoToTraffic, { onOpenOt } = {}) {
           const cColor = getClientColor(ot.client);
           const shortOtCode = String(ot.id || '').replace(/^OT-/i, '');
           const isDueToday = (ot.deliveryDate || '').slice(0, 10) === todayKey;
+          const ws = showWsTag ? getWorkspaceById(ot.workspaceId || 'diseno-publicidad') : null;
 
           return `
             <div data-desktop-open-row="${escapeHtml(ot.id)}"
@@ -62,6 +72,7 @@ export function renderDesktopOverview(onGoToTraffic, { onOpenOt } = {}) {
                   ${getPriorityDotHtml(ot, todayKey, tomorrowKey, 'w-1.5 h-1.5')}
                   <button type="button" data-desktop-edit-ot="${escapeHtml(ot.id)}" title="Abrir OT"
                     class="font-mono text-[10.5px] font-semibold text-obsidian-amber hover:underline cursor-pointer shrink-0">${escapeHtml(shortOtCode)}</button>
+                  ${ws ? `<span class="text-[9.5px] font-medium truncate" style="color:${escapeHtml(ws.color || '#8C8C8C')}">${escapeHtml(ws.shortName)}</span>` : ''}
                 </span>
                 <span class="font-mono text-[9.5px] ${isDueToday ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]'} shrink-0">${escapeHtml(formatShortDate(ot.deliveryDate) || '—')}</span>
               </div>

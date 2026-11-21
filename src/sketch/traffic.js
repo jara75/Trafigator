@@ -16,7 +16,10 @@ import {
   rescheduleDeliveryDate,
   shiftIsoDate,
   getClientColor,
+  getActiveWorkspaces,
   getDepartmentColor,
+  getDepartmentsForWorkspace,
+  getWorkspaceById,
   getPriorityDotHtml,
   getStageColor,
   bindTableColResizers,
@@ -115,7 +118,7 @@ export function renderTrafficTree() {
 
   let extraFiltersHtml = '';
   if (isTrafficFamily) {
-    const deptOpts = ['<option value="all">Todos</option>', ...trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" ${sketchState.trafficDeptFilter === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)].join('');
+    const deptOpts = ['<option value="all">Todos</option>', ...getDepartmentsForWorkspace(sketchState.activeWorkspaceId).map((d) => `<option value="${escapeHtml(d)}" ${sketchState.trafficDeptFilter === d ? 'selected' : ''}>${escapeHtml(d)}</option>`)].join('');
     const stageOpts = ['<option value="all">Todas</option>', ...trafficStages.map((s) => `<option value="${escapeHtml(s)}" ${sketchState.trafficStageFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`)].join('');
     const statusOpts = ['<option value="all">Todos</option>', ...trafficStatuses.map((s) => `<option value="${escapeHtml(s)}" ${sketchState.trafficStatusFilter === s ? 'selected' : ''}>${escapeHtml(s)}</option>`)].join('');
     const respOpts = ['<option value="all">Todos</option>', ...trafficMembers.map((m) => `<option value="${escapeHtml(m)}" ${sketchState.trafficRespFilter === m ? 'selected' : ''}>${escapeHtml(m)}</option>`)].join('');
@@ -136,6 +139,7 @@ export function renderTrafficTree() {
       ['priority', 'Prioridad / Entrega'],
       ['client', 'Cliente'],
       ['department', 'Depto.'],
+      ...(getActiveWorkspaces().length >= 2 ? [['workspace', 'Espacio']] : []),
       ['stage', 'Etapa'],
       ['status', 'Estado'],
       ['responsible', 'Responsable'],
@@ -291,6 +295,7 @@ export function renderTrafficGrid() {
           filtered.push({
             id: `${ot.id}-${idx + 1}`,
             otId: ot.id,
+            workspaceId: ot.workspaceId || 'diseno-publicidad',
             taskIndex: idx,
             client: ot.client,
             brand: ot.brand,
@@ -405,7 +410,7 @@ export function renderTrafficGrid() {
     const matchDate = (o, iso) => (o.deliveryDate || '').slice(0, 10) === iso;
 
     if (activeViewMode === 'kanban') {
-      const kanbanGroupBy = ['priority', 'stage', 'status', 'department', 'client', 'responsible'].includes(sketchState.trafficGroupBy)
+      const kanbanGroupBy = ['priority', 'stage', 'status', 'department', 'client', 'responsible', 'workspace'].includes(sketchState.trafficGroupBy)
         ? sketchState.trafficGroupBy
         : 'stage';
       schedEl.innerHTML = renderKanbanScheduleHtml({
@@ -413,7 +418,8 @@ export function renderTrafficGrid() {
         groupBy: kanbanGroupBy,
         todayKey: relDate(0).slice(0, 10),
         tomorrowKey: relDate(1).slice(0, 10),
-        departments: trafficDepartments,
+        departments: getDepartmentsForWorkspace(sketchState.activeWorkspaceId),
+        workspaces: getActiveWorkspaces().map((p) => ({ id: p.id, label: p.shortName || p.name, color: p.color })),
         stages: trafficStages,
         statuses: trafficStatuses,
         members: trafficMembers,
@@ -482,8 +488,13 @@ export function renderTrafficGrid() {
     return;
   }
 
+  const showWorkspaceCol = getActiveWorkspaces().length >= 2 && (sketchState.activeWorkspaceId || 'studio') === 'studio';
+  const thWorkspace = document.getElementById('traffic-th-workspace');
+  if (thWorkspace) thWorkspace.classList.toggle('hidden', !showWorkspaceCol);
+  const totalCols = showWorkspaceCol ? 16 : 15;
+
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="15" class="p-6 text-center text-[11px] text-[#8C8C8C]">No hay ${isTasksScope ? 'tareas' : 'OTs'} que coincidan con estos filtros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${totalCols}" class="p-6 text-center text-[11px] text-[#8C8C8C]">No hay ${isTasksScope ? 'tareas' : 'OTs'} que coincidan con estos filtros.</td></tr>`;
     return;
   }
 
@@ -515,6 +526,12 @@ export function renderTrafficGrid() {
     const productLabel = brandIsClient
       ? (productStr || 'Institucional')
       : (productStr && productStr.toLowerCase() !== 'institucional' ? productStr : '—');
+    const ws = showWorkspaceCol ? getWorkspaceById(ot.workspaceId || 'diseno-publicidad') : null;
+    const wsTdHtml = showWorkspaceCol
+      ? `<td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle truncate" title="${escapeHtml(ws?.name || '')}">
+          <span class="block truncate font-medium" style="color:${escapeHtml(ws?.color || '#8C8C8C')}">${escapeHtml(ws?.shortName || '—')}</span>
+        </td>`
+      : '';
 
     const otRowHtml = `
       <tr data-traffic-open-row="${escapeHtml(realOtId)}" data-traffic-open-task="${taskIdxAttr}" class="${zebra} hover:bg-obsidian-elevated/70 transition-colors text-[10.5px] cursor-pointer">
@@ -533,6 +550,7 @@ export function renderTrafficGrid() {
               class="font-mono font-semibold text-obsidian-amber hover:underline whitespace-nowrap cursor-pointer">${escapeHtml(shortOtCode)}</button>
           </div>
         </td>
+        ${wsTdHtml}
         <td class="px-1.5 py-1.5 border-r border-obsidian-border align-middle font-medium">
           <span data-tip="${escapeHtml(ot.client)}" data-tip-pos="right" class="inline-flex items-center max-w-full">
             <span class="font-mono tracking-wide" style="color:${escapeHtml(cColor)}">${escapeHtml(clientInitials)}</span>
@@ -588,7 +606,7 @@ export function renderTrafficGrid() {
             <button type="button" data-traffic-edit-ot="${escapeHtml(ot.id)}" data-traffic-edit-task="${tIdx}" title="Abrir tarea"
               class="font-mono text-obsidian-amber/90 hover:underline whitespace-nowrap cursor-pointer">${escapeHtml(shortOtCode)}-${tIdx + 1}</button>
           </td>
-          <td colspan="5" class="px-2 py-1 border-r border-obsidian-border align-middle"></td>
+          <td colspan="${showWorkspaceCol ? 6 : 5}" class="px-2 py-1 border-r border-obsidian-border align-middle"></td>
           <td class="px-1.5 py-1 border-r border-obsidian-border align-middle text-[#D4D4D4]" title="${escapeHtml(st.title)}">
             <div class="truncate">${escapeHtml(st.title)}</div>
           </td>
@@ -631,6 +649,7 @@ export function renderTrafficGrid() {
       let key = 'Sin definir';
       if (sketchState.trafficGroupBy === 'client') key = ot.client || 'Sin cliente';
       else if (sketchState.trafficGroupBy === 'department') key = ot.department || 'Sin depto.';
+      else if (sketchState.trafficGroupBy === 'workspace') key = getWorkspaceById(ot.workspaceId || 'diseno-publicidad')?.shortName || 'Sin espacio';
       else if (sketchState.trafficGroupBy === 'stage') key = ot.stage || 'Tráfico';
       else if (sketchState.trafficGroupBy === 'status') key = ot.status || 'En proceso';
       else if (sketchState.trafficGroupBy === 'priority') {
@@ -660,13 +679,13 @@ export function renderTrafficGrid() {
         const isGroupCollapsed = sketchState.collapsedTrafficGroups.has(groupName);
         const groupColor = sketchState.trafficGroupBy === 'client' ? getClientColor(groupName) : null;
         const spacerRow = gIdx > 0
-          ? `<tr class="h-3 ${nextZebra()}"><td colspan="15" class="p-0"></td></tr>`
+          ? `<tr class="h-3 ${nextZebra()}"><td colspan="${totalCols}" class="p-0"></td></tr>`
           : '';
         const headerZebra = nextZebra();
         return `
         ${spacerRow}
         <tr data-traffic-toggle-group="${escapeHtml(groupName)}" class="bg-[#191919] hover:bg-[#222222] border-y border-obsidian-border cursor-pointer select-none transition-colors">
-          <td colspan="15" class="px-2 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#8C8C8C] font-medium">
+          <td colspan="${totalCols}" class="px-2 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[#8C8C8C] font-medium">
             <span class="inline-flex items-center gap-1.5">
               <span data-icon="${isGroupCollapsed ? 'chevron-right' : 'chevron-down'}" data-icon-size="w-3 h-3" data-icon-class="text-[#8C8C8C] shrink-0"></span>
               <span style="${groupColor ? `color:${escapeHtml(groupColor)}` : 'color:#D4D4D4'}">${escapeHtml(groupName)}</span>
@@ -864,10 +883,7 @@ export function initTraffic({ onOpenOt } = {}) {
 
   onSketchChange('orders', refreshIfVisible);
   onSketchChange('clients', refreshIfVisible);
-  onSketchChange('team', () => {
-    populateTrafficFilterSelects();
-    refreshIfVisible();
-  });
+  onSketchChange('team', refreshIfVisible);
 
   renderTrafficTree();
   renderTrafficGrid();

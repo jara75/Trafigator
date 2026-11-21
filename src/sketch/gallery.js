@@ -10,6 +10,7 @@ import {
   sketchState,
   escapeHtml,
   ensureOtData,
+  getActivePieceVersion,
   notifySketchChange,
   onSketchChange,
 } from './store.js';
@@ -274,12 +275,18 @@ export function renderGallerySectionHtml(
         </div>
         <div class="flex-1 min-w-0 flex items-center justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
-            ${activePiece ? `
-            <span class="text-[15px] font-medium text-[#D4D4D4] truncate max-w-[280px]">${escapeHtml(activePiece.name)}</span>
-            <span class="font-mono text-[15px] font-medium text-[#8C8C8C] shrink-0">v${activePiece.version || (safePieceIdx + 1)}</span>
-            <span class="text-[#8C8C8C] text-[10px] shrink-0">·</span>
-            <span class="text-[10px] text-[#8C8C8C] shrink-0">${escapeHtml(activePiece.status || 'En Revisión')}</span>
-            ` : ''}
+            ${activePiece ? (() => {
+              const { versions, current, isHistorical } = getActivePieceVersion(activePiece);
+              return `
+              <span class="text-[15px] font-medium text-[#D4D4D4] truncate max-w-[260px]">${escapeHtml(activePiece.name)}</span>
+              <select data-piece-version-select class="bg-[#191919] border border-obsidian-border rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium text-obsidian-amber focus:outline-none cursor-pointer shrink-0">
+                ${[...versions].reverse().map((v) => `<option value="${v.version}" class="bg-[#202020] text-[#D4D4D4]" ${v.version === current?.version ? 'selected' : ''}>v${v.version}${v.version === versions[versions.length - 1].version ? ' (actual)' : ''}</option>`).join('')}
+              </select>
+              ${isHistorical ? '<span class="px-1.5 py-0.5 rounded bg-amber-500/15 text-obsidian-amber text-[9px] font-mono shrink-0">Histórica</span>' : ''}
+              <span class="text-[#8C8C8C] text-[10px] shrink-0">·</span>
+              <span class="text-[10px] text-[#8C8C8C] shrink-0">${escapeHtml(current?.status || activePiece.status || 'En Revisión')}</span>
+              `;
+            })() : ''}
           </div>
           <div class="inline-flex items-center gap-4 text-[#8C8C8C] shrink-0 ml-auto ${!activePiece ? 'hidden' : ''}">
             ${activePieceType === 'video' ? `
@@ -459,7 +466,7 @@ export function renderGallerySectionHtml(
                     <div class="flex items-center gap-1 text-[#8C8C8C] shrink-0">
                       <button type="button" data-review-piece="${i}" title="Revisión colaborativa" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-obsidian-amber transition-colors cursor-pointer"><span data-icon="eye" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Compartir" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="share-2" data-icon-size="w-3 h-3"></span></button>
-                      <button type="button" title="Nueva versión" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="plus" data-icon-size="w-3 h-3"></span></button>
+                      <button type="button" data-new-version-piece="${i}" title="Nueva versión" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-obsidian-amber transition-colors cursor-pointer"><span data-icon="plus" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Ampliar" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="expand-diagonal" data-icon-size="w-3 h-3"></span></button>
                       <button type="button" title="Eliminar" class="p-1 rounded-lg hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer"><span data-icon="x" data-icon-size="w-3 h-3"></span></button>
                     </div>
@@ -631,6 +638,33 @@ export function bindGalleryEvents(container, rerenderFn, getAllPiecesFn, onDelet
       const pieces = getAllPiecesFn() || [];
       if (!Number.isNaN(idx)) sketchState.activePieceIndex = idx;
       openPieceReview(pieces[idx]);
+    });
+  });
+
+  container.querySelector('[data-piece-version-select]')?.addEventListener('change', (e) => {
+    const pieces = getAllPiecesFn() || [];
+    const activePiece = sketchState.activePieceIndex !== null ? pieces[sketchState.activePieceIndex] : null;
+    const ver = Number(e.target.value);
+    if (activePiece && !Number.isNaN(ver)) {
+      activePiece.activeVersion = ver;
+      rerenderFn();
+    }
+  });
+
+  container.querySelectorAll('[data-new-version-piece]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(btn.dataset.newVersionPiece);
+      if (Number.isNaN(idx)) return;
+      sketchState.activePieceIndex = idx;
+      sketchState.activeRouteIndex = null;
+      sketchState.inspectorTab = 'detail';
+      rerenderFn();
+      const form = document.getElementById('insp-ver-form');
+      if (form) {
+        form.classList.remove('hidden');
+        form.querySelector('#insp-ver-note')?.focus();
+      }
     });
   });
 
@@ -810,7 +844,11 @@ export function renderStandaloneGallery() {
     }));
     onDeleteSelected = () => removeSelectedInPlace(standaloneDevFiles, sketchState.selectedPieces);
   } else {
-    const matchingOts = trafficOrders.filter(matchesFilter);
+    const activeWsId = sketchState.activeWorkspaceId || 'studio';
+    const matchingOts = trafficOrders.filter((ot) => {
+      if (activeWsId !== 'studio' && (ot.workspaceId || 'diseno-publicidad') !== activeWsId) return false;
+      return matchesFilter(ot);
+    });
     matchingOts.forEach((ot) => {
       ensureOtData(ot);
       (ot.mediaFiles || []).forEach((p) => {

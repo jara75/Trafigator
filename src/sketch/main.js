@@ -19,6 +19,7 @@ import { initOtDetail, renderMyOts } from './ot-detail.js';
 import { initStripboard, renderStripboard } from './stripboard.js';
 import { initUserMenu } from './user-menu.js';
 import { initNotifications } from './notifications.js';
+import { initWorkspaceBar } from './workspace-bar.js';
 
 window.hydrateIcons = hydrateIcons;
 hydrateIcons();
@@ -82,6 +83,7 @@ function openOtInDetail(target, taskIndex = null, scope = 'active') {
   document.getElementById('left-traffic-tree')?.classList.add('hidden');
   document.getElementById('left-envelope-tree')?.classList.add('hidden');
   document.getElementById('left-stripboard-pool')?.classList.add('hidden');
+  document.getElementById('left-settings-menu')?.classList.add('hidden');
 
   const centerTitle = document.getElementById('center-page-title');
   if (centerTitle) centerTitle.textContent = 'Mis OTs';
@@ -107,6 +109,7 @@ initClientModal();
 initSettingsModal();
 initUserMenu();
 initNotifications();
+initWorkspaceBar();
 
 initTraffic({
   onOpenOt: (payload) => openOtInDetail(payload)
@@ -201,6 +204,7 @@ function openReviewInCenter(piece) {
   document.getElementById('left-traffic-tree')?.classList.add('hidden');
   document.getElementById('left-envelope-tree')?.classList.add('hidden');
   document.getElementById('left-stripboard-pool')?.classList.add('hidden');
+  document.getElementById('left-settings-menu')?.classList.add('hidden');
   document.getElementById('left-menu-track')?.classList.remove('-translate-x-1/2');
   const reviewEl = document.getElementById('view-review');
   if (!reviewEl) return;

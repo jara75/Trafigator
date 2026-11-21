@@ -91,9 +91,11 @@ function hideAllWorkspaceViews() {
   document.getElementById('view-gallery')?.classList.add('hidden');
   document.getElementById('view-stripboard')?.classList.add('hidden');
   document.getElementById('view-review')?.classList.add('hidden');
+  document.getElementById('settings-modal')?.classList.add('hidden');
   document.getElementById('left-traffic-tree')?.classList.add('hidden');
   document.getElementById('left-envelope-tree')?.classList.add('hidden');
   document.getElementById('left-stripboard-pool')?.classList.add('hidden');
+  document.getElementById('left-settings-menu')?.classList.add('hidden');
 }
 
 /**
@@ -212,6 +214,7 @@ export function initNavigation(handlers = {}) {
       }
       if (leftEnvelopeTree) leftEnvelopeTree.classList.add('hidden');
       if (leftStripboardPool) leftStripboardPool.classList.add('hidden');
+      document.getElementById('left-settings-menu')?.classList.add('hidden');
 
       if (isTrafficGridView) {
         sketchState.trafficScope = otView === 'archived-ots' ? 'archived' : (otView === 'all-tasks' ? 'all-tasks' : 'active');

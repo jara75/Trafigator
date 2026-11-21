@@ -5,6 +5,7 @@ import {
   escapeHtml,
   notifySketchChange,
 } from './store.js';
+import { renderSpectrumColorPickerHtml, bindSpectrumColorPicker } from './color-picker.js';
 
 function createBrandInput(index, value = '') {
   const input = document.createElement('input');
@@ -101,14 +102,27 @@ function renderBrandOptions() {
 
 function setClientModalColor(color) {
   const ncColorInput = document.getElementById('nc-color');
+  const pickerWrap = document.getElementById('nc-color-picker');
   if (ncColorInput) ncColorInput.value = color;
-  document.querySelectorAll('.nc-color-swatch').forEach((sw) => {
-    const active = sw.dataset.color === color;
-    sw.classList.toggle('ring-2', active);
-    sw.classList.toggle('ring-[#D4D4D4]', active);
-    sw.classList.toggle('ring-offset-2', active);
-    sw.classList.toggle('ring-offset-[#202020]', active);
+  if (!pickerWrap) return;
+
+  const usedByMap = new Map();
+  clientsData.forEach((c) => {
+    if (c.name !== sketchState.editingClientName && c.color) {
+      usedByMap.set(String(c.color).toLowerCase(), c.name);
+    }
   });
+
+  pickerWrap.innerHTML = renderSpectrumColorPickerHtml({
+    selectedHex: color,
+    usedByMap,
+    pickerId: 'nc-spectrum-picker',
+  });
+  bindSpectrumColorPicker(
+    pickerWrap,
+    (nextHex) => setClientModalColor(nextHex),
+    { pickerId: 'nc-spectrum-picker' }
+  );
 }
 
 /**
