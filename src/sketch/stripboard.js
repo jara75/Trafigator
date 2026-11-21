@@ -38,9 +38,11 @@ import {
   renderWeekScheduleHtml,
   shiftScheduleDate,
 } from './schedule-views.js';
+import { renderTrafficNotesInspector } from './inspector.js';
 
 let initialized = false;
 let openOtCb = null;
+let inspectedStrip = null;
 
 /**
  * Build the flat pool of subtasks assigned to the active member across non-archived OTs.
@@ -510,7 +512,8 @@ export function renderStripboard() {
   if (window.hydrateIcons) window.hydrateIcons(container);
   bindTableColResizers(container.querySelector('table'));
 
-  if (['day', 'week', 'gantt', 'month'].includes(sketchState.stripboardViewMode)) {
+  const isCalMode = ['day', 'week', 'gantt', 'month'].includes(sketchState.stripboardViewMode);
+  if (isCalMode) {
     const busyDates = new Set(
       allPool.map((t) => (t.scheduledDate || t.deliveryDate || '').slice(0, 10)).filter(Boolean)
     );
@@ -521,6 +524,47 @@ export function renderStripboard() {
         sketchState.stripboardDate = iso;
         renderStripboard();
       },
+    });
+  } else {
+    const rb = document.getElementById('right-body');
+    if (rb && rb.querySelector('#insp-cal-slot')) rb.innerHTML = '';
+  }
+
+  const openOtFromStrip = (otId, tIdx) => {
+    if (!otId) return;
+    sketchState.myOtsScope = 'traffic-open';
+    sketchState.activeMyOtId = otId;
+    sketchState.activeTaskIndex = tIdx !== '' && tIdx !== null && tIdx !== undefined ? Number(tIdx) : null;
+    sketchState.myOtsMode = 'cards';
+    if (openOtCb) {
+      openOtCb(otId, sketchState.activeTaskIndex);
+    } else {
+      document.getElementById('view-stripboard')?.classList.add('hidden');
+      document.getElementById('left-traffic-tree')?.classList.add('hidden');
+      document.getElementById('left-stripboard-pool')?.classList.add('hidden');
+      document.getElementById('view-my-ots')?.classList.remove('hidden');
+      notifySketchChange('orders');
+    }
+  };
+
+  const inspectStripTask = (otId, tIdx) => {
+    if (!otId) return;
+    inspectedStrip = { otId, taskIndex: tIdx !== '' && tIdx !== null && tIdx !== undefined ? Number(tIdx) : '' };
+    renderTrafficNotesInspector(inspectedStrip.otId, inspectedStrip.taskIndex, false, {
+      onOpenOt: openOtFromStrip,
+    });
+  };
+
+  const firstInspectable = taskStrips.find((s) => s.otId) || allPool.find((s) => s.otId);
+  if (inspectedStrip && !trafficOrders.some((o) => o.id === inspectedStrip.otId)) {
+    inspectedStrip = null;
+  }
+  if (!inspectedStrip && firstInspectable) {
+    inspectedStrip = { otId: firstInspectable.otId, taskIndex: firstInspectable.taskIndex ?? '' };
+  }
+  if (inspectedStrip) {
+    renderTrafficNotesInspector(inspectedStrip.otId, inspectedStrip.taskIndex, false, {
+      onOpenOt: openOtFromStrip,
     });
   }
 
@@ -537,35 +581,6 @@ export function renderStripboard() {
       }
     });
   }
-
-  container.querySelector('#sb-prev-day')?.addEventListener('click', () => {
-    sketchState.stripboardDate = shiftScheduleDate(
-      sketchState.stripboardDate,
-      sketchState.stripboardViewMode,
-      -1,
-      sketchState.ganttScale
-    );
-    renderStripboard();
-  });
-  container.querySelector('#sb-next-day')?.addEventListener('click', () => {
-    sketchState.stripboardDate = shiftScheduleDate(
-      sketchState.stripboardDate,
-      sketchState.stripboardViewMode,
-      1,
-      sketchState.ganttScale
-    );
-    renderStripboard();
-  });
-  container.querySelector('#sb-today-btn')?.addEventListener('click', () => {
-    sketchState.stripboardDate = relDate(0).slice(0, 10);
-    renderStripboard();
-  });
-  container.querySelector('#sb-date-input')?.addEventListener('change', (e) => {
-    if (e.target.value) {
-      sketchState.stripboardDate = e.target.value;
-      renderStripboard();
-    }
-  });
 
   container.querySelectorAll('[data-sb-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -683,23 +698,6 @@ export function renderStripboard() {
     });
   });
 
-  const openOtFromStrip = (otId, tIdx) => {
-    if (!otId) return;
-    sketchState.myOtsScope = 'traffic-open';
-    sketchState.activeMyOtId = otId;
-    sketchState.activeTaskIndex = tIdx !== '' ? Number(tIdx) : null;
-    sketchState.myOtsMode = 'cards';
-    if (openOtCb) {
-      openOtCb(otId, sketchState.activeTaskIndex);
-    } else {
-      document.getElementById('view-stripboard')?.classList.add('hidden');
-      document.getElementById('left-traffic-tree')?.classList.add('hidden');
-      document.getElementById('left-stripboard-pool')?.classList.add('hidden');
-      document.getElementById('view-my-ots')?.classList.remove('hidden');
-      notifySketchChange('orders');
-    }
-  };
-
   let dragIdx = null;
   const tbodyEl = container.querySelector('#sb-day-tbody');
   tbodyEl?.addEventListener('dragover', (e) => { e.preventDefault(); });
@@ -768,6 +766,14 @@ export function renderStripboard() {
     });
     row.addEventListener('click', (e) => {
       if (e.target.closest('select, button, input, a')) return;
+      container.querySelectorAll('.sb-strip-row').forEach((r) => {
+        r.classList.remove('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+      });
+      row.classList.add('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+      inspectStripTask(row.dataset.sbOt, row.dataset.sbTask);
+    });
+    row.addEventListener('dblclick', (e) => {
+      if (e.target.closest('select, button, input, a')) return;
       openOtFromStrip(row.dataset.sbOt, row.dataset.sbTask);
     });
   });
@@ -827,6 +833,14 @@ export function renderStripboard() {
   container.querySelectorAll('.sb-open-trigger').forEach((card) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('button, select, input')) return;
+      container.querySelectorAll('.sb-open-trigger').forEach((c) => {
+        c.classList.remove('ring-1', 'ring-obsidian-amber/70');
+      });
+      card.classList.add('ring-1', 'ring-obsidian-amber/70');
+      inspectStripTask(card.dataset.sbOt, card.dataset.sbTask);
+    });
+    card.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button, select, input')) return;
       openOtFromStrip(card.dataset.sbOt, card.dataset.sbTask);
     });
   });
@@ -835,6 +849,7 @@ export function renderStripboard() {
     bindKanbanScheduleEvents({
       container,
       orders: trafficOrders,
+      onInspectItem: (otId, taskIdx) => inspectStripTask(otId, taskIdx),
       onOpenItem: (otId, taskIdx) => openOtFromStrip(otId, taskIdx),
       onChanged: () => {
         renderStripboard();
@@ -845,6 +860,13 @@ export function renderStripboard() {
 
   container.querySelectorAll('[data-sched-ot]').forEach((el) => {
     el.addEventListener('click', () => {
+      container.querySelectorAll('[data-sched-ot]').forEach((n) => {
+        n.classList.remove('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+      });
+      el.classList.add('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+      inspectStripTask(el.dataset.schedOt, el.dataset.schedTask || '');
+    });
+    el.addEventListener('dblclick', () => {
       openOtFromStrip(el.dataset.schedOt, el.dataset.schedTask || '');
     });
   });

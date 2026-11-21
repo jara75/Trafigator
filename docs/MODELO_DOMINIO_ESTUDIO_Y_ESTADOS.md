@@ -108,3 +108,22 @@ Situación operativa actual de la OT *(aún pendiente de ubicar en el layout)*:
    - **Notificaciones personales** (qué eventos recibir y por qué canal: WhatsApp / Correo).
 4. **Control de sesión *(Menú rápido del avatar)*:**
    - Accesos a `Configuración de usuario`, `Cambiar de cuenta / estudio` y `Cerrar sesión`.
+
+---
+
+## 9. Ciclo de Vida de una OT y Mecánica de Firma en la Bitácora
+
+1. **Creación en borrador (`Crear y Abrir OT`):**
+   - `Cuentas` (u otro creador) llena el encabezado de la OT y abre la OT en modo edición.
+   - Adjunta archivos/brief en la **Galería**, define el departamento y responsable destino, y redacta la primera fila en blanco de la **Bitácora de Ruta**:
+     - `Fecha/Hora` (clic inserta fecha y hora actual), `DE` (ej. `Cuentas`), `PARA` (depto. destino), `Descripción` (brief), `Etapa: Tráfico`, `Estado: En proceso`, y `Firma: Sin firmar` por defecto.
+   - **Regla de visibilidad:** Mientras la primera fila permanezca en **`Sin firmar`**, la OT aún **no está traficada** (no aparece en Tráfico ni genera notificaciones).
+2. **Disparo al firmar (`Sin firmar` → Firma del usuario):**
+   - La `Fecha/Hora` de la fila **se actualiza automáticamente a la fecha y hora exacta de la firma**.
+   - La fila queda **bloqueada** (inmutable).
+   - Se inserta automáticamente una **nueva fila en blanco** debajo para el siguiente pase.
+   - La OT queda **traficada** (visible en `Tráfico` y en `Mis OTs` del asignado), se registra el evento en **Actividad** y se dispara la **notificación** al destinatario.
+3. **Acuse de recibido:**
+   - La persona asignada recibe la notificación, abre la OT y cambia la **Etapa** de **`Tráfico`** a **`Recibida`** (ese cambio queda registrado en **Actividad**).
+4. **Ciclo iterativo entre departamentos:**
+   - Cuando el responsable termina su entregable (ej. boceto en Galería), llena la siguiente fila en blanco (`DE: Creativos`, `PARA: Cuentas`, `Descripción: Adjunto boceto...`), selecciona su **Firma** (actualizando la hora a la de la firma, bloqueando la fila y abriendo otra en blanco), notifica al siguiente destinatario y el ciclo se repite hasta `Cerrar OT y Facturar → Facturada → Pagada`.

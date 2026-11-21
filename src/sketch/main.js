@@ -11,12 +11,14 @@ import {
 import { initNavigation } from './navigation.js';
 import { initClientModal } from './client-modal.js';
 import { initSettingsModal } from './settings.js';
-import { initTraffic, renderDesktopOverview, renderTrafficGrid, renderTrafficTree } from './traffic.js';
+import { initTraffic, renderTrafficGrid, renderTrafficTree } from './traffic.js';
+import { renderDesktopOverview } from './desktop.js';
 import { initNewOt } from './new-ot.js';
 import { initGallery, renderStandaloneGallery } from './gallery.js';
 import { initOtDetail, renderMyOts } from './ot-detail.js';
 import { initStripboard, renderStripboard } from './stripboard.js';
 import { initUserMenu } from './user-menu.js';
+import { initNotifications } from './notifications.js';
 
 window.hydrateIcons = hydrateIcons;
 hydrateIcons();
@@ -89,6 +91,8 @@ function openOtInDetail(target, taskIndex = null, scope = 'active') {
   sketchState.myOtsMode = 'cards';
   sketchState.activeMyOtId = otId;
   sketchState.activeTaskIndex = resolvedTaskIdx;
+  sketchState.activeRouteIndex = null;
+  sketchState.activePieceIndex = null;
   sketchState.galleryPage = 1;
   sketchState.selectedPieces.clear();
   renderMyOts();
@@ -102,6 +106,7 @@ function jumpToSubView(otView) {
 initClientModal();
 initSettingsModal();
 initUserMenu();
+initNotifications();
 
 initTraffic({
   onOpenOt: (payload) => openOtInDetail(payload)

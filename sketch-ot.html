@@ -274,10 +274,6 @@
           class="hidden w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] items-center justify-center transition-colors cursor-pointer">
           <span data-icon="panel-right-open" data-icon-size="w-3.5 h-3.5"></span>
         </button>
-        <button type="button" title="Más opciones"
-          class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
-          <span data-icon="more-vertical" data-icon-size="w-3 h-3"></span>
-        </button>
       </div>
     </div>
 
@@ -688,18 +684,19 @@
         <span id="user-avatar-initials">AJ</span>
       </button>
       <div class="flex items-center gap-1 text-[#8C8C8C]">
-        <button type="button" id="btn-work-notifications" title="Notificaciones de trabajo y revisión"
+        <button type="button" id="btn-work-notifications" title="Notificaciones"
           class="relative w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
           <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
-          <span class="w-1.5 h-1.5 rounded-full bg-obsidian-amber absolute top-1 right-1"></span>
+          <span id="notif-bell-badge" class="hidden"></span>
         </button>
-        <button type="button" id="btn-user-reviews" title="Comentarios de revisión"
-          class="w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+        <button type="button" id="btn-user-reviews" title="Mensajes"
+          class="relative w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
           <span data-icon="message-square" data-icon-size="w-3 h-3"></span>
+          <span id="notif-msg-badge" class="hidden"></span>
         </button>
         <button type="button" id="btn-user-schedule" title="Mi jornada"
           class="w-6 h-6 rounded-md hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
@@ -739,6 +736,11 @@
         <span data-icon="log-out" data-icon-size="w-3 h-3"></span>
         <span>Salir</span>
       </button>
+    </div>
+
+    <!-- Popover de Notificaciones y Mensajes globales -->
+    <div id="notifications-popover"
+      class="hidden absolute right-3 top-10 z-40 w-80 bg-[#202020] border border-obsidian-borderActive rounded-xl shadow-2xl overflow-hidden text-[11px]">
     </div>
 
     <!-- Título: Inspector -->

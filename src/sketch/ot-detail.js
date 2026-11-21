@@ -14,11 +14,13 @@ import {
   matchesCommonTrafficFilters,
   notifySketchChange,
   onSketchChange,
+  recordOtActivity,
   relDate,
   renderOtActivityHtml,
   sketchState,
   sortTrafficItemsByEntryDate,
   studioSettings,
+  syncDepartmentFromRoutes,
   trafficDepartments,
   trafficMembers,
   trafficOrders,
@@ -26,21 +28,19 @@ import {
   trafficStatuses,
   ensureOtData
 } from './store.js';
-import { renderGallerySectionHtml, bindGalleryEvents } from './gallery.js';
+import { renderGallerySectionHtml, bindGalleryEvents, getFilteredGalleryPieces } from './gallery.js';
 import { renderTrafficTree } from './traffic.js';
 import {
-  bindGanttScaleEvents,
   bindKanbanScheduleEvents,
   bindScheduleNavEvents,
   formatLongDayHeading,
-  renderGanttScheduleHtml,
+  mountScheduleView,
   renderInspectorMiniCalendar,
   renderKanbanScheduleHtml,
-  renderMonthScheduleHtml,
   renderScheduleNavHeader,
-  renderWeekScheduleHtml,
   shiftScheduleDate,
 } from './schedule-views.js';
+import { renderOtInspectorPanel, renderTrafficNotesInspector } from './inspector.js';
 import {
   ensureStripboardDaySeeded,
   getDayReservedHours,
@@ -105,10 +105,16 @@ function ensureMyOtsHeaderControls() {
   memberLabel.textContent = sketchState.myOtsMember || 'Andrés';
 }
 
+function formatBitacoraNow() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${String(now.getFullYear()).slice(-2)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 /**
  * Commit a newly entered blank route row in the bitácora table.
  */
-function commitBlankRouteRow(row) {
+function commitBlankRouteRow(row, { signedNow = false } = {}) {
   if (!row || row.dataset.committing === '1') return;
   const otId = row.getAttribute('data-new-route-ot');
   const taskAttr = row.getAttribute('data-new-route-task');
@@ -122,24 +128,29 @@ function commitBlankRouteRow(row) {
   const desc = getVal('desc');
   const sign = getVal('sign');
   const notes = getVal('notes');
-  if (!desc && !to && !notes && !from && !sign) return;
+  if (!desc && !to && !notes && !sign) return;
 
   row.dataset.committing = '1';
   const targetTask = taskAttr !== null && taskAttr !== 'root' ? ot.subtasks?.[Number(taskAttr)] : null;
   const targetRoutes = targetTask ? (targetTask.routes || (targetTask.routes = [])) : (ot.routes || (ot.routes = []));
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const fallbackDate = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${String(now.getFullYear()).slice(-2)} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const nowStamp = formatBitacoraNow();
 
+  const targetObj = targetTask || ot;
+  const isSigned = signedNow || !!sign;
   targetRoutes.push({
-    date: date || fallbackDate,
-    from: from || 'Tráfico',
+    date: isSigned ? nowStamp : (date || nowStamp),
+    from: from || 'Cuentas',
     to: to || '—',
     desc: desc || '—',
-    sign: sign || ot.responsible || '—',
+    sign: sign || 'Sin Firmar',
     notes: notes || '',
-    locked: false
+    locked: isSigned
   });
+  if (isSigned) {
+    syncDepartmentFromRoutes(targetObj);
+    recordOtActivity(targetObj, `firmó bitácora: ${from || 'Cuentas'} → ${to || '—'}`, sign);
+  }
+  notifySketchChange('orders');
   renderMyOts();
 }
 
@@ -224,9 +235,9 @@ export function renderOtInfoRowHtml(ot, formatDateFn = formatShortDate) {
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Depto.</label>
-        <select data-ot-id="${escapeHtml(ot.id)}" style="color:${escapeHtml(getDepartmentColor(ot.department))}" class="myots-dept-sel w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium focus:outline-none cursor-pointer">
-          ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" ${ot.department === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
-        </select>
+        <input type="text" readonly value="${escapeHtml(ot.department || '—')}" title="Derivado automáticamente del último PARA: traficado en la bitácora"
+          style="color:${escapeHtml(getDepartmentColor(ot.department))}"
+          class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10.5px] font-medium focus:outline-none cursor-default">
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Etapa</label>
@@ -246,7 +257,8 @@ export function renderOtInfoRowHtml(ot, formatDateFn = formatShortDate) {
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Entrada</label>
-        <input type="text" value="${escapeHtml(formatDateFn(ot.entryDate))}" class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10px] font-mono text-[#8C8C8C] focus:outline-none">
+        <input type="text" readonly value="${escapeHtml(formatDateFn(ot.entryDate))}" title="Fecha y hora automática de apertura"
+          class="w-full bg-[#191919] border border-obsidian-border rounded px-1.5 py-1 text-[10px] font-mono text-[#8C8C8C] focus:outline-none cursor-default">
       </div>
       <div>
         <label class="text-[9px] uppercase tracking-[0.08em] text-[#8C8C8C] block mb-0.5">Entrega Final</label>
@@ -265,6 +277,9 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
   const routes = activeTask ? activeTask.routes : ot.routes;
   const rawPieces = activeTask ? activeTask.mediaFiles : ot.mediaFiles;
   const routesCollapsed = sketchState.routesCollapsed;
+  const lastValidTo = [...routes].reverse().find((r) => r.to && r.to !== '—')?.to;
+  const defaultNextFrom = lastValidTo || 'Cuentas';
+  const activeSigner = sketchState.myOtsMember || 'Andrés';
 
   return `
     <div class="flex flex-col gap-3">
@@ -296,44 +311,89 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
             </tr>
           </thead>
           <tbody class="divide-y divide-obsidian-border">
-            ${routes.map((r) => {
+            ${routes.map((r, rIdx) => {
               const isLocked = ot.archived || r.locked;
+              const isSelectedRoute = sketchState.activeRouteIndex === rIdx;
+              if (isLocked) {
+                return `
+                <tr data-route-row-idx="${rIdx}" class="cursor-pointer transition-colors ${isSelectedRoute ? 'bg-obsidian-elevated/80 ring-1 ring-inset ring-obsidian-amber/40' : 'hover:bg-obsidian-elevated/40'}">
+                  <td class="px-2 py-1.5 border-r border-obsidian-border font-mono text-[10px] text-[#8C8C8C]">${escapeHtml(r.date)}</td>
+                  <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.from)}</td>
+                  <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4]">${escapeHtml(r.to)}</td>
+                  <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4]">${escapeHtml(r.desc)}</td>
+                  <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.sign)}</td>
+                  <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.notes)}</td>
+                  <td class="px-2 py-1.5 text-center text-rose-400"><span data-icon="lock" data-icon-size="w-3 h-3"></span></td>
+                </tr>
+                `;
+              }
               return `
-              <tr class="hover:bg-obsidian-elevated/40">
-                <td class="px-2 py-1.5 border-r border-obsidian-border font-mono text-[10px] text-[#8C8C8C]">${escapeHtml(r.date)}</td>
-                <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.from)}</td>
-                <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4]">${escapeHtml(r.to)}</td>
-                <td class="px-2 py-1.5 border-r border-obsidian-border text-[#D4D4D4]">${escapeHtml(r.desc)}</td>
-                <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.sign)}</td>
-                <td class="px-2 py-1.5 border-r border-obsidian-border text-[#8C8C8C]">${escapeHtml(r.notes)}</td>
-                <td class="px-2 py-1.5 text-center ${isLocked ? 'text-rose-400' : 'text-emerald-400'}"><span data-icon="${isLocked ? 'lock' : 'lock-open'}" data-icon-size="w-3 h-3"></span></td>
+              <tr data-route-row-idx="${rIdx}" data-edit-route-idx="${rIdx}" class="cursor-pointer transition-colors ${isSelectedRoute ? 'bg-obsidian-elevated/80 ring-1 ring-inset ring-obsidian-amber/40' : 'hover:bg-obsidian-elevated/40'}">
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <input type="text" readonly data-edit-route-col="date" value="${escapeHtml(r.date || '')}" placeholder="Clic: ahora" title="Clic para estampar fecha y hora actual"
+                    class="w-full bg-transparent font-mono text-[10px] text-[#8C8C8C] placeholder-[#555555] focus:outline-none cursor-pointer" />
+                </td>
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <select data-edit-route-col="from" class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] focus:outline-none focus:text-[#D4D4D4] cursor-pointer">
+                    <option value="" class="bg-[#202020]">—</option>
+                    ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.from === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                  </select>
+                </td>
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <select data-edit-route-col="to" class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
+                    <option value="" class="bg-[#202020]">—</option>
+                    ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${r.to === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+                  </select>
+                </td>
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <input type="text" data-edit-route-col="desc" value="${escapeHtml(r.desc || '')}" placeholder="..." class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] placeholder-[#555555] focus:outline-none" />
+                </td>
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <select data-edit-route-col="sign" class="w-full bg-transparent text-[10.5px] text-obsidian-amber focus:outline-none cursor-pointer">
+                    <option value="" class="bg-[#202020]" ${!r.sign || r.sign.toLowerCase() === 'sin firmar' ? 'selected' : ''}>Sin Firmar</option>
+                    <option value="${escapeHtml(activeSigner)}" class="bg-[#202020]" ${r.sign === activeSigner ? 'selected' : ''}>${escapeHtml(activeSigner)}</option>
+                  </select>
+                </td>
+                <td class="px-2 py-1.5 border-r border-obsidian-border">
+                  <input type="text" data-edit-route-col="notes" value="${escapeHtml(r.notes || '')}" placeholder="..." class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] placeholder-[#555555] focus:outline-none focus:text-[#D4D4D4]" />
+                </td>
+                <td class="px-1.5 py-1.5 text-center">
+                  <div class="inline-flex items-center justify-center gap-1">
+                    <span class="text-emerald-400" title="Sin firmar (editable)"><span data-icon="lock-open" data-icon-size="w-3 h-3"></span></span>
+                    <button type="button" data-delete-route-idx="${rIdx}" title="Eliminar fila sin firmar"
+                      class="w-4 h-4 rounded hover:bg-obsidian-elevated text-[#737373] hover:text-rose-400 flex items-center justify-center transition-colors cursor-pointer">
+                      <span data-icon="trash-2" data-icon-size="w-2.5 h-2.5"></span>
+                    </button>
+                  </div>
+                </td>
               </tr>
-            `;
+              `;
             }).join('')}
             ${ot.archived ? '' : `
             <tr data-new-route-ot="${escapeHtml(ot.id)}" data-new-route-task="${taskIndex === null ? 'root' : taskIndex}" class="hover:bg-obsidian-elevated/30">
               <td class="px-2 py-1.5 border-r border-obsidian-border">
-                <input type="text" data-new-route-col="date" placeholder="—" class="w-full bg-transparent font-mono text-[10px] text-[#8C8C8C] placeholder-[#555555] focus:outline-none focus:text-[#D4D4D4]" />
+                <input type="text" readonly data-new-route-col="date" placeholder="Clic: ahora" title="Clic para estampar fecha y hora actual"
+                  class="w-full bg-transparent font-mono text-[10px] text-[#8C8C8C] placeholder-[#555555] focus:outline-none focus:text-[#D4D4D4] cursor-pointer" />
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
                 <select data-new-route-col="from" class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] focus:outline-none focus:text-[#D4D4D4] cursor-pointer">
                   <option value="" class="bg-[#202020]">—</option>
-                  ${['Cuentas', 'Creativos', 'Tráfico', 'Diseño', 'Producción', 'Cliente'].map((d) => `<option value="${d}" class="bg-[#202020]">${d}</option>`).join('')}
+                  ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]" ${defaultNextFrom === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
                 </select>
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
                 <select data-new-route-col="to" class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] focus:outline-none cursor-pointer">
                   <option value="" class="bg-[#202020]">—</option>
-                  ${['Cuentas', 'Creativos', 'Tráfico', 'Diseño', 'Producción', 'Cliente'].map((d) => `<option value="${d}" class="bg-[#202020]">${d}</option>`).join('')}
+                  ${trafficDepartments.map((d) => `<option value="${escapeHtml(d)}" class="bg-[#202020]">${escapeHtml(d)}</option>`).join('')}
                 </select>
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
                 <input type="text" data-new-route-col="desc" placeholder="..." class="w-full bg-transparent text-[10.5px] text-[#D4D4D4] placeholder-[#555555] focus:outline-none" />
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
-                <select data-new-route-col="sign" class="w-full bg-transparent text-[10.5px] text-[#8C8C8C] focus:outline-none focus:text-[#D4D4D4] cursor-pointer">
-                  <option value="" class="bg-[#202020]">—</option>
-                  ${trafficMembers.map((m) => `<option value="${escapeHtml(m)}" class="bg-[#202020]">${escapeHtml(m)}</option>`).join('')}
+                <select data-new-route-col="sign" class="w-full bg-transparent text-[10.5px] text-obsidian-amber focus:outline-none cursor-pointer">
+                  <option value="" class="bg-[#202020]">Sin Firmar</option>
+                  <option value="${escapeHtml(activeSigner)}" class="bg-[#202020]">${escapeHtml(activeSigner)}</option>
                 </select>
               </td>
               <td class="px-2 py-1.5 border-r border-obsidian-border">
@@ -347,158 +407,17 @@ export function renderOtDetailHtml(ot, formatDateFn = formatShortDate, taskIndex
         </div>
         `}
       </div>
-      ${renderGallerySectionHtml(rawPieces, {
-        allowFilters: !activeTask,
-        showTaskFilter: !activeTask,
-        subtasks: ot.subtasks || [],
-        galleryMinH: routesCollapsed ? 'h-[calc(100vh-200px)] min-h-[740px]' : 'h-[calc(100vh-330px)] min-h-[620px]',
-        canCollapse: true
-      })}
+      <div class="mt-2 pt-3 border-t border-obsidian-border">
+        ${renderGallerySectionHtml(rawPieces, {
+          allowFilters: !activeTask,
+          showTaskFilter: !activeTask,
+          subtasks: ot.subtasks || [],
+          galleryMinH: routesCollapsed ? 'h-[calc(100vh-200px)] min-h-[740px]' : 'h-[calc(100vh-330px)] min-h-[620px]',
+          canCollapse: true
+        })}
+      </div>
     </div>
   `;
-}
-
-/**
- * Render the Inspector panel (#right-body) for the active task in Detalle de OT.
- */
-function renderInspectorPanel(activeOt, inspTask) {
-  const rightBodyEl = document.getElementById('right-body');
-  if (!rightBodyEl) return;
-
-  if (!activeOt) {
-    rightBodyEl.innerHTML = '';
-    return;
-  }
-
-  if (!inspTask) {
-    const cColor = getClientColor(activeOt.client);
-    rightBodyEl.innerHTML = `
-      <div class="space-y-3 text-[11px]">
-        <div class="pb-2 border-b border-obsidian-border space-y-1">
-          <div class="flex items-center justify-between gap-2">
-            <span class="font-mono text-[10px] font-semibold text-obsidian-amber px-1.5 py-0.5 rounded bg-[#191919] border border-obsidian-border">${escapeHtml(activeOt.id)}</span>
-            <span class="text-[10px] text-[#8C8C8C]">${escapeHtml(activeOt.status || '')}</span>
-          </div>
-          <div class="text-[12px] font-medium text-[#D4D4D4] leading-snug">${escapeHtml(activeOt.title || '')}</div>
-          <div class="text-[10px] font-medium truncate" style="color:${escapeHtml(cColor)}">${escapeHtml(activeOt.client || '')}</div>
-        </div>
-        ${renderOtActivityHtml(activeOt)}
-      </div>
-    `;
-    return;
-  }
-
-  const dailyHours = Number(studioSettings.dailyHours) || 8;
-  const taskUid = `${activeOt.id}::${sketchState.activeTaskIndex}`;
-  const taskCode = `${activeOt.id}-${sketchState.activeTaskIndex + 1}`;
-  const schedDate = (inspTask.scheduledDate || inspTask.deliveryDate || activeOt.deliveryDate || '').slice(0, 10);
-  const estHours = Number(inspTask.estimatedHours ?? 3) || 0;
-  const reserved = getDayReservedHours(schedDate);
-  const isOver = reserved > dailyHours;
-
-  rightBodyEl.innerHTML = `
-    <div class="space-y-3 text-[11px]">
-      <div class="pb-2 border-b border-obsidian-border space-y-1">
-        <div class="flex items-center justify-between gap-2">
-          <span class="font-mono text-[10px] font-semibold text-obsidian-amber px-1.5 py-0.5 rounded bg-[#191919] border border-obsidian-border">${escapeHtml(taskCode)}</span>
-          <span class="text-[10px] text-[#8C8C8C]">${escapeHtml(inspTask.status || activeOt.status || '')}</span>
-        </div>
-        <div class="text-[12px] font-medium text-[#D4D4D4] leading-snug">${escapeHtml(inspTask.title)}</div>
-        <div class="text-[10px] text-[#8C8C8C]">${escapeHtml(activeOt.client)} · ${escapeHtml(activeOt.brand)}</div>
-      </div>
-
-      <div class="space-y-2">
-        <div class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Programación y Tiempo</div>
-        <label class="block space-y-1">
-          <span class="text-[10px] text-[#8C8C8C]">Tiempo dedicado (horas)</span>
-          <input id="insp-task-hours" type="number" min="0.5" max="16" step="0.5" value="${estHours}" class="w-full h-7 bg-[#191919] border border-obsidian-border rounded-md px-2 text-[11px] font-mono text-[#D4D4D4] focus:outline-none focus:border-obsidian-amber/60" />
-        </label>
-        <label class="block space-y-1">
-          <span class="text-[10px] text-[#8C8C8C]">Día programado (entrega: ${escapeHtml(formatShortDate(inspTask.deliveryDate || activeOt.deliveryDate) || '—')})</span>
-          <input id="insp-task-date" type="date" value="${escapeHtml(schedDate)}" style="color-scheme: dark;" class="w-full h-7 bg-[#191919] border border-obsidian-border rounded-md px-2 text-[11px] font-mono text-[#D4D4D4] focus:outline-none focus:border-obsidian-amber/60 cursor-pointer" />
-        </label>
-      </div>
-
-      <div id="insp-capacity-box" class="p-2.5 rounded-lg border ${isOver ? 'bg-rose-500/10 border-rose-500/40' : 'bg-[#191919] border-obsidian-border'} space-y-1.5">
-        <div class="flex items-center justify-between text-[10.5px]">
-          <span class="text-[#8C8C8C]">Reservado ese día</span>
-          <span id="insp-capacity-val" class="font-mono font-semibold ${isOver ? 'text-rose-300' : 'text-[#D4D4D4]'}">${reserved}h / ${dailyHours}h</span>
-        </div>
-        <div class="h-1.5 w-full rounded-full bg-[#262626] overflow-hidden">
-          <div id="insp-capacity-bar" class="h-full ${isOver ? 'bg-rose-400' : 'bg-obsidian-amber'} transition-all" style="width:${Math.min(100, Math.round((reserved / dailyHours) * 100))}%"></div>
-        </div>
-        <div id="insp-capacity-note" class="text-[10px] ${isOver ? 'text-rose-300' : 'text-[#8C8C8C]'}">
-          ${isOver ? `Sobrecarga de ${(reserved - dailyHours).toFixed(1).replace(/\.0$/, '')}h. Arrastra filas en el Stripboard para reordenar o mover de día.` : `Disponible: ${(dailyHours - reserved).toFixed(1).replace(/\.0$/, '')}h libres en este día.`}
-        </div>
-      </div>
-
-      <div class="flex gap-1.5 pt-1">
-        <button type="button" id="insp-go-sb-day" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">Ver Día</button>
-        <button type="button" id="insp-go-sb-week" class="flex-1 h-7 rounded-md bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] cursor-pointer">Ver Semana</button>
-      </div>
-      ${renderOtActivityHtml(activeOt)}
-    </div>
-  `;
-
-  const hrsInput = rightBodyEl.querySelector('#insp-task-hours');
-  const dateInput = rightBodyEl.querySelector('#insp-task-date');
-
-  hrsInput?.addEventListener('input', (e) => {
-    const val = Math.max(0, Number(e.target.value) || 0);
-    inspTask.estimatedHours = val;
-    const curDate = (inspTask.scheduledDate || inspTask.deliveryDate || activeOt.deliveryDate || '').slice(0, 10);
-    ensureStripboardDaySeeded(curDate);
-    const nextReserved = getDayReservedHours(curDate);
-    const curDaily = Number(studioSettings.dailyHours) || 8;
-    const over = nextReserved > curDaily;
-    const box = rightBodyEl.querySelector('#insp-capacity-box');
-    const valEl = rightBodyEl.querySelector('#insp-capacity-val');
-    const barEl = rightBodyEl.querySelector('#insp-capacity-bar');
-    const noteEl = rightBodyEl.querySelector('#insp-capacity-note');
-
-    if (box) box.className = `p-2.5 rounded-lg border ${over ? 'bg-rose-500/10 border-rose-500/40' : 'bg-[#191919] border-obsidian-border'} space-y-1.5`;
-    if (valEl) {
-      valEl.className = `font-mono font-semibold ${over ? 'text-rose-300' : 'text-[#D4D4D4]'}`;
-      valEl.textContent = `${nextReserved}h / ${curDaily}h`;
-    }
-    if (barEl) {
-      barEl.className = `h-full ${over ? 'bg-rose-400' : 'bg-obsidian-amber'} transition-all`;
-      barEl.style.width = `${Math.min(100, Math.round((nextReserved / curDaily) * 100))}%`;
-    }
-    if (noteEl) {
-      noteEl.className = `text-[10px] ${over ? 'text-rose-300' : 'text-[#8C8C8C]'}`;
-      noteEl.textContent = over
-        ? `Sobrecarga de ${(nextReserved - curDaily).toFixed(1).replace(/\.0$/, '')}h. Arrastra filas en el Stripboard para reordenar o mover de día.`
-        : `Disponible: ${(curDaily - nextReserved).toFixed(1).replace(/\.0$/, '')}h libres en este día.`;
-    }
-    notifySketchChange('stripboard');
-  });
-
-  dateInput?.addEventListener('change', (e) => {
-    if (!e.target.value) return;
-    moveTaskToScheduledDate(taskUid, e.target.value);
-    renderMyOts();
-    notifySketchChange('stripboard');
-  });
-
-  const jumpToStripboard = (mode) => {
-    sketchState.stripboardDate = (inspTask.scheduledDate || inspTask.deliveryDate || activeOt.deliveryDate || '').slice(0, 10) || sketchState.stripboardDate;
-    sketchState.stripboardViewMode = mode;
-    if (jumpStripboardCb) {
-      jumpStripboardCb(mode);
-    } else {
-      document.getElementById('view-my-ots')?.classList.add('hidden');
-      document.getElementById('view-stripboard')?.classList.remove('hidden');
-      document.getElementById('left-envelope-tree')?.classList.add('hidden');
-      document.getElementById('left-traffic-tree')?.classList.remove('hidden');
-      const titleEl = document.getElementById('center-page-title');
-      if (titleEl) titleEl.textContent = 'Mis Tareas';
-      notifySketchChange('stripboard');
-    }
-  };
-
-  rightBodyEl.querySelector('#insp-go-sb-day')?.addEventListener('click', () => jumpToStripboard('day'));
-  rightBodyEl.querySelector('#insp-go-sb-week')?.addEventListener('click', () => jumpToStripboard('week'));
 }
 
 /**
@@ -676,7 +595,57 @@ export function renderMyOts() {
     }
   }
 
-  renderInspectorPanel(activeOt, activeTask);
+  let activePieceForInspector = null;
+  let activeRouteForInspector = null;
+  if (sketchState.myOtsMode === 'cards' && activeOt) {
+    ensureOtData(activeOt, formatShortDate);
+    const rawPieces = (activeTask ? activeTask.mediaFiles : activeOt.mediaFiles) || [];
+    const filtered = getFilteredGalleryPieces(rawPieces, {
+      allowFilters: !activeTask,
+      showTaskFilter: !activeTask,
+    });
+    const hasActivePiece =
+      sketchState.activePieceIndex !== null &&
+      sketchState.activePieceIndex !== undefined &&
+      sketchState.activePieceIndex >= 0 &&
+      sketchState.activePieceIndex < filtered.length;
+    activePieceForInspector = hasActivePiece ? filtered[sketchState.activePieceIndex] : null;
+
+    const currentRoutes = (activeTask ? activeTask.routes : activeOt.routes) || [];
+    if (
+      sketchState.activeRouteIndex !== null &&
+      sketchState.activeRouteIndex !== undefined &&
+      currentRoutes[sketchState.activeRouteIndex]
+    ) {
+      activeRouteForInspector = currentRoutes[sketchState.activeRouteIndex];
+    } else {
+      sketchState.activeRouteIndex = null;
+    }
+  }
+
+  const openFromCollection = (otId, tIdx = '') => {
+    sketchState.activeMyOtId = otId;
+    sketchState.activeTaskIndex = tIdx !== undefined && tIdx !== '' && tIdx !== null ? Number(tIdx) : null;
+    sketchState.activeRouteIndex = null;
+    sketchState.activePieceIndex = null;
+    sketchState.myOtsMode = 'cards';
+    renderMyOts();
+  };
+
+  if (sketchState.myOtsMode === 'cards') {
+    renderOtInspectorPanel(activeOt, activeTask, {
+      activePiece: activePieceForInspector,
+      selectedPieceCount: sketchState.selectedPieces.size,
+      activeRoute: activeRouteForInspector,
+      activeRouteIndex: sketchState.activeRouteIndex,
+      onRerender: renderMyOts,
+      onJumpStripboard: jumpStripboardCb,
+    });
+  } else if (activeOt) {
+    renderTrafficNotesInspector(activeOt.id, activeTask ? sketchState.activeTaskIndex : '', false, {
+      onOpenOt: openFromCollection,
+    });
+  }
 
   if (sketchState.myOtsMode === 'cards') {
     if (!activeOt) {
@@ -688,7 +657,8 @@ export function renderMyOts() {
     if (taskTreeList) {
       renderOtTaskTree(activeOt, taskTreeList, sketchState.activeTaskIndex, (nextIdx) => {
         sketchState.activeTaskIndex = nextIdx;
-        sketchState.activePieceIndex = 0;
+        sketchState.activeRouteIndex = null;
+        sketchState.activePieceIndex = null;
         sketchState.selectedPieces.clear();
         renderMyOts();
       });
@@ -697,10 +667,99 @@ export function renderMyOts() {
     cardsEl.innerHTML = renderOtDetailHtml(activeOt, formatShortDate, sketchState.activeTaskIndex);
     if (window.hydrateIcons) window.hydrateIcons(cardsEl);
 
+    cardsEl.querySelectorAll('tr[data-route-row-idx]').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('input, select, button, a')) return;
+        const idx = Number(row.dataset.routeRowIdx);
+        if (Number.isNaN(idx)) return;
+        sketchState.activeRouteIndex = sketchState.activeRouteIndex === idx ? null : idx;
+        sketchState.activePieceIndex = null;
+        sketchState.inspectorTab = 'detail';
+        renderMyOts();
+      });
+    });
+
+    // Stamp current date/time on click in any unsigned or new Bitácora date input
+    cardsEl.querySelectorAll('[data-new-route-col="date"]').forEach((inp) => {
+      const stamp = () => {
+        inp.value = formatBitacoraNow();
+      };
+      inp.addEventListener('click', stamp);
+      inp.addEventListener('focus', () => {
+        if (!inp.value) stamp();
+      });
+    });
+
+    // Immediate sign + lock + timestamp update on new blank row
+    cardsEl.querySelectorAll('[data-new-route-col="sign"]').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        if (!sel.value) return;
+        const row = sel.closest('tr[data-new-route-ot]');
+        if (row) commitBlankRouteRow(row, { signedNow: true });
+      });
+    });
+
+    // Editable unsigned existing rows: click date to stamp, edit fields, sign to lock & update timestamp
+    const targetObjForRoutes = activeTask || activeOt;
+    const routesArr = (activeTask ? activeTask.routes : activeOt.routes) || [];
+    cardsEl.querySelectorAll('tr[data-edit-route-idx]').forEach((row) => {
+      const rIdx = Number(row.dataset.editRouteIdx);
+      const routeObj = routesArr[rIdx];
+      if (!routeObj || routeObj.locked) return;
+
+      const dateInp = row.querySelector('[data-edit-route-col="date"]');
+      dateInp?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const nowStamp = formatBitacoraNow();
+        routeObj.date = nowStamp;
+        dateInp.value = nowStamp;
+      });
+
+      row.querySelector('[data-edit-route-col="from"]')?.addEventListener('change', (e) => {
+        routeObj.from = e.target.value;
+      });
+      row.querySelector('[data-edit-route-col="to"]')?.addEventListener('change', (e) => {
+        routeObj.to = e.target.value;
+        syncDepartmentFromRoutes(targetObjForRoutes);
+      });
+      row.querySelector('[data-edit-route-col="desc"]')?.addEventListener('input', (e) => {
+        routeObj.desc = e.target.value;
+      });
+      row.querySelector('[data-edit-route-col="notes"]')?.addEventListener('input', (e) => {
+        routeObj.notes = e.target.value;
+      });
+      row.querySelector('[data-edit-route-col="sign"]')?.addEventListener('change', (e) => {
+        const signer = e.target.value;
+        if (!signer) return;
+        routeObj.sign = signer;
+        routeObj.date = formatBitacoraNow();
+        routeObj.locked = true;
+        syncDepartmentFromRoutes(targetObjForRoutes);
+        recordOtActivity(targetObjForRoutes, `firmó bitácora: ${routeObj.from || 'Cuentas'} → ${routeObj.to || '—'}`, signer);
+        notifySketchChange('orders');
+        renderMyOts();
+      });
+
+      row.querySelector('[data-delete-route-idx]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        routesArr.splice(rIdx, 1);
+        if (sketchState.activeRouteIndex === rIdx) sketchState.activeRouteIndex = null;
+        else if (sketchState.activeRouteIndex !== null && sketchState.activeRouteIndex > rIdx) {
+          sketchState.activeRouteIndex -= 1;
+        }
+        syncDepartmentFromRoutes(targetObjForRoutes);
+        notifySketchChange('orders');
+        renderMyOts();
+      });
+    });
+
     bindGalleryEvents(
       cardsEl,
       renderMyOts,
-      () => (activeTask ? activeTask.mediaFiles : activeOt.mediaFiles) || [],
+      () => getFilteredGalleryPieces((activeTask ? activeTask.mediaFiles : activeOt.mediaFiles) || [], {
+        allowFilters: !activeTask,
+        showTaskFilter: !activeTask,
+      }),
       () => {
         const targetObj = activeTask || activeOt;
         if (targetObj && Array.isArray(targetObj.mediaFiles)) {
@@ -790,11 +849,17 @@ export function renderMyOts() {
     listBodyEl.querySelectorAll('tr[data-myots-open]').forEach((row) => {
       row.addEventListener('click', (e) => {
         if (e.target.closest('select, input, button, a')) return;
-        sketchState.activeMyOtId = row.dataset.myotsOpen;
-        const tIdx = row.dataset.myotsTask;
-        sketchState.activeTaskIndex = tIdx !== undefined && tIdx !== '' ? Number(tIdx) : null;
-        sketchState.myOtsMode = 'cards';
-        renderMyOts();
+        listBodyEl.querySelectorAll('tr[data-myots-open]').forEach((r) => {
+          r.classList.remove('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+        });
+        row.classList.add('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+        renderTrafficNotesInspector(row.dataset.myotsOpen, row.dataset.myotsTask || '', false, {
+          onOpenOt: openFromCollection,
+        });
+      });
+      row.addEventListener('dblclick', (e) => {
+        if (e.target.closest('select, input, button, a')) return;
+        openFromCollection(row.dataset.myotsOpen, row.dataset.myotsTask || '');
       });
     });
   } else if (sketchState.myOtsMode === 'kanban') {
@@ -815,60 +880,30 @@ export function renderMyOts() {
     bindKanbanScheduleEvents({
       container: kanbanEl,
       orders: trafficOrders,
-      onOpenItem: (otId, taskIdx) => {
-        sketchState.activeMyOtId = otId;
-        sketchState.activeTaskIndex = taskIdx !== '' ? Number(taskIdx) : null;
-        sketchState.myOtsMode = 'cards';
-        renderMyOts();
+      onInspectItem: (otId, taskIdx) => {
+        const rb = document.getElementById('right-body');
+        if (rb && rb.querySelector('#insp-cal-slot')) rb.innerHTML = '';
+        renderTrafficNotesInspector(otId, taskIdx, false, { onOpenOt: openFromCollection });
       },
+      onOpenItem: (otId, taskIdx) => openFromCollection(otId, taskIdx),
       onChanged: () => {
         renderMyOts();
         notifySketchChange('orders');
       },
     });
   } else if (isSchedMode && schedEl) {
-    const anchorDate = sketchState.trafficScheduleDate;
-    const matchDate = (o, iso) => (o.deliveryDate || '').slice(0, 10) === iso;
-
-    if (sketchState.myOtsMode === 'week') {
-      schedEl.innerHTML = renderWeekScheduleHtml({
-        anchorDate,
-        showHoursBadge: false,
-        draggableCards: false,
-        emptyColText: 'Sin entregas',
-        getDayItems: (iso) => mine.filter((o) => matchDate(o, iso)),
-      });
-    } else if (sketchState.myOtsMode === 'gantt') {
-      schedEl.innerHTML = renderGanttScheduleHtml({
-        anchorDate,
-        items: mine,
-        scale: sketchState.ganttScale,
-      });
-      bindGanttScaleEvents(schedEl, (nextScale) => {
+    mountScheduleView({
+      container: schedEl,
+      mode: sketchState.myOtsMode,
+      anchorDate: sketchState.trafficScheduleDate,
+      items: mine,
+      ganttScale: sketchState.ganttScale,
+      dateAttr: 'data-myots-pick-date',
+      onScaleChange: (nextScale) => {
         sketchState.ganttScale = nextScale;
         renderMyOts();
-      });
-    } else if (sketchState.myOtsMode === 'month') {
-      schedEl.innerHTML = renderMonthScheduleHtml({
-        anchorDate,
-        dateAttr: 'data-myots-pick-date',
-        getDayItems: (iso) => mine.filter((o) => matchDate(o, iso)),
-      });
-    }
-
-    if (window.hydrateIcons) window.hydrateIcons(schedEl);
-    const busyDates = new Set(mine.map((o) => (o.deliveryDate || '').slice(0, 10)).filter(Boolean));
-    renderInspectorMiniCalendar({
-      anchorDate,
-      busyDates,
-      onSelectDate: (iso) => {
-        sketchState.trafficScheduleDate = iso;
-        renderMyOts();
       },
-    });
-    bindScheduleNavEvents(
-      schedEl,
-      (dir) => {
+      onShiftDate: (dir) => {
         sketchState.trafficScheduleDate = shiftScheduleDate(
           sketchState.trafficScheduleDate,
           sketchState.myOtsMode,
@@ -877,40 +912,23 @@ export function renderMyOts() {
         );
         renderMyOts();
       },
-      () => {
+      onToday: () => {
         sketchState.trafficScheduleDate = relDate(0).slice(0, 10);
         renderMyOts();
-      }
-    );
-    schedEl.querySelectorAll('[data-sched-ot]').forEach((el) => {
-      el.addEventListener('click', () => {
-        const otId = el.dataset.schedOt;
-        if (!otId) return;
-        sketchState.activeMyOtId = otId;
-        const tIdx = el.dataset.schedTask;
-        sketchState.activeTaskIndex = tIdx !== undefined && tIdx !== '' ? Number(tIdx) : null;
-        sketchState.myOtsMode = 'cards';
+      },
+      onSelectDate: (iso) => {
+        sketchState.trafficScheduleDate = iso;
         renderMyOts();
-      });
-    });
-    schedEl.querySelectorAll('[data-myots-pick-date]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        sketchState.trafficScheduleDate = btn.dataset.myotsPickDate;
+      },
+      onPickDayToDayView: (iso) => {
+        sketchState.trafficScheduleDate = iso;
         sketchState.myOtsMode = 'day';
         renderMyOts();
-      });
+      },
+      onInspectItem: (otId, taskIdx) => renderTrafficNotesInspector(otId, taskIdx, false, { onOpenOt: openFromCollection }),
+      onOpenItem: (otId, taskIdx) => openFromCollection(otId, taskIdx),
     });
   }
-
-  document.querySelectorAll('.myots-dept-sel').forEach((sel) => {
-    sel.addEventListener('change', () => {
-      const target = trafficOrders.find((o) => o.id === sel.dataset.otId);
-      if (!target) return;
-      target.department = sel.value;
-      sel.style.color = getDepartmentColor(sel.value);
-      notifySketchChange('orders');
-    });
-  });
 
   document.querySelectorAll('.myots-stage-sel').forEach((sel) => {
     sel.addEventListener('change', () => {
@@ -939,18 +957,6 @@ export function renderMyOts() {
       }
       sel.style.color = getStatusColor(sel.value);
       notifySketchChange('orders');
-    });
-  });
-
-  document.querySelectorAll('#view-my-ots .myots-kanban-card').forEach((el) => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.kanbanOt;
-      const tIdx = el.dataset.kanbanTask;
-      if (!id) return;
-      sketchState.activeMyOtId = id;
-      sketchState.activeTaskIndex = tIdx !== undefined && tIdx !== '' ? Number(tIdx) : null;
-      sketchState.myOtsMode = 'cards';
-      renderMyOts();
     });
   });
 }
@@ -993,6 +999,32 @@ export function initOtDetail({ onJumpStripboard, onBackToTraffic } = {}) {
       if (row.contains(document.activeElement)) return;
       commitBlankRouteRow(row);
     });
+  });
+
+  document.getElementById('btn-envelope-add-subtask')?.addEventListener('click', () => {
+    const activeOt = trafficOrders.find((o) => o.id === sketchState.activeMyOtId);
+    if (!activeOt || activeOt.archived) return;
+    ensureOtData(activeOt, formatShortDate);
+    const nextNum = (activeOt.subtasks || []).length + 1;
+    activeOt.subtasks.push({
+      title: `Nueva sub-tarea ${nextNum}`,
+      responsible: activeOt.responsible || sketchState.myOtsMember || 'Andrés',
+      department: activeOt.department || 'Creativos',
+      stage: 'Tráfico',
+      status: 'En proceso',
+      entryDate: activeOt.entryDate,
+      deliveryDate: activeOt.deliveryDate,
+      scheduledDate: (activeOt.deliveryDate || '').slice(0, 10),
+      estimatedHours: 2,
+      notes: '',
+      routes: [],
+      mediaFiles: [],
+    });
+    sketchState.activeTaskIndex = activeOt.subtasks.length - 1;
+    sketchState.activePieceIndex = 0;
+    sketchState.selectedPieces.clear();
+    notifySketchChange('orders');
+    renderMyOts();
   });
 
   const renderIfVisible = () => {

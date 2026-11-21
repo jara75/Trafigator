@@ -1,4 +1,5 @@
 import { sketchState, notifySketchChange } from './store.js';
+import { clearInspectorPanel } from './inspector.js';
 
 const MENU_FOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M10 12h10"/><path d="M4 18h16"/><path d="m7 9-3 3 3 3"/></svg>';
 const MENU_UNFOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="m17 9 3 3-3 3"/></svg>';
@@ -195,6 +196,9 @@ export function initNavigation(handlers = {}) {
       const isStripboardView = otView === 'my-tasks';
 
       if (viewNewOt) viewNewOt.classList.toggle('hidden', isDrillDown);
+      if (!isDrillDown) {
+        clearInspectorPanel('Completa los datos para crear la nueva OT.');
+      }
       document.getElementById('view-desktop')?.classList.add('hidden');
       if (viewTraffic) viewTraffic.classList.toggle('hidden', !isTrafficGridView);
       document.getElementById('settings-modal')?.classList.add('hidden');
@@ -221,7 +225,7 @@ export function initNavigation(handlers = {}) {
         sketchState.galleryTaskFilter = 'all';
         sketchState.gallerySearch = '';
         sketchState.galleryPage = 1;
-        sketchState.activePieceIndex = 0;
+        sketchState.activePieceIndex = null;
         sketchState.selectedPieces.clear();
         handlers.onGallery?.(otView);
         notifySketchChange('navigation:gallery', { otView });

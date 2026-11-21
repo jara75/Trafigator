@@ -20,6 +20,7 @@ import {
   onSketchChange,
 } from './store.js';
 import { openClientModal } from './client-modal.js';
+import { clearInspectorPanel } from './inspector.js';
 
 const settingsTabLabels = {
   studio: 'Perfil del Estudio',
@@ -55,6 +56,7 @@ export function openSettingsModal(tab = 'studio') {
 
   sketchState.activeSettingsTab = tab;
   if (settingsModal) settingsModal.classList.remove('hidden');
+  clearInspectorPanel('Ajustes del estudio y configuración de cuenta.');
   renderSettingsTab();
 }
 

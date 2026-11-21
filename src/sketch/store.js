@@ -92,10 +92,10 @@ export const studioSettings = {
 };
 
 export const userAccounts = [
-  { fullName: 'Andrés Jaramillo', shortName: 'Andrés', email: 'direccion@elmarcante.com', role: 'Dueño', departments: ['Todos'], dailyHours: 8 },
-  { fullName: 'Camila Rojas', shortName: 'Camila', email: 'camila@elmarcante.com', role: 'Tráfico', departments: ['Tráfico', 'Cuentas'], dailyHours: 8 },
-  { fullName: 'Mateo Silva', shortName: 'Mateo', email: 'mateo@elmarcante.com', role: 'Creativo', departments: ['Creativos', 'Producción'], dailyHours: 8 },
-  { fullName: 'Sofía Pardo', shortName: 'Sofía', email: 'sofia@elmarcante.com', role: 'Producción', departments: ['Producción', 'Medios'], dailyHours: 8 },
+  { fullName: 'Andrés Jaramillo', shortName: 'Andrés', email: 'direccion@elmarcante.com', role: 'Dueño', scope: 'Todo el estudio', departments: ['Todos'], dailyHours: 8, color: '#f59e0b', avatarMode: 'initials', avatarIcon: 'compass', avatarImage: '' },
+  { fullName: 'Camila Rojas', shortName: 'Camila', email: 'camila@elmarcante.com', role: 'Tráfico', scope: 'Todo el estudio', departments: ['Tráfico', 'Cuentas'], dailyHours: 8, color: '#38bdf8', avatarMode: 'initials', avatarIcon: 'zap', avatarImage: '' },
+  { fullName: 'Mateo Silva', shortName: 'Mateo', email: 'mateo@elmarcante.com', role: 'Creativo', scope: 'Clientes asignados', departments: ['Creativos', 'Producción'], dailyHours: 8, color: '#a78bfa', avatarMode: 'initials', avatarIcon: 'palette', avatarImage: '' },
+  { fullName: 'Sofía Pardo', shortName: 'Sofía', email: 'sofia@elmarcante.com', role: 'Producción', scope: 'Clientes asignados', departments: ['Producción', 'Medios'], dailyHours: 8, color: '#34d399', avatarMode: 'initials', avatarIcon: 'film', avatarImage: '' },
 ];
 
 export const userProfile = {
@@ -322,11 +322,15 @@ export const sketchState = {
   activeMyOtId: null,
   myOtsScope: 'active',
   activeTaskIndex: null,
+  activeRouteIndex: null,
+  inspectorTab: 'detail',
+  inspectorAlertsExpanded: false,
+  inspectorComposerPriority: null,
   routesCollapsed: false,
   galleryCollapsed: false,
 
   // Gallery & preview
-  activePieceIndex: 0,
+  activePieceIndex: null,
   galleryViewMode: 'grid',
   gallerySearch: '',
   galleryTypeFilter: 'all',
@@ -450,6 +454,30 @@ export function recordOtActivity(otOrId, text, actor = sketchState.myOtsMember |
   if (ot.activityLog.length > 50) ot.activityLog.length = 50;
 }
 
+export function appendOtMessage(otOrId, { text, channel = 'App', actor = sketchState.myOtsMember || 'Andrés', priority = null, pinned = false } = {}) {
+  const ot = typeof otOrId === 'string' ? trafficOrders.find((o) => o.id === otOrId) : otOrId;
+  const clean = String(text || '').trim();
+  if (!ot || !clean) return;
+  if (!Array.isArray(ot.messages)) ot.messages = [];
+  const normPriority = ['urgent', 'important', 'info'].includes(priority)
+    ? priority
+    : (pinned ? 'important' : null);
+  ot.messages.push({
+    at: formatNowDisplay(),
+    actor: actor || 'Estudio',
+    channel,
+    text: clean,
+    priority: normPriority,
+    pinned: !!normPriority,
+  });
+  const prioLabels = { urgent: 'Urgente', important: 'Importante', info: 'Info' };
+  recordOtActivity(
+    ot,
+    normPriority ? `fijó alerta ${prioLabels[normPriority]} (${channel})` : `envió mensaje (${channel})`,
+    actor
+  );
+}
+
 export function renderOtActivityHtml(ot) {
   if (!ot) return '';
   ensureOtData(ot);
@@ -507,6 +535,9 @@ function appendAutoOrderActivity(prevSnapStr) {
     if (Boolean(prev.urgent) !== Boolean(ot.urgent)) {
       recordOtActivity(ot, ot.urgent ? 'marcó como Urgente' : 'quitó marca de Urgente', actor);
     }
+    if (prev.deliveryDate !== ot.deliveryDate) {
+      recordOtActivity(ot, `reprogramó entrega: ${formatShortDate(prev.deliveryDate) || '—'} → ${formatShortDate(ot.deliveryDate) || '—'}`, actor);
+    }
     const prevSubs = Array.isArray(prev.subtasks) ? prev.subtasks : [];
     const curSubs = Array.isArray(ot.subtasks) ? ot.subtasks : [];
     curSubs.forEach((st, idx) => {
@@ -521,8 +552,15 @@ function appendAutoOrderActivity(prevSnapStr) {
       if (pst.status !== st.status) {
         recordOtActivity(ot, `en «${st.title}»: estado ${pst.status} → ${st.status}`, actor);
       }
-      if (Number(pst.estimatedHours) !== Number(st.estimatedHours)) {
-        recordOtActivity(ot, `en «${st.title}»: horas ${pst.estimatedHours ?? 3}h → ${st.estimatedHours}h`, actor);
+      if (pst.deliveryDate !== st.deliveryDate) {
+        const msg = `reprogramó entrega: ${formatShortDate(pst.deliveryDate) || '—'} → ${formatShortDate(st.deliveryDate) || '—'}`;
+        recordOtActivity(ot, `en «${st.title}»: ${msg}`, actor);
+        if (Array.isArray(st.activityLog)) recordOtActivity(st, msg, actor);
+      }
+      const prevHrs = Number(pst.estimatedHours ?? 3);
+      const curHrs = Number(st.estimatedHours ?? 3);
+      if (prevHrs !== curHrs) {
+        recordOtActivity(ot, `en «${st.title}»: horas ${prevHrs}h → ${curHrs}h`, actor);
       }
     });
   });
@@ -548,6 +586,58 @@ export function notifySketchChange(topic, payload) {
   listeners.forEach((fn) => fn(payload));
 }
 
+export function rescheduleDeliveryDate(otId, taskIdx = '', nextIsoDate = null, nextTime = null) {
+  const ot = trafficOrders.find((o) => o.id === otId);
+  if (!ot || ot.archived) return false;
+  const hasTask = taskIdx !== '' && taskIdx !== null && taskIdx !== undefined && ot.subtasks?.[Number(taskIdx)];
+  const target = hasTask ? ot.subtasks[Number(taskIdx)] : ot;
+  const prevRaw = String(target.deliveryDate || ot.deliveryDate || '');
+  const prevDate = prevRaw.slice(0, 10) || relDate(0).slice(0, 10);
+  const prevTime = prevRaw.length >= 16 ? prevRaw.slice(11, 16) : '17:00';
+  const finalDate = nextIsoDate || prevDate;
+  const finalTime = nextTime || prevTime;
+  const nextVal = `${finalDate}T${finalTime}:00`;
+  if (target.deliveryDate === nextVal) return false;
+
+  target.deliveryDate = nextVal;
+  if (hasTask) {
+    if (target.scheduledDate && target.scheduledDate > finalDate) {
+      target.scheduledDate = finalDate;
+    }
+  } else if (Array.isArray(ot.subtasks)) {
+    ot.subtasks.forEach((st) => {
+      if (st.scheduledDate && st.scheduledDate > finalDate) {
+        st.scheduledDate = finalDate;
+      }
+    });
+  }
+
+  notifySketchChange('orders', { otId: ot.id, field: 'deliveryDate' });
+  notifySketchChange('stripboard');
+  return true;
+}
+
+export function syncDepartmentFromRoutes(targetObj) {
+  if (!targetObj || !Array.isArray(targetObj.routes) || !targetObj.routes.length) return;
+  const validTo = (r) => r && r.to && String(r.to).trim() && String(r.to).trim() !== '—';
+  let picked = null;
+  for (let i = targetObj.routes.length - 1; i >= 0; i--) {
+    if (targetObj.routes[i].locked && validTo(targetObj.routes[i])) {
+      picked = targetObj.routes[i].to;
+      break;
+    }
+  }
+  if (!picked) {
+    for (let i = targetObj.routes.length - 1; i >= 0; i--) {
+      if (validTo(targetObj.routes[i])) {
+        picked = targetObj.routes[i].to;
+        break;
+      }
+    }
+  }
+  if (picked) targetObj.department = picked;
+}
+
 export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
   if (!ot.activityLog) {
     const baseAt = formatShortDateFn(ot.entryDate) || formatNowDisplay();
@@ -562,12 +652,27 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
       { at: baseAt, actor: 'Cuentas', text: `abrió la OT para ${ot.client || 'Cliente'}` },
     ];
   }
+  if (!ot.messages) {
+    const baseAt = formatShortDateFn(ot.entryDate) || formatNowDisplay();
+    const resp = ot.responsible || 'Andrés';
+    ot.messages = [
+      { at: baseAt, actor: 'Camila', channel: 'App', text: `Hola @${resp}, queda abierta ${ot.id}. Cualquier duda del brief me escribes.`, priority: null, pinned: false },
+      { at: formatNowDisplay(), actor: resp, channel: 'WhatsApp', text: 'Recibido, ya monté v1 en galería para revisión.', priority: null, pinned: false },
+    ];
+    if (ot.urgent) {
+      ot.messages.push(
+        { at: formatNowDisplay(), actor: 'Camila', channel: 'App', text: 'Urgente llamar al cliente para confirmar aprobación antes de las 4pm.', priority: 'urgent', pinned: true },
+        { at: formatNowDisplay(), actor: 'Sofía', channel: 'WhatsApp', text: 'Enviar medidas definitivas al impresor hoy.', priority: 'important', pinned: true },
+      );
+    }
+  }
   if (!ot.routes) {
+    const finalDept = ot.department || 'Creativos';
     ot.routes = [
-      { date: formatShortDateFn(ot.entryDate), from: 'Cuentas', to: 'Creativos', desc: ot.title, sign: ot.responsible || 'Camila', notes: ot.notes || '', locked: true },
-      { date: formatShortDateFn(ot.deliveryDate), from: 'Creativos', to: 'Producción', desc: 'Ajuste de piezas y preparación de arte final', sign: ot.responsible || 'Camila', notes: 'Pendiente validación', locked: false }
+      { date: formatShortDateFn(ot.entryDate), from: 'Cuentas', to: finalDept, desc: ot.title, sign: ot.responsible || 'Camila', notes: ot.notes || '', locked: true },
     ];
   }
+  syncDepartmentFromRoutes(ot);
   if (!ot.mediaFiles) {
     ot.mediaFiles = [
       { name: 'Boceto_Principal.png', meta: 'IMAGEN · 0.66 MB', status: 'En Revisión', taskTitle: 'OT', dateOrder: 15 },
@@ -664,6 +769,7 @@ export function ensureOtData(ot, formatShortDateFn = formatShortDate) {
       if (!st.scheduledDate) st.scheduledDate = (st.deliveryDate || ot.deliveryDate || '').slice(0, 10);
       if (st.estimatedHours === undefined || st.estimatedHours === null || st.estimatedHours === '') st.estimatedHours = 3;
       if (st.notes === undefined) st.notes = '';
+      syncDepartmentFromRoutes(st);
     });
   }
 }

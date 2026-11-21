@@ -13,8 +13,93 @@ import {
   notifySketchChange,
   onSketchChange,
 } from './store.js';
+import { renderStandaloneFileInspector } from './inspector.js';
 
 let galleryInitialized = false;
+let galleryKeyboardBound = false;
+let activeGalleryCtx = null;
+
+function isAnyOverlayOpen() {
+  const overlayIds = [
+    'new-client-modal',
+    'settings-modal',
+    'user-menu-popover',
+    'notifications-popover',
+    'user-account-modal',
+    'user-switch-modal',
+  ];
+  if (overlayIds.some((id) => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  })) {
+    return true;
+  }
+  return !!document.querySelector('[data-cp-popover]');
+}
+
+function ensureGalleryKeyboardBound() {
+  if (galleryKeyboardBound) return;
+  galleryKeyboardBound = true;
+
+  document.addEventListener('keydown', (e) => {
+    if (!activeGalleryCtx || !activeGalleryCtx.container || activeGalleryCtx.container.offsetParent === null) return;
+    if (e.target && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (isAnyOverlayOpen()) return;
+
+    if (e.key === 'Escape') {
+      if (sketchState.previewLightbox) {
+        e.preventDefault();
+        sketchState.previewLightbox = false;
+        activeGalleryCtx.rerender();
+        return;
+      }
+      if (
+        sketchState.activePieceIndex !== null ||
+        sketchState.selectedPieces.size > 0 ||
+        sketchState.activeRouteIndex !== null
+      ) {
+        e.preventDefault();
+        sketchState.activePieceIndex = null;
+        sketchState.selectedPieces.clear();
+        sketchState.activeRouteIndex = null;
+        activeGalleryCtx.rerender();
+      }
+      return;
+    }
+
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    if (sketchState.galleryCollapsed) return;
+
+    const pieces = activeGalleryCtx.getPieces() || [];
+    if (!pieces.length) return;
+
+    e.preventDefault();
+    const isGrid = sketchState.galleryViewMode === 'grid';
+    const cols = isGrid ? (window.innerWidth >= 640 ? 4 : 3) : 1;
+    let delta = 0;
+    if (e.key === 'ArrowRight') delta = 1;
+    else if (e.key === 'ArrowLeft') delta = -1;
+    else if (e.key === 'ArrowDown') delta = cols;
+    else if (e.key === 'ArrowUp') delta = -cols;
+
+    let nextIdx;
+    if (
+      sketchState.activePieceIndex === null ||
+      sketchState.activePieceIndex === undefined ||
+      sketchState.activePieceIndex < 0
+    ) {
+      nextIdx = delta > 0 ? 0 : pieces.length - 1;
+    } else {
+      nextIdx = Math.max(0, Math.min(pieces.length - 1, sketchState.activePieceIndex + delta));
+    }
+
+    const pageSize = isGrid ? 15 : 9;
+    sketchState.activePieceIndex = nextIdx;
+    sketchState.activeRouteIndex = null;
+    sketchState.galleryPage = Math.floor(nextIdx / pageSize) + 1;
+    activeGalleryCtx.rerender();
+  });
+}
 
 const LEGACY_CLIENT_BRAND_MAP = {
   'Shambhala Ecohotel|Alojamiento': { client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique' },
@@ -56,24 +141,20 @@ function removeSelectedInPlace(arr, selectedSet) {
   }
 }
 
-/**
- * Render the split Gallery + Preview Monitor HTML for either OT detail or standalone archive.
- */
-export function renderGallerySectionHtml(
-  rawPieces,
-  { allowFilters = true, showTaskFilter = false, subtasks = [], galleryMinH = 'min-h-[560px]', canCollapse = true } = {}
-) {
-  const getPieceType = (p) => {
-    if (/\.mp4|\.mov|\.webm/i.test(p.name) || /VIDEO/i.test(p.meta || '')) return 'video';
-    if (/\.html?|\.css|\.js|\.ts|\.json/i.test(p.name) || /CÓDIGO|CODE|HTML|JS/i.test(p.meta || '')) return 'code';
-    if (/\.pdf|\.docx?|\.txt|\.md|\.pages|\.csv|\.xlsx?|\.numbers$/i.test(p.name) || /PDF|DOC|TEXTO|CSV|XLS|SHEET/i.test(p.meta || '')) return 'text';
-    return 'image';
-  };
+export function getGalleryPieceType(p) {
+  if (!p) return 'image';
+  if (/\.mp4|\.mov|\.webm/i.test(p.name) || /VIDEO/i.test(p.meta || '')) return 'video';
+  if (/\.mp3|\.wav|\.m4a|\.aiff/i.test(p.name) || /AUDIO/i.test(p.meta || '')) return 'audio';
+  if (/\.html?|\.css|\.js|\.ts|\.json/i.test(p.name) || /CÓDIGO|CODE|HTML|JS/i.test(p.meta || '')) return 'code';
+  if (/\.pdf|\.docx?|\.txt|\.md|\.pages|\.csv|\.xlsx?|\.numbers$/i.test(p.name) || /PDF|DOC|TEXTO|CSV|XLS|SHEET/i.test(p.meta || '')) return 'text';
+  return 'image';
+}
 
+export function getFilteredGalleryPieces(rawPieces, { allowFilters = true, showTaskFilter = false } = {}) {
   let pieces = (rawPieces || []).slice();
   if (allowFilters) {
     if (sketchState.galleryTypeFilter !== 'all') {
-      pieces = pieces.filter((p) => getPieceType(p) === sketchState.galleryTypeFilter);
+      pieces = pieces.filter((p) => getGalleryPieceType(p) === sketchState.galleryTypeFilter);
     }
     if (showTaskFilter && sketchState.galleryTaskFilter !== 'all') {
       pieces = pieces.filter((p) => (p.taskTitle || 'OT') === sketchState.galleryTaskFilter);
@@ -92,10 +173,26 @@ export function renderGallerySectionHtml(
       pieces.sort((a, b) => (b.dateOrder || 0) - (a.dateOrder || 0));
     }
   }
+  return pieces;
+}
 
-  const safePieceIdx = pieces.length ? Math.min(sketchState.activePieceIndex, pieces.length - 1) : 0;
-  const activePiece = pieces[safePieceIdx] || null;
-  const activePieceType = activePiece ? getPieceType(activePiece) : 'image';
+/**
+ * Render the split Gallery + Preview Monitor HTML for either OT detail or standalone archive.
+ */
+export function renderGallerySectionHtml(
+  rawPieces,
+  { allowFilters = true, showTaskFilter = false, subtasks = [], galleryMinH = 'min-h-[560px]', canCollapse = true } = {}
+) {
+  const pieces = getFilteredGalleryPieces(rawPieces, { allowFilters, showTaskFilter });
+
+  const hasActivePiece =
+    sketchState.activePieceIndex !== null &&
+    sketchState.activePieceIndex !== undefined &&
+    sketchState.activePieceIndex >= 0 &&
+    sketchState.activePieceIndex < pieces.length;
+  const safePieceIdx = hasActivePiece ? sketchState.activePieceIndex : -1;
+  const activePiece = hasActivePiece ? pieces[safePieceIdx] : null;
+  const activePieceType = activePiece ? getGalleryPieceType(activePiece) : 'none';
   const activePieceIsSheet = activePiece ? /\.csv|\.xlsx?|\.numbers$/i.test(activePiece.name) : false;
   const pageSize = sketchState.galleryViewMode === 'grid' ? 15 : 9;
   const totalPages = Math.max(1, Math.ceil(pieces.length / pageSize));
@@ -119,8 +216,10 @@ export function renderGallerySectionHtml(
       <div class="flex flex-col lg:flex-row lg:items-center gap-3 px-0.5 pb-1">
         <div class="w-full lg:w-[40%] shrink-0 flex flex-wrap items-center justify-start gap-1 text-[10px] text-[#8C8C8C]">
           ${canCollapse ? `
-          <button type="button" data-toggle-ot-panel="gallery" data-tip="Contraer galería" class="p-1.5 rounded-lg text-[#8C8C8C] hover:bg-obsidian-elevated hover:text-[#D4D4D4] transition-colors cursor-pointer shrink-0">
-            <span data-icon="collapse-diagonal" data-icon-size="w-3.5 h-3.5"></span>
+          <button type="button" data-toggle-ot-panel="gallery" data-tip="Contraer galería" class="inline-flex items-center gap-1.5 pr-2 mr-1 py-1 border-r border-obsidian-border text-[10px] font-semibold uppercase tracking-[0.12em] text-[#8C8C8C] hover:text-[#D4D4D4] transition-colors cursor-pointer shrink-0">
+            <span data-icon="collapse-diagonal" data-icon-size="w-3 h-3"></span>
+            <span>Galería</span>
+            <span class="font-mono font-normal text-[#737373]">(${pieces.length})</span>
           </button>
           ` : ''}
           ${allowFilters ? `
@@ -182,7 +281,7 @@ export function renderGallerySectionHtml(
             <span class="text-[10px] text-[#8C8C8C] shrink-0">${escapeHtml(activePiece.status || 'En Revisión')}</span>
             ` : ''}
           </div>
-          <div class="inline-flex items-center gap-4 text-[#8C8C8C] shrink-0 ml-auto">
+          <div class="inline-flex items-center gap-4 text-[#8C8C8C] shrink-0 ml-auto ${!activePiece ? 'hidden' : ''}">
             ${activePieceType === 'video' ? `
             <div class="inline-flex items-center gap-1">
               <button type="button" data-preview-action="video-loop" data-tip="Repetir (Loop)" class="p-1.5 rounded-lg ${sketchState.videoLoop ? 'bg-obsidian-elevated text-[#D4D4D4]' : 'hover:bg-obsidian-elevated hover:text-[#D4D4D4]'} cursor-pointer transition-colors">
@@ -385,7 +484,15 @@ export function renderGallerySectionHtml(
           ` : ''}
         </div>
         <div class="flex-1 min-w-0 bg-[#141414] rounded-xl overflow-hidden ${galleryMinH} flex flex-col ${activePieceType === 'code' && !sketchState.codeRenderPreview ? 'items-stretch justify-start' : 'items-center justify-center p-4 text-center'} relative">
-          ${activePieceType === 'code' ? (sketchState.codeRenderPreview ? `
+          ${!activePiece ? `
+          <div class="space-y-2 text-[#737373] select-none">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-[#191919] border border-obsidian-border flex items-center justify-center text-[#5a6169]">
+              <span data-icon="image" data-icon-size="w-5 h-5"></span>
+            </div>
+            <div class="text-[11px] text-[#8C8C8C]">Selecciona un archivo para previsualizarlo</div>
+            <div class="text-[9.5px] text-[#5a6169]">Haz clic sobre una pieza o marca el checkbox para selección múltiple</div>
+          </div>
+          ` : activePieceType === 'code' ? (sketchState.codeRenderPreview ? `
           <div class="transition-transform duration-150 bg-[#191919] border border-obsidian-border rounded-xl p-6 max-w-md w-full text-left" style="transform: scale(${sketchState.previewZoom});">
             <div class="text-[10px] font-mono uppercase tracking-wider text-obsidian-amber mb-1">Vista previa</div>
             <div class="text-[14px] font-medium text-[#D4D4D4]">${escapeHtml(activePiece?.name || '')}</div>
@@ -468,6 +575,8 @@ export function renderGallerySectionHtml(
  */
 export function bindGalleryEvents(container, rerenderFn, getAllPiecesFn, onDeleteSelectedFn) {
   if (!container) return;
+  activeGalleryCtx = { container, getPieces: getAllPiecesFn, rerender: rerenderFn };
+  ensureGalleryKeyboardBound();
 
   container.querySelectorAll('[data-toggle-ot-panel]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -526,11 +635,31 @@ export function bindGalleryEvents(container, rerenderFn, getAllPiecesFn, onDelet
   });
 
   container.querySelectorAll('[data-pick-piece]').forEach((el) => {
-    el.addEventListener('click', () => {
-      sketchState.activePieceIndex = Number(el.dataset.pickPiece) || 0;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(el.dataset.pickPiece);
+      if (Number.isNaN(idx)) return;
+      sketchState.activePieceIndex = sketchState.activePieceIndex === idx ? null : idx;
+      sketchState.activeRouteIndex = null;
       rerenderFn();
     });
   });
+
+  if (!container.dataset.galleryOutsideBound) {
+    container.dataset.galleryOutsideBound = '1';
+    container.addEventListener('click', (e) => {
+      if (sketchState.activePieceIndex === null) return;
+      if (
+        e.target.closest(
+          '[data-pick-piece], [data-toggle-piece-select], [data-review-piece], [data-preview-action], [data-gallery-view], [data-gallery-page], [data-select-all-pieces], [data-delete-selected-pieces], [data-toggle-ot-panel], #btn-toggle-gallery-filter, #ot-gallery-search, #ot-gallery-type, #ot-gallery-task, #ot-gallery-sort, tr[data-route-row-idx], button, input, select, textarea, a'
+        )
+      ) {
+        return;
+      }
+      sketchState.activePieceIndex = null;
+      rerenderFn();
+    });
+  }
 
   container.querySelectorAll('[data-gallery-view]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -705,7 +834,20 @@ export function renderStandaloneGallery() {
     canCollapse: false,
   });
 
-  bindGalleryEvents(viewGalleryEl, renderStandaloneGallery, () => allPieces, onDeleteSelected);
+  const filteredPieces = getFilteredGalleryPieces(allPieces, { allowFilters: true, showTaskFilter: false });
+  const hasActive =
+    sketchState.activePieceIndex !== null &&
+    sketchState.activePieceIndex !== undefined &&
+    sketchState.activePieceIndex >= 0 &&
+    sketchState.activePieceIndex < filteredPieces.length;
+  renderStandaloneFileInspector(hasActive ? filteredPieces[sketchState.activePieceIndex] : null, {
+    selectedCount: sketchState.selectedPieces.size,
+    piecesList: filteredPieces,
+    onDeleteSelected,
+    onRerender: renderStandaloneGallery,
+  });
+
+  bindGalleryEvents(viewGalleryEl, renderStandaloneGallery, () => filteredPieces, onDeleteSelected);
 }
 
 /**

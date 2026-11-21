@@ -118,7 +118,13 @@ export function renderInspectorMiniCalendar({ anchorDate, busyDates = new Set(),
     const monthTitle = `${MONTH_NAMES_LOWER[viewMonth] || ''} de ${viewYear}`;
     const dows = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
-    rightBody.innerHTML = `
+    let calSlot = rightBody.querySelector('#insp-cal-slot');
+    if (!calSlot) {
+      rightBody.innerHTML = `<div id="insp-cal-slot" class="pb-3 mb-3 border-b border-obsidian-border"></div><div id="insp-content-slot"></div>`;
+      calSlot = rightBody.querySelector('#insp-cal-slot');
+    }
+
+    calSlot.innerHTML = `
       <div id="insp-mini-cal" class="space-y-2.5 text-[11px] select-none">
         <div class="flex items-center justify-between gap-1">
           <button type="button" data-mcal-shift="-1" title="Mes anterior" class="w-5 h-5 rounded hover:bg-obsidian-elevated text-[#8C8C8C] hover:text-[#D4D4D4] flex items-center justify-center cursor-pointer">
@@ -148,14 +154,11 @@ export function renderInspectorMiniCalendar({ anchorDate, busyDates = new Set(),
             `;
           }).join('')}
         </div>
-        <div class="pt-2 border-t border-obsidian-border text-[10px] text-[#8C8C8C] text-center">
-          Haz clic en un día para saltar
-        </div>
       </div>
     `;
-    if (window.hydrateIcons) window.hydrateIcons(rightBody);
+    if (window.hydrateIcons) window.hydrateIcons(calSlot);
 
-    rightBody.querySelectorAll('[data-mcal-shift]').forEach((btn) => {
+    calSlot.querySelectorAll('[data-mcal-shift]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const delta = Number(btn.dataset.mcalShift || 0);
         const next = new Date(viewYear, viewMonth + delta, 1, 12, 0, 0);
@@ -165,7 +168,7 @@ export function renderInspectorMiniCalendar({ anchorDate, busyDates = new Set(),
       });
     });
 
-    rightBody.querySelectorAll('[data-mcal-pick]').forEach((btn) => {
+    calSlot.querySelectorAll('[data-mcal-pick]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const iso = btn.dataset.mcalPick;
         if (iso && onSelectDate) onSelectDate(iso);
@@ -194,55 +197,6 @@ export function bindScheduleNavEvents(container, onStep, onToday) {
       if (onToday) onToday();
     });
   });
-}
-
-/**
- * Render the focused Day schedule list for a given date.
- */
-export function renderDayScheduleHtml({ anchorDate, items, emptyText = 'Sin entregas programadas para este día.' }) {
-  const { title, subtitle, centerLabel } = formatLongDayHeading(anchorDate);
-  const navBar = renderScheduleNavHeader(title, 'Día anterior', 'Día siguiente', { subtitle, centerLabel });
-
-  if (!items.length) {
-    return `
-      <div class="flex-1 flex flex-col gap-2 overflow-hidden">
-        ${navBar}
-        <div class="flex-1 border border-obsidian-border rounded-xl bg-[#202020] p-8 text-center text-[11px] text-[#8C8C8C]">${escapeHtml(emptyText)}</div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="flex-1 flex flex-col gap-2 overflow-hidden">
-      ${navBar}
-      <div class="flex-1 border border-obsidian-border rounded-xl bg-[#202020] overflow-auto divide-y divide-obsidian-border">
-        ${items.map((item, idx) => {
-          const cColor = getClientColor(item.client);
-          const zebra = idx % 2 === 1 ? 'bg-[#262626]' : 'bg-[#1d1d1d]';
-          const otId = item.otId || item.id;
-          const tIdx = item.taskIndex !== undefined && item.taskIndex !== null ? item.taskIndex : '';
-          return `
-            <div data-sched-ot="${escapeHtml(otId)}" data-sched-task="${tIdx}"
-              class="${zebra} hover:bg-obsidian-elevated/70 px-3 py-2 flex items-center justify-between gap-3 text-[11px] cursor-pointer transition-colors">
-              <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                ${getPriorityDotHtml(item) || '<span class="w-2 shrink-0"></span>'}
-                <span class="font-mono font-semibold text-obsidian-amber shrink-0">${escapeHtml(item.code || item.id)}</span>
-                <span class="font-medium shrink-0" style="color:${escapeHtml(cColor)}">${escapeHtml(item.client || 'Interno')}</span>
-                <span class="text-[#D4D4D4] truncate">${escapeHtml(item.title)}</span>
-              </div>
-              <div class="flex items-center gap-3 shrink-0 text-[10px]">
-                ${item.department ? `<span style="color:${escapeHtml(getDepartmentColor(item.department))}">${escapeHtml(item.department)}</span>` : ''}
-                ${item.stage ? `<span style="color:${escapeHtml(getStageColor(item.stage))}">${escapeHtml(item.stage)}</span>` : ''}
-                ${item.status ? `<span style="color:${escapeHtml(getStatusColor(item.status))}">${escapeHtml(item.status)}</span>` : ''}
-                <span class="text-[#8C8C8C] w-16 truncate text-right">${escapeHtml(item.responsible || '—')}</span>
-                <span class="font-mono text-[#8C8C8C] w-20 text-right">${escapeHtml(formatShortDate(item.deliveryDate) || anchorDate)}</span>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `;
 }
 
 /**
@@ -674,10 +628,17 @@ export function renderKanbanScheduleHtml({
 /**
  * Bind drag-and-drop column updates and card click handlers for shared Kanban boards.
  */
-export function bindKanbanScheduleEvents({ container, orders, onOpenItem, onChanged }) {
+export function bindKanbanScheduleEvents({ container, orders, onInspectItem, onOpenItem, onChanged }) {
   if (!container) return;
   let draggedOtId = null;
   let draggedTaskIdx = '';
+
+  const markActiveCard = (activeEl) => {
+    container.querySelectorAll('.shared-kanban-card').forEach((c) => {
+      c.classList.remove('ring-1', 'ring-obsidian-amber/70');
+    });
+    activeEl?.classList.add('ring-1', 'ring-obsidian-amber/70');
+  };
 
   container.querySelectorAll('.shared-kanban-card').forEach((card) => {
     card.addEventListener('dragstart', () => {
@@ -689,6 +650,15 @@ export function bindKanbanScheduleEvents({ container, orders, onOpenItem, onChan
       card.classList.remove('opacity-50');
     });
     card.addEventListener('click', () => {
+      if (!card.dataset.kanbanOt) return;
+      if (onInspectItem) {
+        markActiveCard(card);
+        onInspectItem(card.dataset.kanbanOt, card.dataset.kanbanTask || '');
+      } else if (onOpenItem) {
+        onOpenItem(card.dataset.kanbanOt, card.dataset.kanbanTask || '');
+      }
+    });
+    card.addEventListener('dblclick', () => {
       if (onOpenItem && card.dataset.kanbanOt) {
         onOpenItem(card.dataset.kanbanOt, card.dataset.kanbanTask || '');
       }
@@ -719,4 +689,134 @@ export function bindKanbanScheduleEvents({ container, orders, onOpenItem, onChan
       }
     });
   });
+}
+
+/**
+ * Unified renderer + event binder for Week, Gantt, and Month schedule views
+ * (including Inspector mini-calendar and prev/today/next navigation).
+ */
+export function mountScheduleView({
+  container,
+  mode,
+  anchorDate,
+  items,
+  ganttScale = 'week',
+  dateAttr = 'data-sched-pick-date',
+  onScaleChange,
+  onShiftDate,
+  onToday,
+  onSelectDate,
+  onPickDayToDayView,
+  onInspectItem,
+  onOpenItem,
+  onDropDate = null,
+}) {
+  if (!container) return;
+  const matchDate = (o, iso) => (o.deliveryDate || '').slice(0, 10) === iso;
+
+  if (mode === 'week') {
+    container.innerHTML = renderWeekScheduleHtml({
+      anchorDate,
+      showHoursBadge: false,
+      draggableCards: typeof onDropDate === 'function',
+      emptyColText: 'Sin entregas',
+      getDayItems: (iso) => items.filter((o) => matchDate(o, iso)),
+    });
+  } else if (mode === 'gantt') {
+    container.innerHTML = renderGanttScheduleHtml({
+      anchorDate,
+      items,
+      scale: ganttScale,
+    });
+    bindGanttScaleEvents(container, onScaleChange);
+  } else if (mode === 'month') {
+    container.innerHTML = renderMonthScheduleHtml({
+      anchorDate,
+      dateAttr,
+      getDayItems: (iso) => items.filter((o) => matchDate(o, iso)),
+    });
+  }
+
+  if (window.hydrateIcons) window.hydrateIcons(container);
+
+  const busyDates = new Set(items.map((o) => (o.deliveryDate || '').slice(0, 10)).filter(Boolean));
+  renderInspectorMiniCalendar({
+    anchorDate,
+    busyDates,
+    onSelectDate,
+  });
+
+  bindScheduleNavEvents(container, onShiftDate, onToday);
+
+  const markActiveSched = (activeEl) => {
+    container.querySelectorAll('[data-sched-ot]').forEach((node) => {
+      node.classList.remove('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+    });
+    activeEl?.classList.add('ring-1', 'ring-inset', 'ring-obsidian-amber/60');
+  };
+
+  container.querySelectorAll('[data-sched-ot]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const otId = el.dataset.schedOt;
+      if (!otId) return;
+      if (onInspectItem) {
+        markActiveSched(el);
+        onInspectItem(otId, el.dataset.schedTask || '');
+      } else if (onOpenItem) {
+        onOpenItem(otId, el.dataset.schedTask || '');
+      }
+    });
+    el.addEventListener('dblclick', () => {
+      const otId = el.dataset.schedOt;
+      if (otId && onOpenItem) onOpenItem(otId, el.dataset.schedTask || '');
+    });
+  });
+
+  container.querySelectorAll(`[${dateAttr}]`).forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const picked = btn.getAttribute(dateAttr);
+      if (picked && onPickDayToDayView) onPickDayToDayView(picked);
+    });
+  });
+
+  if (mode === 'week' && typeof onDropDate === 'function') {
+    let draggedOt = null;
+    let draggedTask = '';
+    container.querySelectorAll('.sb-week-card').forEach((card) => {
+      card.addEventListener('dragstart', (e) => {
+        draggedOt = card.dataset.schedOt || '';
+        draggedTask = card.dataset.schedTask || '';
+        e.dataTransfer?.setData('text/plain', `${draggedOt}::${draggedTask}`);
+        card.classList.add('opacity-50');
+      });
+      card.addEventListener('dragend', () => {
+        card.classList.remove('opacity-50');
+        container.querySelectorAll('.sb-week-col').forEach((col) => col.classList.remove('ring-1', 'ring-obsidian-amber/60'));
+        draggedOt = null;
+        draggedTask = '';
+      });
+    });
+
+    container.querySelectorAll('.sb-week-col').forEach((col) => {
+      col.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        col.classList.add('ring-1', 'ring-obsidian-amber/60');
+      });
+      col.addEventListener('dragleave', () => {
+        col.classList.remove('ring-1', 'ring-obsidian-amber/60');
+      });
+      col.addEventListener('drop', (e) => {
+        e.preventDefault();
+        col.classList.remove('ring-1', 'ring-obsidian-amber/60');
+        const targetDate = col.dataset.sbWeekDate;
+        const payload = e.dataTransfer?.getData('text/plain') || '';
+        const [rawOt, rawTask] = payload.split('::');
+        const otId = draggedOt || rawOt;
+        const taskIdx = draggedOt ? draggedTask : (rawTask || '');
+        if (otId && targetDate) {
+          onDropDate(otId, taskIdx, targetDate);
+        }
+      });
+    });
+  }
 }
