@@ -273,6 +273,62 @@ export function addCorkPin(pinInput, opts = {}) {
   return { ...saved, pin };
 }
 
+export function findDuplicateOtOrTaskPin(pins, { type, otId, taskIndex = null }) {
+  if (!Array.isArray(pins) || !otId) return null;
+  const normOtId = String(otId);
+  if (type === 'task') {
+    const idx = Number.isInteger(taskIndex) ? taskIndex : null;
+    return pins.find((p) => p.type === 'task' && p.otId === normOtId && p.taskIndex === idx) || null;
+  }
+  return pins.find((p) => p.type === 'ot' && p.otId === normOtId) || null;
+}
+
+export function addOtOrTaskCorkPin({ type, otId, taskIndex = null, title = '' }, opts = {}) {
+  const safeType = type === 'task' ? 'task' : 'ot';
+  const safeTaskIdx = safeType === 'task' && Number.isInteger(taskIndex) ? taskIndex : null;
+  const current = ensureCorkPinsInitialized(opts);
+  const existing = findDuplicateOtOrTaskPin(current, { type: safeType, otId, taskIndex: safeTaskIdx });
+  if (existing) {
+    return { ok: true, duplicate: true, pin: existing, pins: current };
+  }
+  const res = addCorkPin({
+    type: safeType,
+    otId: String(otId),
+    taskIndex: safeTaskIdx,
+    title: String(title || ''),
+  }, opts);
+  return { ...res, duplicate: false };
+}
+
+export async function addLocalFilesToCorkboard(fileList, opts = {}) {
+  const files = Array.from(fileList || []).filter((f) => f && typeof f.name === 'string');
+  if (!files.length) return { addedCount: 0, pins: ensureCorkPinsInitialized(opts) };
+  let lastPins = ensureCorkPinsInitialized(opts);
+  let addedCount = 0;
+  for (const file of files) {
+    const blobId = `blob_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    let storedBlobId = null;
+    try {
+      await saveCorkBlob(blobId, file, { mime: file.type, name: file.name });
+      storedBlobId = blobId;
+    } catch {
+      storedBlobId = null;
+    }
+    const res = addCorkPin({
+      type: 'file',
+      title: file.name || 'Archivo adjunto',
+      fileMeta: {
+        mime: file.type || '',
+        sizeLabel: formatFileSize(file.size),
+        blobId: storedBlobId,
+      },
+    }, opts);
+    lastPins = res.pins;
+    addedCount += 1;
+  }
+  return { addedCount, pins: lastPins };
+}
+
 export function removeCorkPin(pinId, opts = {}) {
   const current = ensureCorkPinsInitialized(opts);
   const target = current.find((p) => p.id === pinId);

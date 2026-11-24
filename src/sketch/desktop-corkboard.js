@@ -6,15 +6,21 @@
  * - Renderizado y capa de eventos locales (con datos/estado en desktop-corkboard-store.js)
  */
 
-import { escapeHtml } from './store.js';
+import {
+  escapeHtml,
+  formatShortDate,
+  getClientColor,
+  getPriorityDotHtml,
+} from './store.js';
 import {
   DND_MIME_CORK_CARD,
   DND_MIME_PIN,
   DND_MIME_SLOT,
   addCorkPin,
+  addLocalFilesToCorkboard,
+  addOtOrTaskCorkPin,
   closeCorkPinPreview,
   ensureCorkPinsInitialized,
-  formatFileSize,
   getActiveCorkComposer,
   getCorkBlobObjectUrl,
   getCorkboardPermissions,
@@ -22,149 +28,25 @@ import {
   hasOpenCorkPinPreview,
   normalizeSafeWebUrl,
   removeCorkPin,
-  saveCorkBlob,
   setActiveCorkComposer,
 } from './desktop-corkboard-store.js';
+import {
+  renderChartOverlay,
+  renderOtGalleryOverlay,
+} from './desktop-corkboard-overlays.js';
 
-// Re-exportación limpia para mantener dirección única: desktop.js → desktop-corkboard.js → desktop-corkboard-store.js
+// Re-exportación limpia para mantener dirección única: desktop.js → desktop-corkboard.js → { store, overlays }
 export {
   DND_MIME_PIN,
   DND_MIME_SLOT,
   closeCorkPinPreview,
   hasOpenCorkPinPreview,
+  renderOtGalleryOverlay,
 };
 
 let composerErrorMsg = '';
-
-export function renderOtGalleryOverlay({
-  selectedContextOt,
-  selectedContextTask,
-  selectedContextTaskIdx,
-  selectedMediaIndex,
-  borderClass = '',
-  dragHandleHtml = '',
-  collapseBtnHtml = '',
-}) {
-  if (!selectedContextOt) return '';
-  const shortCode = String(selectedContextOt.id || '').replace(/^OT-/i, '');
-  const contextBadge = selectedContextTask
-    ? `${shortCode}.${selectedContextTaskIdx + 1}`
-    : shortCode;
-  const mediaItems = Array.isArray(selectedContextOt.mediaFiles) ? selectedContextOt.mediaFiles : [];
-  const activeIdx = (selectedMediaIndex !== null && mediaItems[selectedMediaIndex])
-    ? selectedMediaIndex
-    : (mediaItems.length ? 0 : null);
-  const selectedMedia = activeIdx !== null ? mediaItems[activeIdx] : null;
-
-  const renderMediaPreviewHtml = (m) => {
-    const isVideo = /\.(mp4|mov|webm)$/i.test(m.name || '') || /VIDEO/i.test(m.meta || '');
-    const isPdf = /\.pdf$/i.test(m.name || '') || /PDF/i.test(m.meta || '');
-    const isImg = !isVideo && !isPdf;
-    const statusCls = m.status === 'Aprobado'
-      ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
-      : 'text-obsidian-amber bg-amber-500/15 border-amber-500/30';
-    const versions = Array.isArray(m.versions) && m.versions.length
-      ? m.versions
-      : [{ label: 'v1', name: m.name, meta: m.meta }];
-    const activeVer = versions[versions.length - 1];
-    const previewVisual = m.dataUrl && isImg
-      ? `<img src="${escapeHtml(m.dataUrl)}" alt="${escapeHtml(m.name)}" class="max-h-full max-w-full object-contain rounded" />`
-      : (m.dataUrl && isVideo
-          ? `<video src="${escapeHtml(m.dataUrl)}" controls class="max-h-full max-w-full rounded"></video>`
-          : `<div class="flex flex-col items-center justify-center gap-1.5 text-center px-3">
-              <div class="w-10 h-10 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold ${isVideo ? 'text-sky-400' : (isPdf ? 'text-rose-400' : 'text-obsidian-amber')}">
-                ${isVideo ? 'VID' : (isPdf ? 'PDF' : 'IMG')}
-              </div>
-              <div class="text-[10.5px] font-medium text-[#D4D4D4] truncate max-w-full">${escapeHtml(m.name)}</div>
-              <div class="text-[9px] font-mono text-[#737373]">${escapeHtml(m.meta || 'Archivo')}</div>
-            </div>`);
-
-    return `
-      <div class="flex-1 min-h-0 flex flex-col gap-2">
-        <div class="flex-1 min-h-[110px] rounded-lg bg-[#141414] border border-obsidian-border flex items-center justify-center overflow-hidden p-2">
-          ${previewVisual}
-        </div>
-        <div class="shrink-0 space-y-1.5">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-[10.5px] font-medium text-[#D4D4D4] truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</span>
-            <span class="px-1.5 py-0.5 rounded border text-[8.5px] font-mono shrink-0 ${statusCls}">${escapeHtml(m.status || 'En Revisión')}</span>
-          </div>
-          <div class="flex items-center justify-between gap-2 text-[9px] font-mono text-[#737373]">
-            <span class="truncate">${escapeHtml(m.taskTitle || 'OT')} · ${escapeHtml(activeVer?.label || 'v1')} · ${escapeHtml(m.meta || '')}</span>
-            <button type="button" data-dk-open-review="${activeIdx}"
-              class="px-2 py-0.5 rounded bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[#D4D4D4] hover:text-obsidian-amber transition-colors cursor-pointer shrink-0">Revisión ↗</button>
-          </div>
-        </div>
-      </div>
-    `;
-  };
-
-  return `
-    <div id="dk-q2-gallery-root" class="${borderClass} grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-obsidian-border min-h-0 flex-1">
-      <!-- 04.1: Galería de la OT / Tarea -->
-      <div class="p-3 flex flex-col min-h-0">
-        <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-obsidian-border/70 shrink-0">
-          <div class="flex items-center gap-1.5 min-w-0">
-            ${dragHandleHtml}
-            <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold">Galería</span>
-            <button type="button" data-desktop-edit-ot="${escapeHtml(selectedContextOt.id)}" title="Abrir OT"
-              class="px-1.5 py-0.5 rounded bg-[#202020] border border-obsidian-border font-mono text-[8.5px] text-obsidian-amber hover:underline cursor-pointer shrink-0">${escapeHtml(contextBadge)}</button>
-          </div>
-          <span class="font-mono text-[9px] text-[#737373] shrink-0">${mediaItems.length} arch.</span>
-        </div>
-        <div data-dk-scroll-id="corkboard-gallery:${escapeHtml(selectedContextOt.id)}" class="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 gap-1.5 content-start pr-0.5">
-          ${mediaItems.length
-            ? mediaItems.map((m, mIdx) => {
-                const isVideo = /\.(mp4|mov|webm)$/i.test(m.name || '') || /VIDEO/i.test(m.meta || '');
-                const isPdf = /\.pdf$/i.test(m.name || '') || /PDF/i.test(m.meta || '');
-                const typeTag = isVideo ? 'VID' : (isPdf ? 'PDF' : 'IMG');
-                const statusCls = m.status === 'Aprobado'
-                  ? 'text-emerald-400 bg-emerald-500/15'
-                  : 'text-obsidian-amber bg-amber-500/15';
-                const verCount = Array.isArray(m.versions) && m.versions.length ? m.versions.length : 1;
-                const isSelMedia = activeIdx === mIdx;
-                return `
-                  <button type="button" data-dk-select-media="${mIdx}"
-                    class="text-left p-2 rounded-lg bg-[#202020] hover:bg-[#262626] border ${isSelMedia ? 'border-obsidian-amber/80 bg-[#252525]' : 'border-obsidian-border'} transition-colors cursor-pointer flex flex-col gap-1 min-w-0">
-                    <div class="h-12 rounded bg-[#141414] border border-obsidian-border/70 flex items-center justify-between px-2 overflow-hidden">
-                      <span class="font-mono text-[9px] font-semibold text-[#8C8C8C]">${typeTag}</span>
-                      <span class="px-1 py-0.5 rounded bg-[#222222] font-mono text-[8px] text-[#D4D4D4]">v${verCount}</span>
-                    </div>
-                    <div class="text-[9.5px] text-[#D4D4D4] truncate" title="${escapeHtml(m.name)}">${escapeHtml(m.name)}</div>
-                    <div class="flex items-center justify-between gap-1">
-                      <span class="text-[8.5px] font-mono text-[#737373] truncate">${escapeHtml(m.taskTitle || 'OT')}</span>
-                      <span class="px-1 rounded text-[8px] font-mono shrink-0 ${statusCls}">${escapeHtml(m.status || 'Rev.')}</span>
-                    </div>
-                  </button>
-                `;
-              }).join('')
-            : `<div class="col-span-2 py-6 text-center text-[10px] font-mono text-[#5A5A5A]">Sin archivos en esta OT</div>`
-          }
-        </div>
-      </div>
-
-      <!-- 04.2: Previsualización del archivo seleccionado -->
-      <div class="p-3 flex flex-col min-h-0">
-        <div class="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-obsidian-border/70 shrink-0">
-          <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold">Vista previa</span>
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" data-dk-q4-close-ctx="1" title="Volver al Tablero de Corcho (Esc)" aria-label="Volver al Tablero de Corcho"
-              class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            ${collapseBtnHtml}
-          </div>
-        </div>
-        <div class="flex-1 min-h-0 flex flex-col">
-          ${selectedMedia
-            ? renderMediaPreviewHtml(selectedMedia)
-            : `<div class="flex-1 flex items-center justify-center text-[10px] font-mono text-[#5A5A5A]">Sin archivo para previsualizar</div>`
-          }
-        </div>
-      </div>
-    </div>
-  `;
-}
+let corkNoticeMsg = '';
+let corkNoticeTimer = null;
 
 function renderCorkHeaderActions(canEdit, activeComposer) {
   if (!canEdit) {
@@ -253,7 +135,7 @@ function renderCorkComposerHtml(activeComposer, errorMsg = '') {
   return '';
 }
 
-function renderCorkPinCard(pin, idx, { canEdit }) {
+function renderCorkPinCard(pin, idx, { canEdit, trafficOrders = [], todayKey = '', tomorrowKey = '' }) {
   const notesCount = Array.isArray(pin.highlights) ? pin.highlights.length : 0;
   const unpinBtn = canEdit
     ? `<button type="button" data-cork-unpin="${escapeHtml(pin.id)}" title="Quitar del Corcho" aria-label="Quitar ${escapeHtml(pin.title || 'ficha')} del Corcho"
@@ -261,6 +143,47 @@ function renderCorkPinCard(pin, idx, { canEdit }) {
          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
        </button>`
     : '';
+
+  if (pin.type === 'ot' || pin.type === 'task') {
+    const isTask = pin.type === 'task';
+    const liveOt = (trafficOrders || []).find((o) => o.id === pin.otId) || null;
+    const liveTask = isTask && liveOt && Number.isInteger(pin.taskIndex)
+      ? ((liveOt.subtasks || [])[pin.taskIndex] || null)
+      : null;
+    const shortBase = String(pin.otId || '').replace(/^OT-/i, '');
+    const codeLabel = isTask && Number.isInteger(pin.taskIndex) ? `${shortBase}.${pin.taskIndex + 1}` : shortBase;
+    const title = isTask
+      ? (liveTask?.title || pin.title || liveOt?.title || 'Tarea')
+      : (liveOt?.title || pin.title || 'Orden de Trabajo');
+    const client = liveOt?.client || '';
+    const deliveryDate = isTask ? (liveTask?.deliveryDate || liveOt?.deliveryDate || '') : (liveOt?.deliveryDate || '');
+    const urgent = Boolean(isTask ? (liveTask?.urgent || liveOt?.urgent) : liveOt?.urgent);
+    const priorityDot = getPriorityDotHtml({ urgent, deliveryDate }, todayKey, tomorrowKey, 'w-1.5 h-1.5');
+    const cColor = getClientColor(client);
+    const taskAttr = isTask && Number.isInteger(pin.taskIndex) ? `data-cork-open-task-idx="${pin.taskIndex}"` : '';
+
+    return `
+      <article data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}"
+        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-[#3a3a3a] flex flex-col justify-between gap-1.5 min-w-0 transition-colors">
+        <div class="space-y-1 min-w-0">
+          <div class="flex items-center justify-between gap-1.5">
+            <div class="inline-flex items-center gap-1.5 min-w-0">
+              ${priorityDot}
+              <span class="font-mono text-[8.5px] uppercase tracking-wider text-[#8C8C8C] font-semibold shrink-0">${isTask ? 'TAREA' : 'OT'}</span>
+              <button type="button" data-cork-open-ot="${escapeHtml(pin.otId || '')}" ${taskAttr} title="Abrir ${isTask ? 'Tarea' : 'OT'}"
+                class="font-mono text-[9.5px] font-semibold text-obsidian-amber hover:underline cursor-pointer truncate">${escapeHtml(codeLabel || '—')}</button>
+            </div>
+            ${unpinBtn}
+          </div>
+          <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug line-clamp-2" title="${escapeHtml(title)}">${escapeHtml(title)}</h4>
+        </div>
+        <div class="flex items-center justify-between gap-1.5 text-[8.5px] pt-1 border-t border-obsidian-border/50 min-w-0">
+          <span class="truncate font-medium" style="color:${escapeHtml(cColor)}">${escapeHtml(client || (liveOt ? 'Estudio' : 'Referencia'))}</span>
+          <span class="font-mono text-[#737373] shrink-0">${escapeHtml(formatShortDate(deliveryDate) || '—')}</span>
+        </div>
+      </article>
+    `;
+  }
 
   if (pin.type === 'note') {
     const excerpt = String(pin.content || '').trim();
@@ -352,11 +275,14 @@ function renderCorkPinCard(pin, idx, { canEdit }) {
   `;
 }
 
-function renderCorkBodyHtml({ pins, isFullDesktop, canEdit, activeComposer, errorMsg }) {
+function renderCorkBodyHtml({ pins, isFullDesktop, canEdit, activeComposer, errorMsg, noticeMsg = '', trafficOrders = [], todayKey = '', tomorrowKey = '' }) {
   const gridColsCls = isFullDesktop ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2';
+  const noticeHtml = noticeMsg
+    ? `<div data-dk-cork-notice="1" role="status" class="mb-2 px-2.5 py-1 rounded-md bg-[#202020] border border-obsidian-border font-mono text-[9.5px] text-obsidian-amber shrink-0">${escapeHtml(noticeMsg)}</div>`
+    : '';
   const composerHtml = canEdit ? renderCorkComposerHtml(activeComposer, errorMsg) : '';
   const listHtml = pins.length
-    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pins.map((p, idx) => renderCorkPinCard(p, idx, { canEdit })).join('')}</div>`
+    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pins.map((p, idx) => renderCorkPinCard(p, idx, { canEdit, trafficOrders, todayKey, tomorrowKey })).join('')}</div>`
     : `
       <div class="flex flex-col items-center justify-center flex-1 py-6 gap-1.5 text-center">
         <div class="w-8 h-8 rounded-lg border border-dashed border-obsidian-border flex items-center justify-center text-[#5A5A5A]">
@@ -369,6 +295,7 @@ function renderCorkBodyHtml({ pins, isFullDesktop, canEdit, activeComposer, erro
       </div>
     `;
   return `
+    ${noticeHtml}
     ${composerHtml}
     ${listHtml}
   `;
@@ -417,34 +344,12 @@ export function renderCorkboardQuadrant({
 
   // 1. Gráfico seleccionado desde Estadística -> se muestra en C04 (sin modal)
   if (lightboxChartIdx !== null && lastPillBoard && Array.isArray(lastPillBoard.cards) && lastPillBoard.cards[lightboxChartIdx]) {
-    const card = lastPillBoard.cards[lightboxChartIdx];
-    const total = lastPillBoard.cards.length;
-    return `
-      <div id="dk-q4-chart-root" class="flex-1 flex flex-col min-h-0 border-t-2 border-t-violet-500/75 bg-[#171717]">
-        <div class="px-3 py-1.5 border-b border-obsidian-border bg-[#1b1b1b] flex items-center justify-between gap-2 shrink-0">
-          <div class="flex items-center gap-1.5 min-w-0">
-            ${dragHandleHtml}
-            <span class="font-mono text-[9px] text-obsidian-amber font-semibold shrink-0">0${lightboxChartIdx + 1}/${total}</span>
-            <span class="font-mono text-[9.5px] text-[#F0F0F0] uppercase tracking-wider font-semibold truncate">${escapeHtml(card.title)}</span>
-            <span class="font-mono text-[8.5px] text-[#737373] truncate hidden sm:inline">· ${escapeHtml(lastPillBoard.title)}</span>
-          </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" data-dk-lb-nav="-1" title="Gráfico anterior (←)"
-              class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">‹</button>
-            <button type="button" data-dk-lb-nav="1" title="Gráfico siguiente (→)"
-              class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">›</button>
-            <button type="button" data-dk-lb-close="1" title="Volver al Tablero de Corcho (Esc)" aria-label="Cerrar gráfico"
-              class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
-              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            ${rightActionBtns}
-          </div>
-        </div>
-        <div data-dk-scroll-id="corkboard-chart:${escapeHtml(lastPillBoard.title || '')}:${lightboxChartIdx}" class="flex-1 min-h-0 overflow-y-auto p-4">
-          ${card.largeBody}
-        </div>
-      </div>
-    `;
+    return renderChartOverlay({
+      lightboxChartIdx,
+      lastPillBoard,
+      dragHandleHtml,
+      rightActionBtns,
+    });
   }
 
   // 2. OT / Tarea seleccionada -> Galería + Vista previa sobre C04
@@ -483,13 +388,27 @@ export function renderCorkboardQuadrant({
       </div>
 
       ${perms.canEdit ? `
+        <div data-dk-cork-dropzone-overlay="1" aria-hidden="true"
+          class="hidden pointer-events-none absolute inset-2 z-10 rounded-lg border-2 border-dashed border-cyan-500/70 bg-[#141c20]/80 flex items-center justify-center">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-cyan-300 font-semibold">Soltar para fijar en el Corcho</span>
+        </div>
         <label for="cork-file-upload-input" class="sr-only">Subir archivo al Tablero de Corcho</label>
-        <input id="cork-file-upload-input" name="cork_file_upload" type="file" data-cork-file-input="1" class="hidden" />
+        <input id="cork-file-upload-input" name="cork_file_upload" type="file" multiple data-cork-file-input="1" class="hidden" />
       ` : ''}
 
       <div data-dk-cork-body="1" data-dk-scroll-id="corkboard-grid:${isPersonalScope ? 'personal' : 'global'}"
         class="flex-1 min-h-0 overflow-y-auto flex flex-col pr-0.5">
-        ${renderCorkBodyHtml({ pins, isFullDesktop, canEdit: perms.canEdit, activeComposer, errorMsg: composerErrorMsg })}
+        ${renderCorkBodyHtml({
+          pins,
+          isFullDesktop,
+          canEdit: perms.canEdit,
+          activeComposer,
+          errorMsg: composerErrorMsg,
+          noticeMsg: corkNoticeMsg,
+          trafficOrders,
+          todayKey,
+          tomorrowKey,
+        })}
       </div>
 
       <div data-dk-cork-footer="1" class="flex items-center justify-between text-[8.5px] font-mono text-[#4A4A4A] pt-1.5 mt-1.5 border-t border-obsidian-border/40 shrink-0">
@@ -579,6 +498,18 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
     rerenderLocal();
   });
 
+  // Abrir OT o Tarea exacta desde ficha clavada
+  corkRoot.querySelectorAll('[data-cork-open-ot]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const otId = btn.dataset.corkOpenOt;
+      if (!otId) return;
+      const rawTaskIdx = btn.dataset.corkOpenTaskIdx;
+      const taskIdx = rawTaskIdx !== undefined && rawTaskIdx !== '' ? Number(rawTaskIdx) : null;
+      ctx.openOt?.(otId, Number.isInteger(taskIdx) ? taskIdx : null);
+    });
+  });
+
   // Despinar ficha (×)
   corkRoot.querySelectorAll('[data-cork-unpin]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -604,7 +535,16 @@ export function bindCorkboardEvents(container, ctx = {}) {
   const corkRoot = container.querySelector('[data-dk-cork-root="1"]');
   if (!corkRoot) return;
 
-  const { isPersonalScope = false, isFullDesktop = false, roleCaps = null, userProfile = null, studioSettings = null } = ctx;
+  const {
+    isPersonalScope = false,
+    isFullDesktop = false,
+    roleCaps = null,
+    userProfile = null,
+    studioSettings = null,
+    trafficOrders = [],
+    todayKey = '',
+    tomorrowKey = '',
+  } = ctx;
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
 
@@ -617,7 +557,17 @@ export function bindCorkboardEvents(container, ctx = {}) {
     const pins = ensureCorkPinsInitialized(storeOpts);
     const activeComposer = perms.canEdit ? getActiveCorkComposer() : null;
     if (actionsSlot) actionsSlot.innerHTML = renderCorkHeaderActions(perms.canEdit, activeComposer);
-    bodySlot.innerHTML = renderCorkBodyHtml({ pins, isFullDesktop, canEdit: perms.canEdit, activeComposer, errorMsg: composerErrorMsg });
+    bodySlot.innerHTML = renderCorkBodyHtml({
+      pins,
+      isFullDesktop,
+      canEdit: perms.canEdit,
+      activeComposer,
+      errorMsg: composerErrorMsg,
+      noticeMsg: corkNoticeMsg,
+      trafficOrders,
+      todayKey,
+      tomorrowKey,
+    });
     if (footerSlot) {
       footerSlot.innerHTML = `
         <span>CORCHO · ${pins.length} ${pins.length === 1 ? 'ficha' : 'fichas'}</span>
@@ -628,51 +578,129 @@ export function bindCorkboardEvents(container, ctx = {}) {
     bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal);
   };
 
-  // Input de archivo local (guarda blob en IndexedDB y metadata en localStorage)
+  const showTransientNotice = (msg) => {
+    corkNoticeMsg = msg;
+    if (corkNoticeTimer) clearTimeout(corkNoticeTimer);
+    corkNoticeTimer = setTimeout(() => {
+      corkNoticeMsg = '';
+      corkNoticeTimer = null;
+      // Remueve solo el nodo del aviso para no interrumpir escritura activa ni robar el foco
+      if (corkRoot.isConnected) {
+        corkRoot.querySelector('[data-dk-cork-notice="1"]')?.remove();
+      }
+    }, 2800);
+  };
+
+  // Input de archivo local (guarda blob en IndexedDB y metadata en localStorage; soporta múltiples archivos)
   const fileInput = corkRoot.querySelector('[data-cork-file-input="1"]');
   fileInput?.addEventListener('change', async () => {
     if (!perms.canEdit) return;
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    const blobId = `blob_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    let storedBlobId = null;
-    try {
-      await saveCorkBlob(blobId, file, { mime: file.type, name: file.name });
-      storedBlobId = blobId;
-    } catch {
-      storedBlobId = null;
-    }
-    addCorkPin({
-      type: 'file',
-      title: file.name || 'Archivo adjunto',
-      fileMeta: {
-        mime: file.type || '',
-        sizeLabel: formatFileSize(file.size),
-        blobId: storedBlobId,
-      },
-    }, storeOpts);
+    const files = fileInput.files;
+    if (!files || !files.length) return;
+    await addLocalFilesToCorkboard(files, storeOpts);
     fileInput.value = '';
     rerenderLocal();
   });
 
-  // Aislamiento de DnD: evita que drops de pines/tarjetas/archivos burbujeen al intercambio de cuadrantes
-  const isCorkDrop = (e) => {
-    const types = Array.from(e.dataTransfer?.types || []);
-    return types.includes(DND_MIME_PIN) || types.includes(DND_MIME_CORK_CARD) || types.includes('Files');
+  // Dropzone sin parpadeo (HU-01) + aislamiento total frente a intercambio de cuadrantes
+  const dropOverlay = corkRoot.querySelector('[data-dk-cork-dropzone-overlay="1"]');
+  let dragEnterDepth = 0;
+
+  const setDropzoneActive = (active) => {
+    if (!perms.canEdit || !dropOverlay) return;
+    dropOverlay.classList.toggle('hidden', !active);
   };
 
-  corkRoot.addEventListener('dragover', (e) => {
-    if (!isCorkDrop(e)) return;
+  const hasType = (e, mime) => Array.from(e.dataTransfer?.types || []).includes(mime);
+  const isPinOrFileDrop = (e) => hasType(e, DND_MIME_PIN) || hasType(e, 'Files');
+  const isInternalCorkDrag = (e) => hasType(e, DND_MIME_CORK_CARD);
+
+  corkRoot.addEventListener('dragenter', (e) => {
+    if (!isPinOrFileDrop(e)) return;
     e.preventDefault();
     e.stopPropagation();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    if (!perms.canEdit) return;
+    dragEnterDepth += 1;
+    setDropzoneActive(true);
   });
 
-  corkRoot.addEventListener('drop', (e) => {
-    if (!isCorkDrop(e)) return;
+  corkRoot.addEventListener('dragover', (e) => {
+    if (isInternalCorkDrag(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!isPinOrFileDrop(e)) return;
     e.preventDefault();
     e.stopPropagation();
-    // Procesamiento real de drops se conecta en HU-01 y HU-04
+    if (e.dataTransfer) e.dataTransfer.dropEffect = perms.canEdit ? 'copy' : 'none';
+    if (perms.canEdit) setDropzoneActive(true);
+  });
+
+  corkRoot.addEventListener('dragleave', (e) => {
+    if (!isPinOrFileDrop(e)) return;
+    e.stopPropagation();
+    dragEnterDepth = Math.max(0, dragEnterDepth - 1);
+    if (dragEnterDepth === 0 || !e.relatedTarget || !corkRoot.contains(e.relatedTarget)) {
+      dragEnterDepth = 0;
+      setDropzoneActive(false);
+    }
+  });
+
+  corkRoot.addEventListener('dragend', () => {
+    dragEnterDepth = 0;
+    setDropzoneActive(false);
+  });
+
+  corkRoot.addEventListener('drop', async (e) => {
+    if (isInternalCorkDrag(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!isPinOrFileDrop(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragEnterDepth = 0;
+    setDropzoneActive(false);
+    if (!perms.canEdit) return;
+
+    // 1. Drop de OT / Tarea arrastrada desde C01 o C03 (MIME dedicado leído solo en drop)
+    if (hasType(e, DND_MIME_PIN)) {
+      const raw = e.dataTransfer?.getData(DND_MIME_PIN) || '';
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw);
+        const type = payload?.type === 'task' ? 'task' : 'ot';
+        const otId = String(payload?.otId || '');
+        const taskIndex = Number.isInteger(payload?.taskIndex) ? payload.taskIndex : null;
+        if (!otId) return;
+        const liveOt = (trafficOrders || []).find((o) => o.id === otId) || null;
+        const liveTask = type === 'task' && liveOt && taskIndex !== null
+          ? ((liveOt.subtasks || [])[taskIndex] || null)
+          : null;
+        const title = type === 'task'
+          ? (liveTask?.title || liveOt?.title || otId)
+          : (liveOt?.title || otId);
+        const res = addOtOrTaskCorkPin({ type, otId, taskIndex, title }, storeOpts);
+        if (res.duplicate) {
+          const shortCode = String(otId).replace(/^OT-/i, '');
+          const label = type === 'task' && taskIndex !== null ? `${shortCode}.${taskIndex + 1}` : shortCode;
+          showTransientNotice(`${label} ya está fijada en este Corcho.`);
+        }
+        rerenderLocal();
+      } catch {
+        // payload malformado: ignorar de forma segura
+      }
+      return;
+    }
+
+    // 2. Drop de uno o varios archivos desde el sistema operativo
+    const droppedFiles = e.dataTransfer?.files;
+    if (droppedFiles && droppedFiles.length) {
+      await addLocalFilesToCorkboard(droppedFiles, storeOpts);
+      rerenderLocal();
+    }
   });
 
   bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal);
