@@ -175,10 +175,146 @@ export function saveCorkPins(pins, opts = {}) {
   }
 }
 
+// --- Utilidades de validación y formato (HU-03) ---
+export function normalizeSafeWebUrl(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return { ok: false, error: 'Ingresa una URL válida.' };
+  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+  if (hasScheme && !/^https?:/i.test(trimmed)) {
+    return { ok: false, error: 'Solo se permiten enlaces http:// o https://.' };
+  }
+  const candidate = hasScheme ? trimmed : `https://${trimmed}`;
+  try {
+    const parsed = new URL(candidate);
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
+      return { ok: false, error: 'Solo se permiten enlaces http:// o https://.' };
+    }
+    return {
+      ok: true,
+      url: parsed.href,
+      domain: parsed.hostname.replace(/^www\./i, ''),
+    };
+  } catch {
+    return { ok: false, error: 'URL no válida. Ej: https://ejemplo.com' };
+  }
+}
+
+export function getFileTypeTag(mime = '', name = '') {
+  const m = String(mime || '').toLowerCase();
+  const n = String(name || '');
+  if (m === 'application/pdf' || /\.pdf$/i.test(n)) return 'PDF';
+  if (m.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(n)) return 'IMG';
+  if (m.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(n)) return 'VID';
+  return 'ARCHIVO';
+}
+
+export function formatFileSize(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return '0 B';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// --- Onboarding sin resurrección (null -> siembra demo; [] -> respeta vacío) ---
+export function buildOnboardingPins({ isPersonalScope = false, studioSettings = null, userProfile = null } = {}) {
+  const orgId = `org_${slugKey(studioSettings?.initials || studioSettings?.name, 'studio')}`;
+  const ownerId = `usr_${slugKey(userProfile?.shortName || userProfile?.email, 'user')}`;
+  const scope = isPersonalScope ? 'personal' : 'global';
+  return [
+    createCorkPin({
+      id: `pin_onboarding_guide_${scope}`,
+      organizationId: orgId,
+      scope,
+      ownerUserId: ownerId,
+      type: 'note',
+      title: 'Guía rápida del Tablero de Corcho',
+      content: '1. Crea notas, enlaces o sube archivos desde la cabecera.\n2. Arrastra OTs o tareas desde Prioridades y Calendario.\n3. Retira cualquier ficha con × sin afectar las OTs del Estudio.',
+      position: 0,
+      demoPackId: 'onboarding-demo',
+    }),
+    createCorkPin({
+      id: `pin_onboarding_brief_${scope}`,
+      organizationId: orgId,
+      scope,
+      ownerUserId: ownerId,
+      type: 'file',
+      title: 'Brief_Campaña_Shambhala_Q4.pdf',
+      otId: 'OT-26-001',
+      mediaIndex: 0,
+      fileMeta: { mime: 'application/pdf', sizeLabel: '1.4 MB', blobId: null },
+      position: 1,
+      demoPackId: 'onboarding-demo',
+    }),
+  ];
+}
+
+export function ensureCorkPinsInitialized(opts = {}) {
+  const loaded = loadCorkPins(opts);
+  if (loaded !== null) return loaded;
+  const seeded = buildOnboardingPins(opts);
+  const res = saveCorkPins(seeded, opts);
+  return res.pins;
+}
+
+export function addCorkPin(pinInput, opts = {}) {
+  const current = ensureCorkPinsInitialized(opts);
+  const orgId = `org_${slugKey(opts.studioSettings?.initials || opts.studioSettings?.name, 'studio')}`;
+  const ownerId = `usr_${slugKey(opts.userProfile?.shortName || opts.userProfile?.email, 'user')}`;
+  const pin = createCorkPin({
+    organizationId: orgId,
+    scope: opts.isPersonalScope ? 'personal' : 'global',
+    ownerUserId: ownerId,
+    ...pinInput,
+    position: current.length,
+  });
+  const next = [...current, pin];
+  const saved = saveCorkPins(next, opts);
+  return { ...saved, pin };
+}
+
+export function removeCorkPin(pinId, opts = {}) {
+  const current = ensureCorkPinsInitialized(opts);
+  const target = current.find((p) => p.id === pinId);
+  const next = current.filter((p) => p.id !== pinId);
+  const saved = saveCorkPins(next, opts);
+  if (target?.fileMeta?.blobId) {
+    deleteCorkBlob(target.fileMeta.blobId).catch(() => {});
+  }
+  return { ...saved, removed: target || null };
+}
+
 // --- Almacenamiento de blobs locales en IndexedDB (evita QuotaExceededError en localStorage) ---
 const CORK_BLOB_DB_NAME = 'trafigator_cork_blobs_v1';
 const CORK_BLOB_STORE = 'blobs';
 let corkBlobDbPromise = null;
+const blobObjectUrlCache = new Map();
+
+export function revokeCorkBlobObjectUrl(blobId) {
+  const key = String(blobId || '');
+  if (!key || !blobObjectUrlCache.has(key)) return;
+  try {
+    URL.revokeObjectURL(blobObjectUrlCache.get(key));
+  } catch {
+    // ignore revoke errors
+  }
+  blobObjectUrlCache.delete(key);
+}
+
+export async function getCorkBlobObjectUrl(blobId) {
+  const key = String(blobId || '');
+  if (!key) return null;
+  if (blobObjectUrlCache.has(key)) return blobObjectUrlCache.get(key);
+  try {
+    const rec = await getCorkBlob(key);
+    if (!rec?.blob) return null;
+    const url = URL.createObjectURL(rec.blob);
+    blobObjectUrlCache.set(key, url);
+    return url;
+  } catch {
+    return null;
+  }
+}
 
 function openCorkBlobDb() {
   if (typeof indexedDB === 'undefined') {
@@ -230,6 +366,7 @@ export async function getCorkBlob(blobId) {
 }
 
 export async function deleteCorkBlob(blobId) {
+  revokeCorkBlobObjectUrl(blobId);
   const db = await openCorkBlobDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(CORK_BLOB_STORE, 'readwrite');
