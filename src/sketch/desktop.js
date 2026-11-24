@@ -10,7 +10,6 @@
  */
 
 import {
-  clientsData,
   ensureOtData,
   escapeHtml,
   formatShortDate,
@@ -18,100 +17,80 @@ import {
   getClientColor,
   getDepartmentColor,
   getPriorityDotHtml,
-  getStageColor,
-  getStatusColor,
   getWorkspaceById,
   notifySketchChange,
   relDate,
   setActiveWorkspace,
   shiftIsoDate,
   sketchState,
+  studioFreeTasks,
+  studioSeparators,
   studioSettings,
-  trafficDepartments,
-  trafficMembers,
   trafficOrders,
-  trafficStages,
-  trafficStatuses,
-  userAccounts,
+  userProfile,
 } from './store.js';
 import { getWeekMonday, renderInspectorMiniCalendar } from './schedule-views.js';
 import { ensureStripboardDaySeeded, getDayReservedHours } from './stripboard.js';
 import { renderTrafficNotesInspector } from './inspector.js';
+import {
+  getRoleCapabilities,
+  loadStatsState,
+  runStatsQuery,
+  saveStatsState,
+} from './stats-engine.js';
+import { renderChartLightboxHtml, renderStatsPillChartsGrid } from './ot-en-proceso-charts.js';
 
 let lastCallbacks = {};
-const q1Modes = {
-  urgent: 'ots',   // 'ots' | 'tasks'
-  today: 'ots',    // 'ots' | 'tasks'
-  tomorrow: 'ots', // 'ots' | 'tasks'
+const q1ModesByScope = {
+  global: { urgent: 'ots', today: 'ots', tomorrow: 'ots' },
+  personal: { urgent: 'tasks', today: 'tasks', tomorrow: 'tasks' },
 };
-const q2Modes = {
-  thisWeek: 'ots', // 'ots' | 'tasks'
-  nextWeek: 'ots', // 'ots' | 'tasks'
-  month: 'ots',    // 'ots' | 'tasks'
+const q2ModesByScope = {
+  global: { thisWeek: 'ots', nextWeek: 'ots', month: 'ots' },
+  personal: { thisWeek: 'tasks', nextWeek: 'tasks', month: 'tasks' },
 };
 let q2ViewMode = 'week'; // 'week' | 'month'
 let monthAnchorIso = null;
-const STATS_STORAGE_KEY = 'trafigator_desktop_stats_v1';
-const DEFAULT_STATS_CONFIG = {
-  groupBy: 'responsible', // 'responsible' | 'client' | 'department' | 'stage' | 'status' | 'priority' | 'workspace'
-  metric: 'hours',        // 'ots' | 'tasks' | 'hours'
-  sortBy: 'desc',         // 'desc' | 'asc' | 'alpha'
-  filters: {
-    workspace: 'all',
-    client: 'all',
-    department: 'all',
-    stage: 'all',
-    status: 'all',
-    responsible: 'all',
-    priority: 'all',      // 'all' | 'urgent' | 'regular'
-  },
-};
-
-function loadStatsConfig() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STATS_STORAGE_KEY) || 'null');
-    if (saved && typeof saved === 'object') {
-      const merged = {
-        ...DEFAULT_STATS_CONFIG,
-        ...saved,
-        filters: {
-          ...DEFAULT_STATS_CONFIG.filters,
-          ...(saved.filters || {}),
-        },
-      };
-      if (merged.groupBy === 'week') merged.groupBy = 'responsible';
-      if (!['all', 'urgent', 'regular'].includes(merged.filters.priority)) merged.filters.priority = 'all';
-      return merged;
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return {
-    ...DEFAULT_STATS_CONFIG,
-    filters: { ...DEFAULT_STATS_CONFIG.filters },
-  };
-}
-
-function saveStatsConfig(cfg) {
-  try {
-    localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(cfg));
-  } catch {
-    // ignore storage errors
-  }
-}
-
-let statsConfig = loadStatsConfig();
+let statsState = loadStatsState();
+let activeStatsPill = 'ots-active'; // 'ots-active' | 'ots-urgent' | 'tasks-active' | 'tasks-urgent' | 'client-review' | 'finalizadas' | 'today-hours' | 'tomorrow-hours'
+let deptChartPageWsId = null;
+let panelLightboxModId = null; // null | 'priorities' | 'calendar' | 'stats'
+let lightboxChartIdx = null;
+let lastPillBoard = null;
+let selectedStatsDrillKey = null;
 let q4TraceFilter = 'all'; // 'all' | 'routes' | 'activity'
 let inspIdleTab = 'messages'; // 'messages' | 'activity'
 let selectedContextOtId = null;
 let selectedContextTaskIdx = null;
 let selectedMediaIndex = null;
 const QUADRANT_STORAGE_KEY = 'trafigator_desktop_quadrants_v1';
+const DESKTOP_SCOPE_STORAGE_KEY = 'trafigator_desktop_scope_v1';
 const DEFAULT_QUADRANT_ORDER = ['priorities', 'calendar', 'stats', 'empty'];
 
-function loadQuadrantOrder() {
+function loadDesktopScope() {
   try {
-    const saved = JSON.parse(localStorage.getItem(QUADRANT_STORAGE_KEY) || 'null');
+    const saved = localStorage.getItem(DESKTOP_SCOPE_STORAGE_KEY);
+    if (saved === 'global' || saved === 'personal') return saved;
+  } catch {
+    // ignore storage errors
+  }
+  return 'global';
+}
+
+function saveDesktopScope(scope) {
+  try {
+    localStorage.setItem(DESKTOP_SCOPE_STORAGE_KEY, scope);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+let desktopScopePref = loadDesktopScope();
+
+function loadQuadrantOrder(scope = 'global') {
+  const key = scope === 'personal' ? `${QUADRANT_STORAGE_KEY}_personal` : QUADRANT_STORAGE_KEY;
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
     if (
       Array.isArray(saved)
       && saved.length === 4
@@ -125,15 +104,19 @@ function loadQuadrantOrder() {
   return [...DEFAULT_QUADRANT_ORDER];
 }
 
-function saveQuadrantOrder(order) {
+function saveQuadrantOrder(order, scope = 'global') {
+  const key = scope === 'personal' ? `${QUADRANT_STORAGE_KEY}_personal` : QUADRANT_STORAGE_KEY;
   try {
-    localStorage.setItem(QUADRANT_STORAGE_KEY, JSON.stringify(order));
+    localStorage.setItem(key, JSON.stringify(order));
   } catch {
     // ignore storage errors
   }
 }
 
-let quadrantOrder = loadQuadrantOrder();
+const quadrantOrdersByScope = {
+  global: loadQuadrantOrder('global'),
+  personal: loadQuadrantOrder('personal'),
+};
 let draggedSlotIdx = null;
 let selectedCardKey = null;
 let selectedCalendarDate = null;
@@ -168,25 +151,29 @@ function renderTopRingWidget({
   progress = 1,
   lines = [],
   attrs = '',
+  active = false,
 }) {
-  const radius = 19;
+  const radius = 15;
   const circ = 2 * Math.PI * radius;
   const frac = Math.max(0, Math.min(1, progress));
   const dash = frac * circ;
+  const cardCls = active
+    ? 'bg-[#2a2a2a] border-obsidian-amber/80 ring-1 ring-inset ring-obsidian-amber/40'
+    : 'bg-[#242424] hover:bg-[#2a2a2a] border-obsidian-border hover:border-[#3f3f3f]';
   return `
     <button type="button" ${attrs}
-      class="text-left px-3 py-2.5 rounded-2xl bg-[#242424] hover:bg-[#2a2a2a] border border-obsidian-border hover:border-[#3f3f3f] transition-colors cursor-pointer flex flex-col gap-2 min-w-0">
-      <div class="text-[11px] font-semibold text-[#F0F0F0] leading-tight truncate">${escapeHtml(title)}</div>
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="relative w-11 h-11 shrink-0">
-          <svg viewBox="0 0 46 46" class="w-full h-full -rotate-90" aria-hidden="true">
-            <circle cx="23" cy="23" r="${radius}" fill="none" stroke="#181818" stroke-width="3.5" />
-            <circle cx="23" cy="23" r="${radius}" fill="none" stroke="${escapeHtml(ringColor)}" stroke-width="3.5"
+      class="text-left px-2 py-1.5 rounded-xl border ${cardCls} transition-colors cursor-pointer flex flex-col gap-1 min-w-0">
+      <div class="text-[9.5px] font-semibold text-[#F0F0F0] leading-tight truncate">${escapeHtml(title)}</div>
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="relative w-8 h-8 shrink-0">
+          <svg viewBox="0 0 38 38" class="w-full h-full -rotate-90" aria-hidden="true">
+            <circle cx="19" cy="19" r="${radius}" fill="none" stroke="#181818" stroke-width="3" />
+            <circle cx="19" cy="19" r="${radius}" fill="none" stroke="${escapeHtml(ringColor)}" stroke-width="3"
               stroke-linecap="round" stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}" />
           </svg>
-          <span class="absolute inset-0 flex items-center justify-center font-sans text-[15px] font-bold text-white leading-none">${escapeHtml(String(value))}</span>
+          <span class="absolute inset-0 flex items-center justify-center font-sans text-[12px] font-bold text-white leading-none">${escapeHtml(String(value))}</span>
         </div>
-        <div class="min-w-0 flex flex-col justify-center gap-0.5 text-[10.5px] font-medium leading-tight">
+        <div class="min-w-0 flex flex-col justify-center text-[9px] font-medium leading-tight">
           ${lines.map((ln) => `
             <div class="truncate">
               ${ln.num !== undefined ? `<span class="font-bold mr-1" style="color:${escapeHtml(ln.numColor || '#D4D4D4')}">${escapeHtml(String(ln.num))}</span>` : ''}
@@ -244,12 +231,26 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   const activeWorkspaces = getActiveWorkspaces();
   const showWsTag = activeWorkspaces.length >= 2 && activeWsId === 'studio';
 
-  const scopedOrders = trafficOrders.filter((o) => {
+  // Rol y alcance de Escritorio: Global | Personal (Dueño/Admin-Tráfico/Cuentas alternan; Colaborador solo Personal)
+  const roleCaps = getRoleCapabilities();
+  const canSwitchGlobal = roleCaps.hasGlobalScope;
+  const desktopScope = canSwitchGlobal ? desktopScopePref : 'personal';
+  const isPersonalScope = desktopScope === 'personal';
+  const myMember = userProfile.shortName || sketchState.myOtsMember || 'Andrés';
+  const q1Modes = q1ModesByScope[desktopScope];
+  const q2Modes = q2ModesByScope[desktopScope];
+  const quadrantOrder = quadrantOrdersByScope[desktopScope];
+
+  const workspaceOrders = trafficOrders.filter((o) => {
     if (o.archived) return false;
     if (activeWsId !== 'studio' && (o.workspaceId || 'diseno-publicidad') !== activeWsId) return false;
     return true;
   });
-  scopedOrders.forEach((o) => ensureOtData(o, formatShortDate));
+  workspaceOrders.forEach((o) => ensureOtData(o, formatShortDate));
+
+  const scopedOrders = isPersonalScope
+    ? workspaceOrders.filter((o) => o.responsible === myMember || (o.subtasks || []).some((st) => (st.responsible || o.responsible) === myMember))
+    : workspaceOrders;
 
   // OTs buckets
   const urgentOts = scopedOrders
@@ -266,7 +267,9 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   const allActiveTasks = [];
   scopedOrders.forEach((ot) => {
     (ot.subtasks || []).forEach((st, idx) => {
-      if (st.status === 'Finalizada' || st.status === 'Archivada') return;
+      if (['Terminada', 'Finalizada', 'Archivada', 'Cancelada'].includes(st.status)) return;
+      const resp = st.responsible || ot.responsible;
+      if (isPersonalScope && resp !== myMember) return;
       const dDate = st.deliveryDate || ot.deliveryDate || '';
       allActiveTasks.push({
         otId: ot.id,
@@ -274,7 +277,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         title: st.title || ot.title,
         client: ot.client,
         department: st.department || ot.department,
-        responsible: st.responsible || ot.responsible,
+        responsible: resp,
         deliveryDate: dDate,
         urgent: !!(st.urgent || ot.urgent),
         workspaceId: ot.workspaceId || 'diseno-publicidad',
@@ -527,7 +530,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
             return `
               <div class="border ${cellCls} rounded-md p-1 flex flex-col gap-0.5 min-h-0 overflow-hidden">
                 <div class="flex items-center justify-between text-[8.5px] font-mono shrink-0 leading-none">
-                  <span class="${isToday ? 'text-obsidian-amber font-bold' : (c.inMonth ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]')}">${c.num}</span>
+                  <span class="${isToday ? 'text-obsidian-amber font-bold' : (c.inMonth ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]')}">${c.num}${isToday ? ' (Hoy)' : ''}</span>
                   ${items.length ? `<span class="text-[8px] text-[#737373]">${items.length}</span>` : ''}
                 </div>
                 <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5">
@@ -638,7 +641,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
             return `
               <div class="border ${colBorder} rounded-lg p-1.5 flex flex-col gap-1 min-h-0 overflow-hidden">
                 <div class="flex items-center justify-between text-[9px] font-mono pb-1 border-b border-obsidian-border/70 shrink-0">
-                  <span class="${c.isToday || c.isSelectedDay ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]'}">${c.name} ${c.dayNum}</span>
+                  <span class="${c.isToday || c.isSelectedDay ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]'} truncate">${c.name} ${c.dayNum}${c.isToday ? ' (Hoy)' : ''}</span>
                   <span class="text-[#5A5A5A]">${items.length}</span>
                 </div>
                 <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 pr-0.5">
@@ -657,190 +660,38 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     `;
   };
 
-  // Cuadrante Estadística: Motor dinámico (7 filtros + Agrupar por + Medir + Ordenar + Periodo)
-  const myMember = sketchState.myOtsMember || 'Andrés';
-  const activeWorkspacesList = getActiveWorkspaces();
-  const presentMembers = new Set([myMember]);
-  scopedOrders.forEach((o) => { if (o.responsible) presentMembers.add(o.responsible); });
-  allActiveTasks.forEach((t) => { if (t.responsible) presentMembers.add(t.responsible); });
-  const orderedMembers = [
-    ...trafficMembers.filter((m) => presentMembers.has(m)),
-    ...Array.from(presentMembers).filter((m) => !trafficMembers.includes(m)),
-  ];
+  const showFinalizadasKpi = !isPersonalScope && roleCaps.canSeeFinancial;
+  const scopedFreeTasks = (studioFreeTasks || []).filter((t) => {
+    if (activeWsId !== 'studio' && t.workspaceId && t.workspaceId !== activeWsId) return false;
+    if (isPersonalScope && t.responsible !== myMember) return false;
+    return true;
+  });
+  const freeEstudioCount = scopedFreeTasks.filter((t) => t.kind === 'estudio').length;
+  const freeClienteCount = scopedFreeTasks.filter((t) => t.kind !== 'estudio').length;
+  const scopedSeparators = (studioSeparators || []).filter((s) => !isPersonalScope || s.responsible === myMember);
+  const sepTotalHours = Number(scopedSeparators.reduce((sum, s) => sum + (Number(s.hours) || (Number(s.minutes) || 0) / 60), 0).toFixed(1));
 
-  const getMemberColor = (name) => {
-    const acc = userAccounts.find((a) => a.shortName === name || a.fullName === name);
-    return acc?.color || '#38bdf8';
-  };
-
-  const getPriorityKey = (item) => (item.urgent ? 'urgent' : 'regular');
-
-  const PRIORITY_META = {
-    urgent: { label: 'Urgentes', color: '#fb7185' },
-    regular: { label: 'No urgentes', color: '#8C8C8C' },
-  };
-
-  const GROUP_LABELS = {
-    responsible: 'Responsable',
-    client: 'Cliente',
-    department: 'Depto',
-    stage: 'Etapa',
-    status: 'Estado',
-    priority: 'Prioridad',
-    workspace: 'Perfil',
-  };
-
-  const METRIC_LABELS = {
-    ots: 'OTs',
-    tasks: 'Tareas',
-    hours: 'Horas',
-  };
-
-  const stFilters = statsConfig.filters;
-
-  const baseStatsOrders = stFilters.workspace !== 'all'
-    ? trafficOrders.filter((o) => !o.archived && (o.workspaceId || 'diseno-publicidad') === stFilters.workspace)
-    : scopedOrders;
-
-  const matchesStatsFilters = (item) => {
-    if (stFilters.workspace !== 'all' && (item.workspaceId || 'diseno-publicidad') !== stFilters.workspace) return false;
-    if (stFilters.client !== 'all' && (item.client || '') !== stFilters.client) return false;
-    if (stFilters.department !== 'all' && (item.department || '—') !== stFilters.department) return false;
-    if (stFilters.stage !== 'all' && (item.stage || 'Tráfico') !== stFilters.stage) return false;
-    if (stFilters.status !== 'all' && (item.status || 'En proceso') !== stFilters.status) return false;
-    if (stFilters.responsible !== 'all' && (item.responsible || '') !== stFilters.responsible) return false;
-    if (stFilters.priority !== 'all' && getPriorityKey(item) !== stFilters.priority) return false;
+  // Cuadrante Estadística: Motor v3 (Nodos Hoja · LIVE/THROUGHPUT · Filtros en cascada · Proyección automática · RBAC)
+  const isAllowedPill = (p) => {
+    if (p === 'finalizadas') return showFinalizadasKpi;
+    if (p === 'free-tasks' || p === 'separators') return !isPersonalScope;
+    if (p === 'today-hours' || p === 'tomorrow-hours') return isPersonalScope;
     return true;
   };
-
-  const statsFilteredOts = baseStatsOrders.filter((o) => matchesStatsFilters(o));
-  const statsAllTasksPool = [];
-  baseStatsOrders.forEach((o) => {
-    (o.subtasks || []).forEach((st, idx) => {
-      statsAllTasksPool.push({
-        ...st,
-        otId: o.id,
-        taskIndex: idx,
-        client: o.client,
-        workspaceId: o.workspaceId || 'diseno-publicidad',
-        stage: o.stage || 'Tráfico',
-        urgent: !!st.urgent || !!o.urgent,
-        deliveryDate: st.deliveryDate || o.deliveryDate,
-        estimatedHours: Number(st.estimatedHours) || 0,
-      });
-    });
+  const effectiveStatsPillForQuery = isAllowedPill(activeStatsPill) ? activeStatsPill : 'ots-active';
+  const statsQuery = runStatsQuery({
+    allOrders: trafficOrders,
+    state: statsState,
+    topWorkspaceId: activeWsId,
+    myMember,
+    forcePersonalMember: isPersonalScope ? myMember : null,
+    activePill: effectiveStatsPillForQuery,
   });
-  const statsFilteredTasks = statsAllTasksPool.filter((t) => matchesStatsFilters(t));
-
-  // Filter options derived from catalog + data
-  const stClientOptions = Array.from(new Set([
-    ...clientsData.map((c) => c.name),
-    ...trafficOrders.filter((o) => !o.archived).map((o) => o.client).filter(Boolean),
-  ]));
-  const stDeptOptions = Array.from(new Set([
-    ...trafficDepartments,
-    ...trafficOrders.filter((o) => !o.archived).map((o) => o.department).filter(Boolean),
-  ]));
-  const stStageOptions = Array.from(new Set([
-    ...trafficStages,
-    ...trafficOrders.filter((o) => !o.archived).map((o) => o.stage).filter(Boolean),
-  ]));
-  const stStatusOptions = Array.from(new Set([
-    ...trafficStatuses.filter((s) => s !== 'Archivada'),
-    ...trafficOrders.filter((o) => !o.archived).map((o) => o.status).filter(Boolean),
-  ]));
-
-  const activeFilterChips = [];
-  if (stFilters.workspace !== 'all') {
-    const ws = getWorkspaceById(stFilters.workspace);
-    activeFilterChips.push({ key: 'workspace', label: `Perfil: ${ws?.shortName || ws?.name || stFilters.workspace}` });
+  if (statsQuery.sanitized) {
+    statsState = statsQuery.effectiveState;
+    saveStatsState(statsState);
   }
-  if (stFilters.client !== 'all') activeFilterChips.push({ key: 'client', label: `Cliente: ${stFilters.client}` });
-  if (stFilters.department !== 'all') activeFilterChips.push({ key: 'department', label: `Depto: ${stFilters.department}` });
-  if (stFilters.stage !== 'all') activeFilterChips.push({ key: 'stage', label: `Etapa: ${stFilters.stage}` });
-  if (stFilters.status !== 'all') activeFilterChips.push({ key: 'status', label: `Estado: ${stFilters.status}` });
-  if (stFilters.responsible !== 'all') activeFilterChips.push({ key: 'responsible', label: `Resp.: ${stFilters.responsible}` });
-  if (stFilters.priority !== 'all') activeFilterChips.push({ key: 'priority', label: `Prior.: ${PRIORITY_META[stFilters.priority]?.label || stFilters.priority}` });
-  const hasActiveStatsFilters = activeFilterChips.length > 0;
-
-  // Grouped horizontal bars data
-  const getGroupKeyAndMeta = (item, groupBy) => {
-    if (groupBy === 'client') {
-      const k = item.client || 'Sin cliente';
-      return { key: k, label: k, color: getClientColor(k) };
-    }
-    if (groupBy === 'department') {
-      const k = item.department || '—';
-      return { key: k, label: k, color: getDepartmentColor(k) };
-    }
-    if (groupBy === 'stage') {
-      const k = item.stage || 'Tráfico';
-      return { key: k, label: k, color: getStageColor(k) };
-    }
-    if (groupBy === 'status') {
-      const k = item.status || 'En proceso';
-      return { key: k, label: k, color: getStatusColor(k) };
-    }
-    if (groupBy === 'responsible') {
-      const k = item.responsible || 'Sin asignar';
-      return { key: k, label: k === myMember ? `${k} (Tú)` : k, color: getMemberColor(k) };
-    }
-    if (groupBy === 'priority') {
-      const k = getPriorityKey(item);
-      return { key: k, label: PRIORITY_META[k]?.label || k, color: PRIORITY_META[k]?.color || '#8C8C8C' };
-    }
-    const wsId = item.workspaceId || 'diseno-publicidad';
-    const ws = getWorkspaceById(wsId);
-    return { key: wsId, label: ws?.shortName || ws?.name || wsId, color: ws?.color || '#f59e0b' };
-  };
-
-  const statsGroupMap = new Map();
-  const ensureGroup = (meta) => {
-    if (!statsGroupMap.has(meta.key)) {
-      statsGroupMap.set(meta.key, { ...meta, ots: 0, tasks: 0, hours: 0 });
-    }
-    return statsGroupMap.get(meta.key);
-  };
-
-  statsFilteredOts.forEach((o) => {
-    const entry = ensureGroup(getGroupKeyAndMeta(o, statsConfig.groupBy));
-    entry.ots += 1;
-    if (statsConfig.metric === 'ots') {
-      entry.hours += (o.subtasks || []).reduce((s, st) => s + (Number(st.estimatedHours) || 0), 0);
-    }
-  });
-  statsFilteredTasks.forEach((t) => {
-    const entry = ensureGroup(getGroupKeyAndMeta(t, statsConfig.groupBy));
-    entry.tasks += 1;
-    if (statsConfig.metric !== 'ots') {
-      entry.hours += Number(t.estimatedHours) || 0;
-    }
-  });
-
-  const statsGroupRows = Array.from(statsGroupMap.values()).map((r) => ({
-    ...r,
-    value: statsConfig.metric === 'ots' ? r.ots : (statsConfig.metric === 'tasks' ? r.tasks : r.hours),
-  }));
-
-  if (statsConfig.sortBy === 'asc') {
-    statsGroupRows.sort((a, b) => a.value - b.value || a.label.localeCompare(b.label, 'es'));
-  } else if (statsConfig.sortBy === 'alpha') {
-    statsGroupRows.sort((a, b) => a.label.localeCompare(b.label, 'es'));
-  } else {
-    statsGroupRows.sort((a, b) => b.value - a.value || b.ots - a.ots || a.label.localeCompare(b.label, 'es'));
-  }
-
-  const statsTotalMetricVal = statsGroupRows.reduce((s, r) => s + r.value, 0);
-  const statsMaxRowVal = Math.max(1, ...statsGroupRows.map((r) => r.value));
-  const statsTotalHours = statsFilteredTasks.reduce((s, t) => s + (Number(t.estimatedHours) || 0), 0);
-  const statsChartTitle = `${METRIC_LABELS[statsConfig.metric] || 'OTs'} por ${GROUP_LABELS[statsConfig.groupBy] || 'Cliente'}`;
-
-  const activePresetKey = (
-    statsConfig.groupBy === 'responsible' && statsConfig.metric === 'hours' ? 'equipo'
-      : (statsConfig.groupBy === 'client' && statsConfig.metric === 'ots' ? 'clientes'
-        : (statsConfig.groupBy === 'department' && statsConfig.metric === 'ots' ? 'deptos'
-          : (statsConfig.groupBy === 'stage' && statsConfig.metric === 'ots' ? 'etapas' : '')))
-  );
+  const statsChartTitle = statsQuery.chartTitle;
 
   // Cuadrante 04: Trazabilidad data (Bitácora routes + Activity log)
   const traceEvents = [];
@@ -1050,7 +901,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   };
 
   const renderQ4Content = (dragHandleHtml = '', collapseBtnHtml = '') => `
-    <div class="relative p-3 flex flex-col justify-between min-h-0 flex-1 group hover:bg-[#202020]/25 transition-colors">
+    <div class="relative p-3 border-t-2 border-t-cyan-500/65 flex flex-col justify-between min-h-0 flex-1 group hover:bg-[#202020]/25 transition-colors">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-1 min-w-0">
           ${dragHandleHtml}
@@ -1085,9 +936,45 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     return '04 // Cuadrante disponible';
   };
 
-  const renderQuadrantModule = (modId, slotIdx, { collapseTarget = '', borderBottomClass = '' } = {}) => {
-    const dragHandleHtml = renderDragHandle(slotIdx);
-    const collapseBtnHtml = renderCollapseBtn(collapseTarget);
+  let fullStatsPanelLightboxHtml = '';
+
+  const wsOpenOrdersForLb = trafficOrders.filter((o) => !o.archived);
+  const lbWsTabsHtml = activeWorkspaces.length >= 2
+    ? `
+      <div class="inline-flex items-center gap-1 font-mono text-[9.5px] overflow-x-auto">
+        <button type="button" data-dk-lb-ws="studio"
+          class="px-2 py-0.5 rounded transition-colors cursor-pointer shrink-0 ${activeWsId === 'studio' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">
+          Estudio <span class="text-[#8C8C8C] font-normal ml-0.5">${wsOpenOrdersForLb.length}</span>
+        </button>
+        ${activeWorkspaces.map((ws) => {
+          const cnt = wsOpenOrdersForLb.filter((o) => (o.workspaceId || 'diseno-publicidad') === ws.id).length;
+          const isAct = activeWsId === ws.id;
+          return `
+            <button type="button" data-dk-lb-ws="${escapeHtml(ws.id)}"
+              class="px-2 py-0.5 rounded transition-colors cursor-pointer shrink-0 ${isAct ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">
+              ${escapeHtml(ws.shortName || ws.name)} <span class="font-semibold ml-0.5" style="color:${escapeHtml(ws.color || '#8C8C8C')}">${cnt}</span>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `
+    : '';
+
+  const renderExpandPanelBtn = (modId) => `
+    <button type="button" data-dk-lb-open-panel="${escapeHtml(modId)}" title="Abrir panel en caja de luz"
+      class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-obsidian-amber flex items-center justify-center cursor-pointer transition-colors shrink-0">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+        <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+      </svg>
+    </button>
+  `;
+
+  const renderQuadrantModule = (modId, slotIdx, { collapseTarget = '', borderBottomClass = '', slotClass = 'flex-1', inLightbox = false } = {}) => {
+    const dragHandleHtml = inLightbox ? '' : renderDragHandle(slotIdx);
+    const collapseBtnHtml = inLightbox ? '' : renderCollapseBtn(collapseTarget);
+    const expandBtnHtml = (!inLightbox && modId !== 'empty') ? renderExpandPanelBtn(modId) : '';
+    const rightActionBtns = `${expandBtnHtml}${collapseBtnHtml}`;
     let innerHtml = '';
 
     if (modId === 'priorities') {
@@ -1132,15 +1019,15 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
             borderClass: '',
             emptyOts: 'Sin OTs para mañana',
             emptyTasks: 'Sin tareas para mañana',
-            trailingHtml: collapseBtnHtml,
+            trailingHtml: rightActionBtns,
           })}
         </div>
       `;
     } else if (modId === 'calendar') {
       innerHtml = selectedContextOt
-        ? renderQ2GalleryOverlay('border-t-2 border-t-obsidian-amber/80', dragHandleHtml, collapseBtnHtml)
+        ? renderQ2GalleryOverlay('border-t-2 border-t-obsidian-amber/80', dragHandleHtml, rightActionBtns)
         : (q2ViewMode === 'month'
-            ? renderQ2MonthView({ borderClass: 'border-t-2 border-t-emerald-500/70', dragHandleHtml, collapseBtnHtml })
+            ? renderQ2MonthView({ borderClass: 'border-t-2 border-t-emerald-500/70', dragHandleHtml, collapseBtnHtml: rightActionBtns })
             : `<div class="flex-1 grid grid-rows-2 min-h-0">
                 ${renderQ2WeekRow({
                   rowKey: 'thisWeek',
@@ -1148,7 +1035,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
                   anchorIso: todayKey,
                   borderClass: 'border-t-2 border-t-emerald-500/70 border-b border-obsidian-border',
                   dragHandleHtml,
-                  collapseBtnHtml,
+                  collapseBtnHtml: rightActionBtns,
                   showViewSwitch: true,
                 })}
                 ${renderQ2WeekRow({
@@ -1172,7 +1059,24 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       const selectCls = (active) =>
         `w-full bg-[#141414] border ${active ? 'border-obsidian-amber/70 text-[#D4D4D4]' : 'border-obsidian-border text-[#A3A3A3]'} rounded px-1.5 py-0.5 text-[9.5px] focus:outline-none focus:border-obsidian-amber/80 cursor-pointer`;
 
-      const unitSuffix = statsConfig.metric === 'hours' ? 'h' : (statsConfig.metric === 'tasks' ? ' tar.' : ' OT');
+      const {
+        rbac: stRbac,
+        universe: stUniverse,
+        resolvedGroupBy,
+        cascadingOptions,
+        rows: statsGroupRows,
+        totalMetricVal: statsTotalMetricVal,
+        maxRowVal: statsMaxRowVal,
+        totalOts: statsTotalOts,
+        totalTasks: statsTotalTasks,
+        totalHours: statsTotalHours,
+        showTargetLine: showRespTarget,
+        targetVal: respTargetVal,
+        activeAnchorChips: activeFilterChips,
+        hasActiveAnchors: hasActiveStatsFilters,
+        effectiveState: stEff,
+      } = statsQuery;
+      const stAnchors = stEff.anchors;
 
       const computeNiceMax = (rawMax) => {
         const m = Math.max(1, rawMax);
@@ -1185,214 +1089,197 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         return step * 4;
       };
 
-      const showRespTarget = statsConfig.groupBy === 'responsible' && statsConfig.metric === 'hours';
-      const respTargetVal = dailyHours * 5;
       const horizNiceMax = computeNiceMax(
         showRespTarget ? Math.max(statsMaxRowVal, respTargetVal * 1.05) : statsMaxRowVal * 1.12
       );
       const horizTargetPct = showRespTarget ? Math.min(96, Math.round((respTargetVal / horizNiceMax) * 100)) : null;
       const horizTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(horizNiceMax * f));
-      const tickUnit = statsConfig.metric === 'hours' ? 'h' : '';
+      const tickUnit = stEff.metric === 'hours' ? 'h' : '';
 
-      const vizBodyHtml = `
-          <div class="flex-1 min-h-0 flex flex-col">
-            ${statsGroupRows.length
-              ? `
-                <div class="flex-1 min-h-0 overflow-y-auto pr-1">
-                  <div class="relative flex flex-col gap-2.5 py-1.5">
-                    <!-- Gridlines verticales + línea de meta sobre el área de barras -->
-                    <div class="pointer-events-none absolute inset-y-0 left-[104px] right-2">
-                      <div class="absolute inset-y-0 left-0 border-l border-[#2b2b2b]"></div>
-                      <div class="absolute inset-y-0 left-1/4 border-l border-dashed border-[#2b2b2b]"></div>
-                      <div class="absolute inset-y-0 left-1/2 border-l border-dashed border-[#2b2b2b]"></div>
-                      <div class="absolute inset-y-0 left-3/4 border-l border-dashed border-[#2b2b2b]"></div>
-                      <div class="absolute inset-y-0 right-0 border-l border-[#2b2b2b]"></div>
-                      ${horizTargetPct !== null ? `
-                        <div class="absolute -top-1 -bottom-1 border-l-2 border-dashed border-obsidian-amber/90 z-10" style="left:${horizTargetPct}%"></div>
-                      ` : ''}
-                    </div>
+      const presetTabs = [
+        { id: 'capacidad', lbl: 'Capacidad' },
+        { id: 'espacio', lbl: 'Espacio' },
+        { id: 'clientes', lbl: 'Clientes' },
+        ...(stRbac.canSeeFinancial ? [{ id: 'facturacion', lbl: 'Facturación' }] : []),
+      ];
 
-                    ${statsGroupRows.map((row) => {
-                      const barPct = row.value > 0 ? Math.max(4, Math.min(100, Math.round((row.value / horizNiceMax) * 100))) : 0;
-                      const sharePct = statsTotalMetricVal > 0 ? Math.round((row.value / statsTotalMetricVal) * 100) : 0;
-                      const valueText = statsConfig.metric === 'hours'
-                        ? `${row.hours}h`
-                        : (statsConfig.metric === 'tasks' ? `${row.tasks} tar.` : `${row.ots} OT`);
-                      const detailTip = `${row.label} · ${row.ots} OTs · ${row.tasks} tareas · ${row.hours}h (${sharePct}%)`;
-                      const insideValue = barPct > 82;
-                      return `
-                        <button type="button" data-dk-stat-type="${escapeHtml(statsConfig.groupBy)}" data-dk-stat-val="${escapeHtml(row.key)}" title="${escapeHtml(detailTip)}"
-                          class="w-full flex items-center gap-2.5 cursor-pointer group text-left relative">
-                          <span class="w-[94px] shrink-0 text-[10.5px] text-[#9A9A9A] group-hover:text-[#D4D4D4] truncate transition-colors">${escapeHtml(row.label)}</span>
-                          <div class="flex-1 pr-2 min-w-0">
-                            <div class="w-full h-5 rounded-md bg-[#232323] group-hover:bg-[#282828] relative flex items-center overflow-hidden transition-colors">
-                              ${barPct > 0 ? `
-                                <div class="h-full rounded-md flex items-center justify-end pr-2 shrink-0 transition-all"
-                                  style="width:${barPct}%; background:linear-gradient(90deg, #1a72e8 0%, #00d1ff 100%);">
-                                  ${barPct >= 22 ? `<span class="font-mono text-[9px] font-bold text-white/95 leading-none">${sharePct}%</span>` : ''}
-                                </div>
-                              ` : ''}
-                              <span class="font-mono text-[10px] font-bold text-white leading-none whitespace-nowrap ${insideValue ? 'absolute right-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]' : 'pl-2'}">${escapeHtml(valueText)}</span>
-                            </div>
-                          </div>
-                        </button>
-                      `;
-                    }).join('')}
-                  </div>
-                </div>
+      const effectiveStatsPill = effectiveStatsPillForQuery;
 
-                <!-- Escala eje X inferior -->
-                <div class="pl-[104px] pr-2 pt-1.5 shrink-0">
-                  <div class="flex items-center justify-between font-mono text-[8.5px] text-[#666666]">
-                    ${horizTicks.map((t) => `<span>${t}${tickUnit}</span>`).join('')}
-                  </div>
-                </div>
-              `
-              : `<div class="flex-1 flex items-center justify-center text-[10px] font-mono text-[#5A5A5A]">Sin registros con los filtros actuales</div>`
-            }
+      const pillBoard = renderStatsPillChartsGrid({
+        pillId: effectiveStatsPill,
+        allOrders: trafficOrders,
+        scopedOrders,
+        anchors: stAnchors,
+        metric: stEff.metric,
+        todayKey,
+        tomorrowKey,
+        dailyHours,
+        activeWsId,
+        deptPageWsId: deptChartPageWsId,
+        isPersonalScope,
+        myMember,
+        canSeeFinancial: stRbac.canSeeFinancial,
+      });
+      lastPillBoard = pillBoard;
+      if (lightboxChartIdx !== null && (!pillBoard.cards || !pillBoard.cards[lightboxChartIdx])) {
+        lightboxChartIdx = null;
+      }
+      const vizBodyHtml = pillBoard.html;
+
+      const statsKpiRowsHtml = `
+        <div class="p-1.5 border-b border-obsidian-border flex flex-col gap-1 shrink-0 bg-[#171717]">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1">
+            ${renderTopRingWidget({
+              title: isPersonalScope ? 'Mis OTs' : 'OTs Activas',
+              value: scopedOrders.length,
+              ringColor: '#f97316',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="ots-active"',
+              active: effectiveStatsPill === 'ots-active',
+              lines: suspendedCount
+                ? [{ label: 'En proceso' }, { num: suspendedCount, numColor: '#f59e0b', label: 'Susp.' }]
+                : [{ label: 'En proceso' }],
+            })}
+            ${renderTopRingWidget({
+              title: 'OTs Urgentes',
+              value: urgentOts.length,
+              ringColor: urgentOts.length ? '#ef4444' : '#22c55e',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="ots-urgent"',
+              active: effectiveStatsPill === 'ots-urgent',
+              lines: [
+                { num: todayOts.length, numColor: '#06b6d4', label: 'Hoy' },
+                { num: tomorrowOts.length, numColor: '#22c55e', label: 'Mañana' },
+              ],
+            })}
+            ${renderTopRingWidget({
+              title: isPersonalScope ? 'Mis Tareas' : 'Tareas Activas',
+              value: allActiveTasks.length,
+              ringColor: '#f59e0b',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="tasks-active"',
+              active: effectiveStatsPill === 'tasks-active',
+              lines: [{ label: 'En proceso' }],
+            })}
+            ${renderTopRingWidget({
+              title: 'Tareas Urgentes',
+              value: urgentTasks.length,
+              ringColor: urgentTasks.length ? '#ef4444' : '#22c55e',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="tasks-urgent"',
+              active: effectiveStatsPill === 'tasks-urgent',
+              lines: [
+                { num: todayTasks.length, numColor: '#06b6d4', label: 'Hoy' },
+                { num: tomorrowTasks.length, numColor: '#22c55e', label: 'Mañana' },
+              ],
+            })}
           </div>
-        `;
+          <div class="grid grid-cols-2 ${showFinalizadasKpi ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-1">
+            ${renderTopRingWidget({
+              title: 'En Cliente',
+              value: waitingClientItems.length,
+              ringColor: '#06b6d4',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="client-review"',
+              active: effectiveStatsPill === 'client-review',
+              lines: [{ label: 'En revisión' }],
+            })}
+            ${showFinalizadasKpi ? renderTopRingWidget({
+              title: 'Finalizadas',
+              value: toBillItems.length + billedItems.length,
+              ringColor: '#eab308',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="finalizadas"',
+              active: effectiveStatsPill === 'finalizadas',
+              lines: [
+                { num: toBillItems.length, numColor: '#eab308', label: 'Por Facturar' },
+                { num: billedItems.length, numColor: '#22c55e', label: 'Facturadas' },
+              ],
+            }) : ''}
+            ${!isPersonalScope ? `
+              ${renderTopRingWidget({
+                title: 'Tareas Libres',
+                value: scopedFreeTasks.length,
+                ringColor: '#a855f7',
+                progress: 1,
+                attrs: 'data-dk-stats-pill="free-tasks"',
+                active: effectiveStatsPill === 'free-tasks',
+                lines: [
+                  { num: freeEstudioCount, numColor: '#a855f7', label: 'Estudio' },
+                  { num: freeClienteCount, numColor: '#06b6d4', label: 'Cliente' },
+                ],
+              })}
+              ${renderTopRingWidget({
+                title: 'Separadores',
+                value: scopedSeparators.length,
+                ringColor: '#94a3b8',
+                progress: 1,
+                attrs: 'data-dk-stats-pill="separators"',
+                active: effectiveStatsPill === 'separators',
+                lines: [
+                  { num: `${sepTotalHours}h`, numColor: '#cbd5e1', label: 'Pausas' },
+                ],
+              })}
+            ` : `
+              ${renderTopRingWidget({
+                title: 'Mi Jornada Hoy',
+                value: `${todayHours}h`,
+                ringColor: todayOver ? '#ef4444' : '#22c55e',
+                progress: todayHours / dailyHours,
+                attrs: 'data-dk-stats-pill="today-hours"',
+                active: effectiveStatsPill === 'today-hours',
+                lines: [
+                  { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
+                  { num: `${todayPct}%`, numColor: todayOver ? '#ef4444' : '#22c55e', label: todayOver ? 'Extra' : 'Uso' },
+                ],
+              })}
+              ${renderTopRingWidget({
+                title: 'Mañana',
+                value: `${tomorrowHours}h`,
+                ringColor: tomorrowOver ? '#ef4444' : '#38bdf8',
+                progress: tomorrowHours / dailyHours,
+                attrs: 'data-dk-stats-pill="tomorrow-hours"',
+                active: effectiveStatsPill === 'tomorrow-hours',
+                lines: [
+                  { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
+                  { num: `${tomorrowPct}%`, numColor: tomorrowOver ? '#ef4444' : '#38bdf8', label: tomorrowOver ? 'Extra' : 'Uso' },
+                ],
+              })}
+            `}
+          </div>
+        </div>
+      `;
 
       innerHtml = `
-        <div class="flex-1 grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-obsidian-border min-h-0">
-          <!-- Columna izquierda (1/5): Vistas rápidas + Configuración del gráfico + 7 Filtros -->
-          <div class="md:col-span-1 p-2 flex flex-col min-h-0 bg-[#171717]">
-            <div class="flex items-center justify-between gap-1 pb-1.5 mb-1.5 border-b border-obsidian-border/70 shrink-0">
-              <div class="flex items-center gap-1 min-w-0">
-                ${dragHandleHtml}
-                <span class="font-mono text-[8.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Estadística</span>
-              </div>
-              <button type="button" data-dk-st-reset="1" title="Limpiar filtros"
-                class="w-4 h-4 rounded hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors shrink-0 ${hasActiveStatsFilters ? 'text-obsidian-amber' : 'text-[#5A5A5A] hover:text-[#A3A3A3]'}"
-                aria-label="Limpiar filtros">
-                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-              </button>
+        <div class="flex-1 flex flex-col min-h-0 border-t-2 border-t-violet-500/75">
+          <!-- Cabecera superior del panel Estadística (controles arriba) -->
+          <div class="px-2.5 py-1.5 border-b border-obsidian-border bg-[#1a1a1a] flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 min-w-0">
+              ${dragHandleHtml}
+              <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">${escapeHtml(pillBoard.title)}</span>
             </div>
-
-            <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-0.5 text-[9.5px]">
-              <!-- Configuración del gráfico -->
-              <div class="flex flex-col gap-1.5">
-                <label class="flex flex-col gap-0.5">
-                  <span class="font-mono text-[8px] uppercase tracking-wider text-[#737373]">Agrupar por</span>
-                  <select data-dk-st-cfg="groupBy" class="${selectCls(false)}">
-                    <option value="responsible" ${statsConfig.groupBy === 'responsible' ? 'selected' : ''}>Responsable</option>
-                    <option value="client" ${statsConfig.groupBy === 'client' ? 'selected' : ''}>Cliente</option>
-                    <option value="department" ${statsConfig.groupBy === 'department' ? 'selected' : ''}>Depto</option>
-                    <option value="stage" ${statsConfig.groupBy === 'stage' ? 'selected' : ''}>Etapa</option>
-                    <option value="status" ${statsConfig.groupBy === 'status' ? 'selected' : ''}>Estado</option>
-                    <option value="priority" ${statsConfig.groupBy === 'priority' ? 'selected' : ''}>Prioridad</option>
-                    <option value="workspace" ${statsConfig.groupBy === 'workspace' ? 'selected' : ''}>Perfil</option>
-                  </select>
-                </label>
-
-                <div class="flex flex-col gap-0.5">
-                  <span class="font-mono text-[8px] uppercase tracking-wider text-[#737373]">Medir</span>
-                  <div class="grid grid-cols-3 gap-0.5 font-mono text-[8.5px]">
-                    ${[
-                      { k: 'ots', l: 'OTs' },
-                      { k: 'tasks', l: 'Tar.' },
-                      { k: 'hours', l: 'Hrs' },
-                    ].map((m) => `
-                      <button type="button" data-dk-st-metric="${m.k}"
-                        class="py-0.5 rounded text-center cursor-pointer transition-colors ${statsConfig.metric === m.k ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">${m.l}</button>
-                    `).join('')}
-                  </div>
+            <div class="flex items-center gap-2 font-mono text-[8.5px] text-[#8C8C8C] shrink-0">
+              ${!pillBoard.isDayMode ? `
+                <div class="inline-flex items-center gap-0.5 text-[8.5px] font-mono">
+                  <button type="button" data-dk-st-metric="${pillBoard.isTasksMode ? 'tasks' : 'ots'}"
+                    class="px-1.5 py-0.5 rounded transition-colors cursor-pointer ${stEff.metric !== 'hours' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">${pillBoard.isTasksMode ? 'Tareas' : 'OTs'}</button>
+                  <button type="button" data-dk-st-metric="hours"
+                    class="px-1.5 py-0.5 rounded transition-colors cursor-pointer ${stEff.metric === 'hours' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Horas</button>
                 </div>
-
-                <label class="flex flex-col gap-0.5">
-                  <span class="font-mono text-[8px] uppercase tracking-wider text-[#737373]">Ordenar</span>
-                  <select data-dk-st-cfg="sortBy" class="${selectCls(false)}">
-                    <option value="desc" ${statsConfig.sortBy === 'desc' ? 'selected' : ''}>Mayor a menor</option>
-                    <option value="asc" ${statsConfig.sortBy === 'asc' ? 'selected' : ''}>Menor a mayor</option>
-                    <option value="alpha" ${statsConfig.sortBy === 'alpha' ? 'selected' : ''}>A – Z</option>
-                  </select>
-                </label>
-              </div>
-
-              <!-- Los 7 Filtros -->
-              <div class="flex flex-col gap-1.5 pt-1 border-t border-obsidian-border/60">
-                <span class="font-mono text-[8px] uppercase tracking-wider text-[#737373]">Filtros</span>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Estudio / Perfil</span>
-                  <select data-dk-st-filter="workspace" class="${selectCls(stFilters.workspace !== 'all')}">
-                    ${renderSelectOpts(activeWorkspacesList.map((w) => ({ value: w.id, label: w.shortName || w.name })), stFilters.workspace, 'Estudio')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Cliente</span>
-                  <select data-dk-st-filter="client" class="${selectCls(stFilters.client !== 'all')}">
-                    ${renderSelectOpts(stClientOptions, stFilters.client, 'Todos')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Depto</span>
-                  <select data-dk-st-filter="department" class="${selectCls(stFilters.department !== 'all')}">
-                    ${renderSelectOpts(stDeptOptions, stFilters.department, 'Todos')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Etapa</span>
-                  <select data-dk-st-filter="stage" class="${selectCls(stFilters.stage !== 'all')}">
-                    ${renderSelectOpts(stStageOptions, stFilters.stage, 'Todas')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Estado</span>
-                  <select data-dk-st-filter="status" class="${selectCls(stFilters.status !== 'all')}">
-                    ${renderSelectOpts(stStatusOptions, stFilters.status, 'Todos')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Responsable</span>
-                  <select data-dk-st-filter="responsible" class="${selectCls(stFilters.responsible !== 'all')}">
-                    ${renderSelectOpts(orderedMembers, stFilters.responsible, 'Todos')}
-                  </select>
-                </label>
-                <label class="flex flex-col gap-0.5">
-                  <span class="text-[8.5px] text-[#8C8C8C]">Prioridad</span>
-                  <select data-dk-st-filter="priority" class="${selectCls(stFilters.priority !== 'all')}">
-                    ${renderSelectOpts([
-                      { value: 'urgent', label: 'Urgentes' },
-                      { value: 'regular', label: 'No urgentes' },
-                    ], stFilters.priority, 'Todas')}
-                  </select>
-                </label>
-              </div>
+                <span class="w-px h-3 bg-obsidian-border"></span>
+              ` : ''}
+              <span>${escapeHtml(pillBoard.countLabel)}</span>
+              <span>·</span>
+              <span class="text-[#D4D4D4]">${pillBoard.totalHours}h</span>
+              ${rightActionBtns}
             </div>
           </div>
 
-          <!-- Columna derecha (4/5): Vistas rápidas + Cabecera dinámica + Visualización -->
+          ${statsKpiRowsHtml}
+
+          <div class="flex-1 grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-obsidian-border min-h-0">
+          <!-- Columna izquierda (4/5): Chips + Gráficos Masonry -->
           <div class="md:col-span-4 p-2.5 flex flex-col min-h-0">
-            <!-- Línea horizontal de Vistas rápidas centrada sobre la cabecera dinámica -->
-            <div class="relative flex items-center justify-center pb-1.5 mb-1.5 border-b border-obsidian-border/70 shrink-0">
-              <div class="flex items-center justify-center gap-1 overflow-x-auto">
-                ${[
-                  { id: 'equipo', lbl: 'Equipo' },
-                  { id: 'clientes', lbl: 'Clientes' },
-                  { id: 'deptos', lbl: 'Deptos' },
-                  { id: 'etapas', lbl: 'Etapas' },
-                ].map((p) => `
-                  <button type="button" data-dk-st-preset="${p.id}"
-                    class="px-2 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors shrink-0 ${activePresetKey === p.id ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">${p.lbl}</button>
-                `).join('')}
-              </div>
-              ${collapseBtnHtml ? `<div class="absolute right-0 top-1/2 -translate-y-1/2">${collapseBtnHtml}</div>` : ''}
-            </div>
-
-            <div class="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-obsidian-border/50 shrink-0">
-              <div class="flex items-center gap-2 min-w-0">
-                <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">${escapeHtml(statsChartTitle)}</span>
-              </div>
-              <div class="flex items-center gap-2 font-mono text-[8.5px] text-[#8C8C8C] shrink-0">
-                ${showRespTarget ? `<span class="text-obsidian-amber font-semibold">Meta: ${respTargetVal}h</span><span>·</span>` : ''}
-                <span>${statsFilteredOts.length} OTs</span>
-                <span>·</span>
-                <span>${statsFilteredTasks.length} tar.</span>
-                <span>·</span>
-                <span class="text-[#D4D4D4]">${statsTotalHours}h</span>
-              </div>
-            </div>
-
             ${activeFilterChips.length ? `
               <div class="flex items-center flex-wrap gap-1 mb-2 shrink-0">
                 ${activeFilterChips.map((ch) => `
@@ -1407,106 +1294,377 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
 
             ${vizBodyHtml}
           </div>
+
+          <!-- Columna derecha (1/5): Filtros alineados con la primera fila de gráficos -->
+          <div class="md:col-span-1 p-2.5 flex flex-col min-h-0 bg-[#171717]">
+            <div class="flex-1 min-h-0 flex flex-col pt-3 px-0.5">
+              <div class="flex items-center justify-between gap-1 pb-1.5 mb-2.5 border-b border-obsidian-border/60 shrink-0">
+                <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Filtros</span>
+                <button type="button" data-dk-st-reset="1" title="Limpiar filtros"
+                  class="w-4 h-4 rounded hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors shrink-0 ${hasActiveStatsFilters ? 'text-obsidian-amber' : 'text-[#5A5A5A] hover:text-[#A3A3A3]'}"
+                  aria-label="Limpiar filtros">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+              </div>
+
+              <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 pr-0.5 text-[9.5px]">
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Tiempo</span>
+                  <select data-dk-st-filter="time"
+                    ${cascadingOptions.timeDisabled ? 'disabled title="Horizonte fijado por la Vista Rápida"' : ''}
+                    class="${selectCls(stAnchors.time !== 'all' || cascadingOptions.timeDisabled)} ${cascadingOptions.timeDisabled ? 'opacity-65 cursor-not-allowed' : ''}">
+                    ${cascadingOptions.timeDisabled
+                      ? `<option value="all" selected>${escapeHtml(cascadingOptions.timeLockedLabel)}</option>`
+                      : renderSelectOpts(cascadingOptions.time, stAnchors.time || 'all', 'Todas las fechas')}
+                  </select>
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Estudio / Perfil</span>
+                  <select data-dk-st-filter="workspace"
+                    ${cascadingOptions.workspaceDisabled ? 'disabled title="Perfil fijado desde la barra superior"' : ''}
+                    class="${selectCls(stAnchors.workspace !== 'all' || cascadingOptions.workspaceDisabled)} ${cascadingOptions.workspaceDisabled ? 'opacity-65 cursor-not-allowed' : ''}">
+                    ${cascadingOptions.workspaceDisabled
+                      ? `<option value="all" selected>${escapeHtml(cascadingOptions.workspaceLockedLabel)}</option>`
+                      : renderSelectOpts(cascadingOptions.workspace, stAnchors.workspace, 'Estudio')}
+                  </select>
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Cliente</span>
+                  <select data-dk-st-filter="client" class="${selectCls(stAnchors.client !== 'all')}">
+                    ${renderSelectOpts(cascadingOptions.client, stAnchors.client, 'Todos')}
+                  </select>
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Depto</span>
+                  <select data-dk-st-filter="department"
+                    ${cascadingOptions.departmentDisabled ? 'disabled title="Selecciona un Perfil para filtrar por Depto"' : ''}
+                    class="${selectCls(stAnchors.department !== 'all')} ${cascadingOptions.departmentDisabled ? 'opacity-45 cursor-not-allowed' : ''}">
+                    ${cascadingOptions.departmentDisabled
+                      ? '<option value="all" selected>Todos</option>'
+                      : renderSelectOpts(cascadingOptions.department, stAnchors.department, 'Todos')}
+                  </select>
+                </label>
+                ${!stRbac.lockedMember ? `
+                  <label class="flex flex-col gap-0.5">
+                    <span class="text-[8.5px] text-[#8C8C8C]">Responsable</span>
+                    <select data-dk-st-filter="responsible" class="${selectCls(stAnchors.responsible !== 'all')}">
+                      ${renderSelectOpts(cascadingOptions.responsible, stAnchors.responsible, 'Todos')}
+                    </select>
+                  </label>
+                ` : ''}
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Etapa</span>
+                  <select data-dk-st-filter="stage" class="${selectCls(stAnchors.stage !== 'all')}">
+                    ${renderSelectOpts(cascadingOptions.stage, stAnchors.stage, 'Todas')}
+                  </select>
+                </label>
+                <label class="flex flex-col gap-0.5">
+                  <span class="text-[8.5px] text-[#8C8C8C]">Estado</span>
+                  <select data-dk-st-filter="status" class="${selectCls(stAnchors.status !== 'all')}">
+                    ${renderSelectOpts(cascadingOptions.status, stAnchors.status, 'Todos')}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
         </div>
       `;
+
+      if (panelLightboxModId === 'stats' && lightboxChartIdx === null) {
+        const filtersMarkup = `
+          <div class="flex items-center justify-between gap-1 pb-2 mb-2 border-b border-obsidian-border/70 shrink-0">
+            <span class="font-mono text-[9px] uppercase tracking-wider text-[#A3A3A3] font-semibold">Filtros</span>
+            <button type="button" data-dk-st-reset="1" title="Limpiar filtros"
+              class="w-5 h-5 rounded hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors ${hasActiveStatsFilters ? 'text-obsidian-amber' : 'text-[#5A5A5A] hover:text-[#A3A3A3]'}">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+          </div>
+          <div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-0.5 text-[10px]">
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Tiempo</span>
+              <select data-dk-st-filter="time"
+                ${cascadingOptions.timeDisabled ? 'disabled title="Horizonte fijado por la Vista Rápida"' : ''}
+                class="${selectCls(stAnchors.time !== 'all' || cascadingOptions.timeDisabled)} ${cascadingOptions.timeDisabled ? 'opacity-65 cursor-not-allowed' : ''}">
+                ${cascadingOptions.timeDisabled
+                  ? `<option value="all" selected>${escapeHtml(cascadingOptions.timeLockedLabel)}</option>`
+                  : renderSelectOpts(cascadingOptions.time, stAnchors.time || 'all', 'Todas las fechas')}
+              </select>
+            </label>
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Estudio / Perfil</span>
+              <select data-dk-st-filter="workspace"
+                ${cascadingOptions.workspaceDisabled ? 'disabled title="Perfil fijado desde la barra superior"' : ''}
+                class="${selectCls(stAnchors.workspace !== 'all' || cascadingOptions.workspaceDisabled)} ${cascadingOptions.workspaceDisabled ? 'opacity-65 cursor-not-allowed' : ''}">
+                ${cascadingOptions.workspaceDisabled
+                  ? `<option value="all" selected>${escapeHtml(cascadingOptions.workspaceLockedLabel)}</option>`
+                  : renderSelectOpts(cascadingOptions.workspace, stAnchors.workspace, 'Estudio')}
+              </select>
+            </label>
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Cliente</span>
+              <select data-dk-st-filter="client" class="${selectCls(stAnchors.client !== 'all')}">
+                ${renderSelectOpts(cascadingOptions.client, stAnchors.client, 'Todos')}
+              </select>
+            </label>
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Depto</span>
+              <select data-dk-st-filter="department"
+                ${cascadingOptions.departmentDisabled ? 'disabled title="Selecciona un Perfil para filtrar por Depto"' : ''}
+                class="${selectCls(stAnchors.department !== 'all')} ${cascadingOptions.departmentDisabled ? 'opacity-45 cursor-not-allowed' : ''}">
+                ${cascadingOptions.departmentDisabled
+                  ? '<option value="all" selected>Todos</option>'
+                  : renderSelectOpts(cascadingOptions.department, stAnchors.department, 'Todos')}
+              </select>
+            </label>
+            ${!stRbac.lockedMember ? `
+              <label class="flex flex-col gap-0.5">
+                <span class="text-[9px] text-[#8C8C8C]">Responsable</span>
+                <select data-dk-st-filter="responsible" class="${selectCls(stAnchors.responsible !== 'all')}">
+                  ${renderSelectOpts(cascadingOptions.responsible, stAnchors.responsible, 'Todos')}
+                </select>
+              </label>
+            ` : ''}
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Etapa</span>
+              <select data-dk-st-filter="stage" class="${selectCls(stAnchors.stage !== 'all')}">
+                ${renderSelectOpts(cascadingOptions.stage, stAnchors.stage, 'Todas')}
+              </select>
+            </label>
+            <label class="flex flex-col gap-0.5">
+              <span class="text-[9px] text-[#8C8C8C]">Estado</span>
+              <select data-dk-st-filter="status" class="${selectCls(stAnchors.status !== 'all')}">
+                ${renderSelectOpts(cascadingOptions.status, stAnchors.status, 'Todos')}
+              </select>
+            </label>
+          </div>
+        `;
+
+        const wideKpiRowHtml = `
+          <div class="p-2 border-b border-obsidian-border bg-[#161616] grid grid-cols-2 sm:grid-cols-4 ${showFinalizadasKpi ? 'xl:grid-cols-8' : 'xl:grid-cols-7'} gap-1.5 shrink-0">
+            ${renderTopRingWidget({
+              title: isPersonalScope ? 'Mis OTs' : 'OTs Activas',
+              value: scopedOrders.length,
+              ringColor: '#f97316',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="ots-active"',
+              active: effectiveStatsPill === 'ots-active',
+              lines: suspendedCount
+                ? [{ label: 'En proceso' }, { num: suspendedCount, numColor: '#f59e0b', label: 'Susp.' }]
+                : [{ label: 'En proceso' }],
+            })}
+            ${renderTopRingWidget({
+              title: 'OTs Urgentes',
+              value: urgentOts.length,
+              ringColor: urgentOts.length ? '#ef4444' : '#22c55e',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="ots-urgent"',
+              active: effectiveStatsPill === 'ots-urgent',
+              lines: [
+                { num: todayOts.length, numColor: '#06b6d4', label: 'Hoy' },
+                { num: tomorrowOts.length, numColor: '#22c55e', label: 'Mañana' },
+              ],
+            })}
+            ${renderTopRingWidget({
+              title: isPersonalScope ? 'Mis Tareas' : 'Tareas Activas',
+              value: allActiveTasks.length,
+              ringColor: '#f59e0b',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="tasks-active"',
+              active: effectiveStatsPill === 'tasks-active',
+              lines: [{ label: 'En proceso' }],
+            })}
+            ${renderTopRingWidget({
+              title: 'Tareas Urgentes',
+              value: urgentTasks.length,
+              ringColor: urgentTasks.length ? '#ef4444' : '#22c55e',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="tasks-urgent"',
+              active: effectiveStatsPill === 'tasks-urgent',
+              lines: [
+                { num: todayTasks.length, numColor: '#06b6d4', label: 'Hoy' },
+                { num: tomorrowTasks.length, numColor: '#22c55e', label: 'Mañana' },
+              ],
+            })}
+            ${renderTopRingWidget({
+              title: 'En Cliente',
+              value: waitingClientItems.length,
+              ringColor: '#06b6d4',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="client-review"',
+              active: effectiveStatsPill === 'client-review',
+              lines: [{ label: 'En revisión' }],
+            })}
+            ${showFinalizadasKpi ? renderTopRingWidget({
+              title: 'Finalizadas',
+              value: toBillItems.length + billedItems.length,
+              ringColor: '#eab308',
+              progress: 1,
+              attrs: 'data-dk-stats-pill="finalizadas"',
+              active: effectiveStatsPill === 'finalizadas',
+              lines: [
+                { num: toBillItems.length, numColor: '#eab308', label: 'Por Facturar' },
+                { num: billedItems.length, numColor: '#22c55e', label: 'Facturadas' },
+              ],
+            }) : ''}
+            ${!isPersonalScope ? `
+              ${renderTopRingWidget({
+                title: 'Tareas Libres',
+                value: scopedFreeTasks.length,
+                ringColor: '#a855f7',
+                progress: 1,
+                attrs: 'data-dk-stats-pill="free-tasks"',
+                active: effectiveStatsPill === 'free-tasks',
+                lines: [
+                  { num: freeEstudioCount, numColor: '#a855f7', label: 'Estudio' },
+                  { num: freeClienteCount, numColor: '#06b6d4', label: 'Cliente' },
+                ],
+              })}
+              ${renderTopRingWidget({
+                title: 'Separadores',
+                value: scopedSeparators.length,
+                ringColor: '#94a3b8',
+                progress: 1,
+                attrs: 'data-dk-stats-pill="separators"',
+                active: effectiveStatsPill === 'separators',
+                lines: [
+                  { num: `${sepTotalHours}h`, numColor: '#cbd5e1', label: 'Pausas' },
+                ],
+              })}
+            ` : `
+              ${renderTopRingWidget({
+                title: 'Mi Jornada Hoy',
+                value: `${todayHours}h`,
+                ringColor: todayOver ? '#ef4444' : '#22c55e',
+                progress: todayHours / dailyHours,
+                attrs: 'data-dk-stats-pill="today-hours"',
+                active: effectiveStatsPill === 'today-hours',
+                lines: [
+                  { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
+                  { num: `${todayPct}%`, numColor: todayOver ? '#ef4444' : '#22c55e', label: todayOver ? 'Extra' : 'Uso' },
+                ],
+              })}
+              ${renderTopRingWidget({
+                title: 'Mañana',
+                value: `${tomorrowHours}h`,
+                ringColor: tomorrowOver ? '#ef4444' : '#38bdf8',
+                progress: tomorrowHours / dailyHours,
+                attrs: 'data-dk-stats-pill="tomorrow-hours"',
+                active: effectiveStatsPill === 'tomorrow-hours',
+                lines: [
+                  { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
+                  { num: `${tomorrowPct}%`, numColor: tomorrowOver ? '#ef4444' : '#38bdf8', label: tomorrowOver ? 'Extra' : 'Uso' },
+                ],
+              })}
+            `}
+          </div>
+        `;
+
+        fullStatsPanelLightboxHtml = `
+          <div id="dk-stats-panel-lightbox" data-dk-lb-backdrop="1"
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6">
+            <div class="w-full max-w-[1440px] h-[90vh] bg-[#171717] border border-obsidian-border rounded-2xl shadow-2xl flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+              <div class="px-4 py-2.5 border-b border-obsidian-border bg-[#1c1c1c] flex items-center justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="font-mono text-[10px] text-obsidian-amber uppercase tracking-wider font-semibold shrink-0">Estadística</span>
+                  <span class="text-[#4A4A4A]">·</span>
+                  <span class="font-mono text-[11px] text-[#F0F0F0] uppercase tracking-wider font-semibold truncate">${escapeHtml(pillBoard.title)}</span>
+                </div>
+                ${lbWsTabsHtml}
+                <div class="flex items-center gap-2.5 font-mono text-[9.5px] text-[#8C8C8C] shrink-0">
+                  ${!pillBoard.isDayMode ? `
+                    <div class="inline-flex items-center gap-0.5 text-[9.5px] font-mono">
+                      <button type="button" data-dk-st-metric="${pillBoard.isTasksMode ? 'tasks' : 'ots'}"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer ${stEff.metric !== 'hours' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">${pillBoard.isTasksMode ? 'Tareas' : 'OTs'}</button>
+                      <button type="button" data-dk-st-metric="hours"
+                        class="px-2 py-0.5 rounded transition-colors cursor-pointer ${stEff.metric === 'hours' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Horas</button>
+                    </div>
+                    <span class="w-px h-3.5 bg-obsidian-border"></span>
+                  ` : ''}
+                  <span>${escapeHtml(pillBoard.countLabel)}</span>
+                  <span>·</span>
+                  <span class="text-[#D4D4D4] font-semibold">${pillBoard.totalHours}h</span>
+                  <span class="w-px h-3.5 bg-obsidian-border"></span>
+                  <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)"
+                    class="px-2.5 py-1 rounded text-[10px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">Cerrar</button>
+                </div>
+              </div>
+              ${wideKpiRowHtml}
+              <div class="flex-1 min-h-0 flex divide-x divide-obsidian-border">
+                <div class="flex-1 min-w-0 p-3 flex flex-col min-h-0 bg-[#171717]">
+                  ${activeFilterChips.length ? `
+                    <div class="flex items-center flex-wrap gap-1.5 mb-2.5 shrink-0">
+                      ${activeFilterChips.map((ch) => `
+                        <button type="button" data-dk-st-clear-filter="${escapeHtml(ch.key)}" title="Quitar filtro"
+                          class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#222222] hover:bg-[#2a2a2a] border border-obsidian-amber/40 text-[9px] font-mono text-[#D4D4D4] cursor-pointer transition-colors">
+                          <span>${escapeHtml(ch.label)}</span>
+                          <span class="text-obsidian-amber">×</span>
+                        </button>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                  ${pillBoard.wideHtml}
+                </div>
+                <div class="w-[185px] shrink-0 p-3 flex flex-col min-h-0 bg-[#151515]">
+                  ${filtersMarkup}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
     } else {
       innerHtml = renderQ4Content(dragHandleHtml, collapseBtnHtml);
     }
 
     return `
-      <div data-dk-drop-slot="${slotIdx}" class="flex-1 flex flex-col min-h-0 ${borderBottomClass} transition-shadow">
+      <div data-dk-drop-slot="${slotIdx}" class="${slotClass} flex flex-col min-h-0 ${borderBottomClass} transition-shadow">
         ${innerHtml}
       </div>
     `;
   };
 
-  container.innerHTML = `
-    <!-- Fila superior: 8 pastillas individuales estilo widget con aro -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 shrink-0">
-      ${renderTopRingWidget({
-        title: 'OTs Activas',
-        value: scopedOrders.length,
-        ringColor: '#f97316',
-        progress: 1,
-        attrs: 'data-dk-traffic-all="1"',
-        lines: suspendedCount
-          ? [{ label: 'En proceso' }, { num: suspendedCount, numColor: '#f59e0b', label: 'Susp.' }]
-          : [{ label: 'En proceso' }],
-      })}
-      ${renderTopRingWidget({
-        title: 'OTs Urgentes',
-        value: urgentOts.length,
-        ringColor: urgentOts.length ? '#ef4444' : '#22c55e',
-        progress: 1,
-        attrs: 'data-dk-traffic-urgent="1"',
-        lines: [
-          { num: todayOts.length, numColor: '#06b6d4', label: 'Hoy' },
-          { num: tomorrowOts.length, numColor: '#22c55e', label: 'Mañana' },
-        ],
-      })}
-      ${renderTopRingWidget({
-        title: 'Tareas Activas',
-        value: allActiveTasks.length,
-        ringColor: '#f59e0b',
-        progress: 1,
-        attrs: 'data-dk-tasks-all="1"',
-        lines: [{ label: 'En proceso' }],
-      })}
-      ${renderTopRingWidget({
-        title: 'Tareas Urgentes',
-        value: urgentTasks.length,
-        ringColor: urgentTasks.length ? '#ef4444' : '#22c55e',
-        progress: 1,
-        attrs: 'data-dk-tasks-urgent="1"',
-        lines: [
-          { num: todayTasks.length, numColor: '#06b6d4', label: 'Hoy' },
-          { num: tomorrowTasks.length, numColor: '#22c55e', label: 'Mañana' },
-        ],
-      })}
-      ${renderTopRingWidget({
-        title: 'En Cliente',
-        value: waitingClientItems.length,
-        ringColor: '#06b6d4',
-        progress: 1,
-        attrs: 'data-dk-traffic-dept="Cliente"',
-        lines: [{ label: 'En revisión' }],
-      })}
-      ${renderTopRingWidget({
-        title: 'Finalizadas',
-        value: toBillItems.length + billedItems.length,
-        ringColor: '#eab308',
-        progress: 1,
-        attrs: 'data-dk-traffic-dept="Facturación"',
-        lines: [
-          { num: toBillItems.length, numColor: '#eab308', label: 'Por Facturar' },
-          { num: billedItems.length, numColor: '#22c55e', label: 'Facturadas' },
-        ],
-      })}
-      ${renderTopRingWidget({
-        title: 'Mi Jornada Hoy',
-        value: `${todayHours}h`,
-        ringColor: todayOver ? '#ef4444' : '#22c55e',
-        progress: todayHours / dailyHours,
-        attrs: `data-dk-jump-day="${todayKey}"`,
-        lines: [
-          { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
-          { num: `${todayPct}%`, numColor: todayOver ? '#ef4444' : '#22c55e', label: todayOver ? 'Extra' : 'Uso' },
-        ],
-      })}
-      ${renderTopRingWidget({
-        title: 'Mañana',
-        value: `${tomorrowHours}h`,
-        ringColor: tomorrowOver ? '#ef4444' : '#38bdf8',
-        progress: tomorrowHours / dailyHours,
-        attrs: `data-dk-jump-day="${tomorrowKey}"`,
-        lines: [
-          { num: `/${dailyHours}h`, numColor: '#8C8C8C', label: '' },
-          { num: `${tomorrowPct}%`, numColor: tomorrowOver ? '#ef4444' : '#38bdf8', label: tomorrowOver ? 'Extra' : 'Uso' },
-        ],
-      })}
-    </div>
+  const renderGenericPanelLightboxHtml = () => {
+    if (!panelLightboxModId || panelLightboxModId === 'stats') return '';
+    const title = panelLightboxModId === 'priorities'
+      ? 'Prioridades · Urgentes · Hoy · Mañana'
+      : (selectedContextOt
+          ? `Galería · ${String(selectedContextOt.id || '').replace(/^OT-/i, '')}`
+          : (q2ViewMode === 'month' ? 'Calendario · Mes' : 'Calendario · Semanas'));
+    return `
+      <div id="dk-generic-panel-lightbox" data-dk-lb-backdrop="1"
+        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6">
+        <div class="w-full max-w-[1440px] h-[90vh] bg-[#191919] border border-obsidian-border rounded-2xl shadow-2xl flex flex-col overflow-hidden" onclick="event.stopPropagation()">
+          <div class="px-4 py-2.5 border-b border-obsidian-border bg-[#1c1c1c] flex items-center justify-between gap-3 shrink-0">
+            <span class="font-mono text-[11px] text-[#F0F0F0] uppercase tracking-wider font-semibold truncate">${escapeHtml(title)}</span>
+            ${lbWsTabsHtml}
+            <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)"
+              class="px-2.5 py-1 rounded text-[10px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors shrink-0">Cerrar</button>
+          </div>
+          <div class="flex-1 min-h-0 flex flex-col">
+            ${renderQuadrantModule(panelLightboxModId, -1, { inLightbox: true })}
+          </div>
+        </div>
+      </div>
+    `;
+  };
 
-    <!-- Espacio inferior acuartelado 2×2 (intercambiable por arrastre · mitad derecha colapsable) -->
+  container.innerHTML = `
+    ${canSwitchGlobal ? `
+      <div class="flex items-center justify-between gap-2 shrink-0 px-0.5">
+        <span class="font-mono text-[9px] uppercase tracking-wider text-[#737373]">
+          ${isPersonalScope ? `Escritorio Personal · ${escapeHtml(myMember)}` : 'Escritorio Global · Estudio'}
+        </span>
+        <div class="inline-flex items-center gap-1 text-[9.5px] font-mono shrink-0">
+          <button type="button" data-dk-scope-mode="global"
+            class="px-2 py-0.5 rounded transition-colors cursor-pointer ${!isPersonalScope ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Global</button>
+          <button type="button" data-dk-scope-mode="personal"
+            class="px-2 py-0.5 rounded transition-colors cursor-pointer ${isPersonalScope ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Personal</button>
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Espacio acuartelado 2×2 (intercambiable por arrastre · mitad derecha colapsable) -->
     <div class="flex-1 min-h-[420px] grid grid-cols-1 lg:grid-cols-2 border border-obsidian-border rounded-xl overflow-hidden bg-[#191919]">
       <!-- Mitad izquierda: Slot 0 (arriba) + Slot 2 (abajo) -->
       <div class="grid grid-rows-2 border-b lg:border-b-0 lg:border-r border-obsidian-border min-h-0">
@@ -1542,11 +1700,19 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
               `
               : `
                 ${renderQuadrantModule(quadrantOrder[1], 1, { collapseTarget: 'q2', borderBottomClass: 'border-b border-obsidian-border' })}
-                ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4' })}
+                ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4', slotClass: 'h-[140px] shrink-0' })}
               `)
         }
       </div>
     </div>
+    ${lightboxChartIdx !== null && lastPillBoard
+      ? renderChartLightboxHtml({
+          pillBoard: lastPillBoard,
+          activeIdx: lightboxChartIdx,
+          activeFilterChips: statsQuery.activeAnchorChips || [],
+          showBackToPanel: panelLightboxModId === 'stats',
+        })
+      : (panelLightboxModId === 'stats' ? fullStatsPanelLightboxHtml : renderGenericPanelLightboxHtml())}
   `;
 
   // Render Inspector mini-calendar pinned at the bottom
@@ -1572,18 +1738,145 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     }
   };
 
-  // In idle state (no OT selected), render global Mensajes & Actividad inside Inspector (#insp-content-slot) above the mini-calendar
+  // In idle state (no OT selected), render Estadística drill-down list (if active) or global Mensajes & Actividad inside Inspector (#insp-content-slot)
   const inspContentSlot = document.getElementById('insp-content-slot');
-  if (inspContentSlot && !selectedContextOt) {
+  const activeStatsDrill = selectedStatsDrillKey && lastPillBoard?.drillMap
+    ? (lastPillBoard.drillMap.get(selectedStatsDrillKey) || null)
+    : null;
+  if (selectedStatsDrillKey && !activeStatsDrill) {
+    selectedStatsDrillKey = null;
+    if (inspIdleTab === 'drill') inspIdleTab = 'messages';
+  }
+  if (!activeStatsDrill && inspIdleTab === 'drill') {
+    inspIdleTab = 'messages';
+  }
+
+  if (inspContentSlot && !selectedContextOt && activeStatsDrill && inspIdleTab === 'drill') {
+    inspContentSlot.innerHTML = `
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-obsidian-border sticky top-0 bg-[#191919] z-10">
+          <div class="inline-flex items-center gap-0.5 text-[9px] font-mono w-full">
+            <button type="button" data-dk-insp-tab="messages"
+              class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center text-[#737373] hover:text-[#D4D4D4]">Mensajes <span class="text-[#5A5A5A]">${visibleMessages.length}</span></button>
+            <button type="button" data-dk-insp-tab="activity"
+              class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center text-[#737373] hover:text-[#D4D4D4]">Actividad <span class="text-[#5A5A5A]">${visibleTrace.length}</span></button>
+            <button type="button" data-dk-insp-tab="drill"
+              class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center bg-obsidian-elevated text-[#D4D4D4] font-semibold">Lista <span class="text-obsidian-amber">${activeStatsDrill.items.length}</span></button>
+          </div>
+        </div>
+
+        <div class="pb-1.5 border-b border-obsidian-border/70">
+          <div class="flex items-start justify-between gap-1.5">
+            <div class="min-w-0">
+              <div class="font-mono text-[8px] uppercase tracking-wider text-obsidian-amber truncate">${escapeHtml(activeStatsDrill.category)} · ${escapeHtml(activeStatsDrill.boardTitle)}</div>
+              <div class="text-[11px] font-semibold text-[#F0F0F0] truncate mt-0.5">${escapeHtml(activeStatsDrill.title)}</div>
+              <div class="font-mono text-[8.5px] text-[#8C8C8C] mt-0.5">${activeStatsDrill.items.length} ${escapeHtml(activeStatsDrill.itemNoun)} · <span class="text-[#D4D4D4]">${activeStatsDrill.totalHours}h</span></div>
+            </div>
+            <button type="button" data-dk-insp-clear-drill="1" title="Cerrar lista"
+              class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors shrink-0">×</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          ${activeStatsDrill.items.length
+            ? activeStatsDrill.items.map((it, idx) => {
+                const hasOt = !!it.otId;
+                const shortCode = hasOt
+                  ? (it.taskIndex !== null && it.taskIndex !== undefined
+                      ? `${String(it.otId || '').replace(/^OT-/i, '')}.${it.taskIndex + 1}`
+                      : String(it.otId || '').replace(/^OT-/i, ''))
+                  : (it.badge || 'LIBRE');
+                const cColor = it.client === 'Estudio' ? '#a855f7' : (it.client === 'Agenda' ? '#94a3b8' : getClientColor(it.client));
+                const dKey = (it.deliveryDate || '').slice(0, 10);
+                const isOverdue = hasOt && dKey && dKey < todayKey;
+                const isTodayDue = dKey === todayKey;
+                const dateLbl = dKey ? `${dKey.slice(8, 10)}/${dKey.slice(5, 7)}` : '—';
+                const otAttrs = hasOt
+                  ? `data-dk-drill-select-ot="${escapeHtml(it.otId)}" data-dk-drill-task-idx="${it.taskIndex !== null && it.taskIndex !== undefined ? it.taskIndex : ''}" data-dk-drill-key="drill:${escapeHtml(it.id)}:${idx}"`
+                  : '';
+                return `
+                  <div ${otAttrs}
+                    class="px-2 py-1.5 rounded-md bg-[#202020] ${hasOt ? 'hover:bg-[#262626] cursor-pointer' : ''} border border-obsidian-border/70 transition-colors flex flex-col gap-0.5">
+                    <div class="flex items-center justify-between gap-1">
+                      <span class="inline-flex items-center gap-1 min-w-0">
+                        ${hasOt ? getPriorityDotHtml(it, todayKey, tomorrowKey, 'w-1.5 h-1.5') : ''}
+                        ${hasOt
+                          ? `<button type="button" data-dk-drill-open-ot="${escapeHtml(it.otId)}" data-dk-drill-open-task="${it.taskIndex !== null && it.taskIndex !== undefined ? it.taskIndex : ''}" title="Abrir OT"
+                              class="font-mono text-[9.5px] font-semibold text-obsidian-amber hover:underline cursor-pointer shrink-0">${escapeHtml(shortCode)}</button>`
+                          : `<span class="font-mono text-[8.5px] font-semibold text-[#A3A3A3] shrink-0">${escapeHtml(shortCode)}</span>`}
+                        <span class="font-mono text-[8px] text-[#737373] shrink-0">${Number(it.hours) || 0}h</span>
+                      </span>
+                      <span class="font-mono text-[8.5px] ${isOverdue ? 'text-rose-300 font-semibold' : (isTodayDue ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]')} shrink-0">${escapeHtml(dateLbl)}</span>
+                    </div>
+                    <div class="text-[10px] text-[#D4D4D4] line-clamp-2 leading-snug" title="${escapeHtml(it.title)}">${escapeHtml(it.title)}</div>
+                    <div class="flex items-center justify-between gap-1 text-[8.5px]">
+                      <span class="truncate font-medium" style="color:${escapeHtml(cColor)}">${escapeHtml(it.client)}</span>
+                      <span class="truncate shrink-0 text-[#8C8C8C]">${escapeHtml(it.responsible)}</span>
+                    </div>
+                  </div>
+                `;
+              }).join('')
+            : `<div class="py-4 text-center text-[9.5px] font-mono text-[#5A5A5A]">Sin elementos</div>`
+          }
+        </div>
+      </div>
+    `;
+
+    inspContentSlot.querySelectorAll('[data-dk-insp-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = btn.dataset.dkInspTab;
+        if (next && next !== inspIdleTab) {
+          inspIdleTab = next;
+          renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+        }
+      });
+    });
+
+    inspContentSlot.querySelector('[data-dk-insp-clear-drill]')?.addEventListener('click', () => {
+      selectedStatsDrillKey = null;
+      inspIdleTab = 'messages';
+      renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+    });
+
+    inspContentSlot.querySelectorAll('[data-dk-drill-open-ot]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tIdx = btn.dataset.dkDrillOpenTask !== '' ? Number(btn.dataset.dkDrillOpenTask) : null;
+        openOt(btn.dataset.dkDrillOpenOt, tIdx);
+      });
+    });
+
+    inspContentSlot.querySelectorAll('[data-dk-drill-select-ot]').forEach((row) => {
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const otId = row.dataset.dkDrillSelectOt;
+        const tIdx = row.dataset.dkDrillTaskIdx !== '' ? Number(row.dataset.dkDrillTaskIdx) : null;
+        selectedCardKey = row.dataset.dkDrillKey;
+        selectedContextOtId = otId;
+        selectedContextTaskIdx = tIdx;
+        selectedMediaIndex = null;
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+        renderTrafficNotesInspector(otId, tIdx !== null ? String(tIdx) : '', false, { onOpenOt: (id) => openOt(id, tIdx) });
+      });
+      row.addEventListener('dblclick', () => {
+        const tIdx = row.dataset.dkDrillTaskIdx !== '' ? Number(row.dataset.dkDrillTaskIdx) : null;
+        openOt(row.dataset.dkDrillSelectOt, tIdx);
+      });
+    });
+  } else if (inspContentSlot && !selectedContextOt) {
     const getInitials = (name) => String(name || '?').trim().split(/\s+/).map((p) => p[0] || '').join('').slice(0, 2).toUpperCase();
     inspContentSlot.innerHTML = `
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-obsidian-border sticky top-0 bg-[#191919] z-10">
-          <div class="inline-flex items-center gap-1 text-[9px] font-mono w-full">
+          <div class="inline-flex items-center gap-0.5 text-[9px] font-mono w-full">
             <button type="button" data-dk-insp-tab="messages"
-              class="flex-1 px-1.5 py-0.5 rounded transition-colors cursor-pointer text-center ${inspIdleTab === 'messages' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Mensajes <span class="${inspIdleTab === 'messages' ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]'}">${visibleMessages.length}</span></button>
+              class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center ${inspIdleTab === 'messages' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Mensajes <span class="${inspIdleTab === 'messages' ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]'}">${visibleMessages.length}</span></button>
             <button type="button" data-dk-insp-tab="activity"
-              class="flex-1 px-1.5 py-0.5 rounded transition-colors cursor-pointer text-center ${inspIdleTab === 'activity' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Actividad <span class="${inspIdleTab === 'activity' ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]'}">${visibleTrace.length}</span></button>
+              class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center ${inspIdleTab === 'activity' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">Actividad <span class="${inspIdleTab === 'activity' ? 'text-[#A3A3A3]' : 'text-[#5A5A5A]'}">${visibleTrace.length}</span></button>
+            ${activeStatsDrill ? `
+              <button type="button" data-dk-insp-tab="drill"
+                class="flex-1 px-1 py-0.5 rounded transition-colors cursor-pointer text-center text-[#737373] hover:text-[#D4D4D4]">Lista <span class="text-obsidian-amber">${activeStatsDrill.items.length}</span></button>
+            ` : ''}
           </div>
         </div>
 
@@ -1710,32 +2003,111 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     });
   }
 
-  // Bind top-row KPI actions
-  container.querySelector('[data-dk-traffic-all]')?.addEventListener('click', () => {
-    lastCallbacks.onGoToTraffic?.({ client: null, department: 'all', stage: 'all', status: 'all', dateFilter: 'all' });
-  });
-
-  container.querySelector('[data-dk-traffic-urgent]')?.addEventListener('click', () => {
-    lastCallbacks.onGoToTraffic?.({ dateFilter: 'urgent' });
-  });
-
-  container.querySelector('[data-dk-tasks-all]')?.addEventListener('click', () => {
-    lastCallbacks.onGoToAllTasks?.({ client: null, department: 'all', stage: 'all', status: 'all', dateFilter: 'all' });
-  });
-
-  container.querySelector('[data-dk-tasks-urgent]')?.addEventListener('click', () => {
-    lastCallbacks.onGoToAllTasks?.({ dateFilter: 'urgent' });
-  });
-
-  container.querySelectorAll('[data-dk-traffic-dept]').forEach((el) => {
+  // Bind Estadística KPI pills (Vista Rápida -> select active board inside Estadística)
+  container.querySelectorAll('[data-dk-stats-pill]').forEach((el) => {
     el.addEventListener('click', () => {
-      lastCallbacks.onGoToTraffic?.({ department: el.dataset.dkTrafficDept });
+      const nextPill = el.dataset.dkStatsPill;
+      if (nextPill && nextPill !== activeStatsPill) {
+        activeStatsPill = nextPill;
+        lightboxChartIdx = null;
+        selectedStatsDrillKey = null;
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+      }
     });
   });
 
-  container.querySelectorAll('[data-dk-jump-day]').forEach((el) => {
-    el.addEventListener('click', () => {
-      lastCallbacks.onGoToStripboardDate?.(el.dataset.dkJumpDay);
+  // Bind Estadística -> Inspector drill-down on chart bars, slices & columns
+  container.querySelectorAll('[data-dk-chart-drill]').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = el.dataset.dkChartDrill;
+      if (!key) return;
+      selectedStatsDrillKey = key;
+      inspIdleTab = 'drill';
+      selectedContextOtId = null;
+      selectedContextTaskIdx = null;
+      lightboxChartIdx = null;
+      panelLightboxModId = null;
+      renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+    });
+  });
+
+  // Bind Por Depto local Perfil pager (inside Masonry card and Caja de Luz)
+  container.querySelectorAll('[data-dk-dept-page]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nextWs = btn.dataset.dkDeptPage;
+      if (nextWs && nextWs !== deptChartPageWsId) {
+        deptChartPageWsId = nextWs;
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+      }
+    });
+  });
+
+  // Bind Caja de Luz (Lightbox) on Masonry chart cards
+  container.querySelectorAll('[data-dk-chart-zoom]').forEach((cardEl) => {
+    const openZoom = (e) => {
+      if (e && e.target && e.target.closest('button, [data-dk-chart-drill]')) return;
+      const idx = Number(cardEl.dataset.dkChartZoom);
+      if (!Number.isNaN(idx)) {
+        lightboxChartIdx = idx;
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+      }
+    };
+    cardEl.addEventListener('click', openZoom);
+    cardEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openZoom();
+      }
+    });
+  });
+
+  // Bind full-panel Caja de Luz trigger & workspace switcher
+  container.querySelectorAll('[data-dk-lb-ws]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const nextWs = btn.dataset.dkLbWs;
+      if (nextWs && nextWs !== activeWsId) {
+        setActiveWorkspace(nextWs);
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-dk-lb-open-panel]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panelLightboxModId = btn.dataset.dkLbOpenPanel || 'stats';
+      lightboxChartIdx = null;
+      renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+    });
+  });
+
+  container.querySelector('[data-dk-lb-back-panel]')?.addEventListener('click', () => {
+    lightboxChartIdx = null;
+    panelLightboxModId = 'stats';
+    renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+  });
+
+  container.querySelector('[data-dk-lb-backdrop]')?.addEventListener('click', () => {
+    lightboxChartIdx = null;
+    panelLightboxModId = null;
+    renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+  });
+
+  container.querySelector('[data-dk-lb-close]')?.addEventListener('click', () => {
+    lightboxChartIdx = null;
+    panelLightboxModId = null;
+    renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+  });
+
+  container.querySelectorAll('[data-dk-lb-nav]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const total = lastPillBoard?.cards?.length || 0;
+      if (!total || lightboxChartIdx === null) return;
+      const delta = Number(btn.dataset.dkLbNav || 0);
+      lightboxChartIdx = (lightboxChartIdx + delta + total) % total;
+      renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
     });
   });
 
@@ -1872,36 +2244,47 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       const tmp = quadrantOrder[fromSlot];
       quadrantOrder[fromSlot] = quadrantOrder[targetSlot];
       quadrantOrder[targetSlot] = tmp;
-      saveQuadrantOrder(quadrantOrder);
+      saveQuadrantOrder(quadrantOrder, desktopScope);
       renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
     });
   });
 
-  // Bind Estadística dynamic controls (presets, Agrupar por, Medir, Ordenar, Periodo, 7 Filtros)
+  // Bind Global | Personal switcher (Dueño / Admin-Tráfico / Cuentas)
+  container.querySelectorAll('[data-dk-scope-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.dkScopeMode;
+      if ((next === 'global' || next === 'personal') && next !== desktopScopePref) {
+        desktopScopePref = next;
+        saveDesktopScope(next);
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+      }
+    });
+  });
+
+  // Bind Estadística v3 controls (presets, Agrupar por, Medir, Ordenar, 7 Filtros en cascada)
   const applyStatsUpdate = () => {
-    saveStatsConfig(statsConfig);
+    saveStatsState(statsState);
     renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
   };
 
   container.querySelectorAll('[data-dk-st-preset]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const p = btn.dataset.dkStPreset;
-      if (p === 'equipo') {
-        statsConfig.groupBy = 'responsible';
-        statsConfig.metric = 'hours';
-        statsConfig.sortBy = 'desc';
+      statsState.preset = p;
+      statsState.manualGroupBy = false;
+      statsState.sortBy = 'desc';
+      if (p === 'capacidad') {
+        statsState.groupBy = 'responsible';
+        statsState.metric = 'hours';
+      } else if (p === 'espacio') {
+        statsState.groupBy = 'workspace';
+        statsState.metric = 'ots';
       } else if (p === 'clientes') {
-        statsConfig.groupBy = 'client';
-        statsConfig.metric = 'ots';
-        statsConfig.sortBy = 'desc';
-      } else if (p === 'deptos') {
-        statsConfig.groupBy = 'department';
-        statsConfig.metric = 'ots';
-        statsConfig.sortBy = 'desc';
-      } else if (p === 'etapas') {
-        statsConfig.groupBy = 'stage';
-        statsConfig.metric = 'ots';
-        statsConfig.sortBy = 'desc';
+        statsState.groupBy = 'client';
+        statsState.metric = 'ots';
+      } else if (p === 'facturacion') {
+        statsState.groupBy = 'stage';
+        statsState.metric = 'ots';
       }
       applyStatsUpdate();
     });
@@ -1910,8 +2293,10 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-st-cfg]').forEach((sel) => {
     sel.addEventListener('change', () => {
       const key = sel.dataset.dkStCfg;
-      if (key && statsConfig[key] !== sel.value) {
-        statsConfig[key] = sel.value;
+      if (key === 'groupBy') {
+        statsState.groupBy = sel.value;
+        statsState.manualGroupBy = true;
+        statsState.preset = 'custom';
         applyStatsUpdate();
       }
     });
@@ -1920,8 +2305,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-st-metric]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const m = btn.dataset.dkStMetric;
-      if (m && statsConfig.metric !== m) {
-        statsConfig.metric = m;
+      if (m && statsState.metric !== m) {
+        statsState.metric = m;
         applyStatsUpdate();
       }
     });
@@ -1930,8 +2315,10 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-st-filter]').forEach((sel) => {
     sel.addEventListener('change', () => {
       const key = sel.dataset.dkStFilter;
-      if (key && statsConfig.filters[key] !== sel.value) {
-        statsConfig.filters[key] = sel.value;
+      if (key && statsState.anchors[key] !== sel.value) {
+        statsState.anchors[key] = sel.value;
+        statsState.manualGroupBy = false;
+        statsState.preset = 'custom';
         applyStatsUpdate();
       }
     });
@@ -1940,23 +2327,30 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-st-clear-filter]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const key = btn.dataset.dkStClearFilter;
-      if (key && key in statsConfig.filters) {
-        statsConfig.filters[key] = 'all';
+      if (key && key in statsState.anchors) {
+        statsState.anchors[key] = 'all';
+        statsState.manualGroupBy = false;
         applyStatsUpdate();
       }
     });
   });
 
-  container.querySelector('[data-dk-st-reset]')?.addEventListener('click', () => {
-    Object.keys(statsConfig.filters).forEach((k) => { statsConfig.filters[k] = 'all'; });
-    applyStatsUpdate();
+  container.querySelectorAll('[data-dk-st-reset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      Object.keys(statsState.anchors).forEach((k) => { statsState.anchors[k] = 'all'; });
+      statsState.manualGroupBy = false;
+      statsState.preset = 'capacidad';
+      statsState.groupBy = 'responsible';
+      statsState.metric = 'hours';
+      applyStatsUpdate();
+    });
   });
 
   container.querySelectorAll('[data-dk-stat-type]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const type = btn.dataset.dkStatType;
       const val = btn.dataset.dkStatVal;
-      const goTasks = statsConfig.metric === 'tasks';
+      const goTasks = statsState.metric === 'tasks';
       if (type === 'workspace') {
         setActiveWorkspace(val);
       } else if (type === 'client') {
@@ -1993,11 +2387,34 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   if (!dismissListenersBound) {
     dismissListenersBound = true;
     document.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape' || !selectedContextOtId) return;
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       const tag = (document.activeElement?.tagName || '').toLowerCase();
       if (['input', 'textarea', 'select'].includes(tag)) return;
+
+      if (lightboxChartIdx !== null) {
+        if (e.key === 'Escape') {
+          lightboxChartIdx = null;
+          renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+          return;
+        }
+        const total = lastPillBoard?.cards?.length || 0;
+        if (total && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          e.preventDefault();
+          const delta = e.key === 'ArrowLeft' ? -1 : 1;
+          lightboxChartIdx = (lightboxChartIdx + delta + total) % total;
+          renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+          return;
+        }
+      }
+
+      if (panelLightboxModId && e.key === 'Escape') {
+        panelLightboxModId = null;
+        renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+        return;
+      }
+
+      if (e.key !== 'Escape' || !selectedContextOtId) return;
       closeQ4Context();
     });
 

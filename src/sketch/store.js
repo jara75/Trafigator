@@ -1104,3 +1104,30 @@ export function sortTrafficItemsByEntryDate(items, sortBy = sketchState.trafficS
     return sortBy === 'oldest' ? da.localeCompare(db) : db.localeCompare(da);
   });
 }
+
+/**
+ * Tareas Libres (fuera de OT, suman horas a la jornada):
+ * - kind: 'estudio' (interno) | 'cliente' (asignada a un cliente sin abrir OT)
+ */
+export const studioFreeTasks = [
+  { id: 'free-1', kind: 'estudio', client: 'Estudio', title: 'Capacitación Trafigator', responsible: 'Andrés', workspaceId: 'diseno-publicidad', date: relDate(0).slice(0, 10), hours: 2 },
+  { id: 'free-2', kind: 'cliente', client: 'Shambhala Ecohotel', title: 'Reunión con Shambhala', responsible: 'Andrés', workspaceId: 'diseno-publicidad', date: relDate(0).slice(0, 10), hours: 1.5 },
+  { id: 'free-3', kind: 'estudio', client: 'Estudio', title: 'Reunión semanal de equipo', responsible: 'Camila', workspaceId: 'diseno-publicidad', date: relDate(0).slice(0, 10), hours: 1 },
+  { id: 'free-4', kind: 'cliente', client: 'Club Premium', title: 'Llamada briefing Club Premium', responsible: 'Camila', workspaceId: 'diseno-web', date: relDate(1).slice(0, 10), hours: 1 },
+  { id: 'free-5', kind: 'estudio', client: 'Estudio', title: 'Organización librería de activos', responsible: 'Mateo', workspaceId: 'diseno-publicidad', date: relDate(1).slice(0, 10), hours: 2 },
+  { id: 'free-6', kind: 'cliente', client: 'Café Origen', title: 'Asesoría rápida de empaques', responsible: 'Mateo', workspaceId: 'diseno-publicidad', date: relDate(2).slice(0, 10), hours: 1.5 },
+  { id: 'free-7', kind: 'estudio', client: 'Estudio', title: 'Actualización portafolio del estudio', responsible: 'Sofía', workspaceId: 'desarrollo-software', date: relDate(3).slice(0, 10), hours: 2.5 },
+];
+
+/**
+ * Separadores (pausas y bloques personales de agenda, fuera de OT).
+ */
+export const studioSeparators = [
+  { id: 'sep-1', title: 'Almorzar', responsible: 'Andrés', date: relDate(0).slice(0, 10), minutes: 60, hours: 1 },
+  { id: 'sep-2', title: 'Pasear a los perros', responsible: 'Andrés', date: relDate(0).slice(0, 10), minutes: 30, hours: 0.5 },
+  { id: 'sep-3', title: '15 minutos de descanso', responsible: 'Mateo', date: relDate(0).slice(0, 10), minutes: 15, hours: 0.25 },
+  { id: 'sep-4', title: 'Almorzar', responsible: 'Camila', date: relDate(0).slice(0, 10), minutes: 60, hours: 1 },
+  { id: 'sep-5', title: '15 minutos de descanso', responsible: 'Sofía', date: relDate(1).slice(0, 10), minutes: 15, hours: 0.25 },
+  { id: 'sep-6', title: 'Pasear a los perros', responsible: 'Andrés', date: relDate(1).slice(0, 10), minutes: 30, hours: 0.5 },
+  { id: 'sep-7', title: 'Almorzar', responsible: 'Mateo', date: relDate(2).slice(0, 10), minutes: 60, hours: 1 },
+];

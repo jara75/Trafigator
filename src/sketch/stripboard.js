@@ -20,6 +20,8 @@ import {
   shiftIsoDate,
   sketchState,
   sortTrafficItemsByEntryDate,
+  studioFreeTasks,
+  studioSeparators,
   studioSettings,
   trafficDepartments,
   trafficMembers,
@@ -649,27 +651,51 @@ export function renderStripboard() {
   });
 
   container.querySelector('#sb-add-break')?.addEventListener('click', () => {
-    strips.push({ uid: `sep-${Date.now()}`, type: 'break', title: 'CORTE / REUNIÓN · 15 MIN' });
+    const sepUid = `sep-${Date.now()}`;
+    strips.push({ uid: sepUid, type: 'break', title: '15 minutos de descanso', minutes: 15, hours: 0.25 });
+    studioSeparators.push({
+      id: sepUid,
+      title: '15 minutos de descanso',
+      responsible: sketchState.myOtsMember || 'Andrés',
+      date: sketchState.stripboardDate || relDate(0).slice(0, 10),
+      minutes: 15,
+      hours: 0.25,
+    });
     renderStripboard();
+    notifySketchChange('orders');
   });
 
   container.querySelector('#sb-add-free')?.addEventListener('click', () => {
+    const freeUid = `free-${Date.now()}`;
+    const dIso = sketchState.stripboardDate || relDate(0).slice(0, 10);
     strips.push({
-      uid: `free-${Date.now()}`,
+      uid: freeUid,
       type: 'task',
+      freeKind: 'estudio',
       code: 'LIBRE',
       client: 'Estudio',
       brand: 'Interno',
-      title: 'Revisión rápida de entregables',
-      deliveryDate: `${sketchState.stripboardDate}T18:00:00`,
-      scheduledDate: sketchState.stripboardDate,
-      estimatedHours: 2,
+      title: 'Capacitación Trafigator',
+      deliveryDate: `${dIso}T18:00:00`,
+      scheduledDate: dIso,
+      estimatedHours: 1.5,
       department: 'Estudio',
       stage: 'Tráfico',
       status: 'En proceso',
       notes: ''
     });
+    studioFreeTasks.push({
+      id: freeUid,
+      kind: 'estudio',
+      client: 'Estudio',
+      title: 'Capacitación Trafigator',
+      responsible: sketchState.myOtsMember || 'Andrés',
+      workspaceId: sketchState.activeWorkspaceId !== 'studio' ? sketchState.activeWorkspaceId : 'diseno-publicidad',
+      date: dIso,
+      hours: 1.5,
+    });
     renderStripboard();
+    notifySketchChange('orders');
   });
 
   container.querySelectorAll('[data-sb-remove]').forEach((btn) => {
