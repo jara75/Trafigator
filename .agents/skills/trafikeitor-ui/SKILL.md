@@ -79,4 +79,11 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 
 - **Roles en Trafikeitor:** `Dueño` (`director`, **no** cuenta en el cupo de puestos) | `Miembro` (`member`, con cargo `role_title` y permiso `allowed_client_id`: `'*'` o cliente específico) | `Cliente` (revisor gratuito en todos los planes) | `Invitado` *(pendiente de implementar completamente en el Módulo Estudio / Miembros)*.
 - **Planes:** Prueba gratis `14 días` (5 puestos), Plan Solo `USD $12/mes` (1 puesto sin invitaciones internas), Plan Estudio `USD $49/mes` (5 puestos + `USD $5` por adicional hasta máximo `10`).
+- **Principio de Jerarquía de Filtros (estricto):** Un filtro hijo **nunca** contradice ni sobrescribe a su padre. Ejemplos obligatorios:
+  - Si `#workspace-bar` ya fijó un Perfil, el filtro interno `Estudio / Perfil` queda bloqueado en ese Perfil.
+  - En modo `Estudio` (2+ perfiles activos), `Depto` permanece en `Todos` (deshabilitado) porque los departamentos pertenecen a cada Perfil; se habilita con el orden operativo exacto del Perfil al elegir uno.
+  - `Etapa`, `Estado` y `Tiempo` respetan siempre los límites de la Vista Rápida activa (ej. `Tareas` solo `Tráfico`/`Recibida`; `Finalizadas` solo cobro; `Hoy`/`Mañana` fijan `Tiempo`).
+- **Ergonomía de Filtros en Escritorio / Estadística:** Los filtros van a la **derecha** (`1/5`) alineados con la primera fila de gráficos (estilo software creativo / Inspector derecho), nunca como muro intermedio a la izquierda.
+- **Tareas Libres vs. Separadores:** `Tarea Libre` = trabajo productivo fuera de OT de 2 tipos (`Estudio` interno o `Cliente`); `Separador` = pausa/bloque personal de agenda (*15 min descanso*, *Almorzar*, *Pasear a los perros*). En Escritorio `Global` ocupan las dos últimas Vistas Rápidas; `Mi Jornada Hoy` y `Mañana` pertenecen solo a Escritorio `Personal`.
+
 
