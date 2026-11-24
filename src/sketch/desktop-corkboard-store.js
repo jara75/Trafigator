@@ -481,21 +481,37 @@ export function removeCorkPin(pinId, opts = {}) {
   return { ...saved, removed: target || null };
 }
 
+function resolveStorageKey(storageKey) {
+  return typeof storageKey === 'string' ? storageKey : getCorkStorageKey(storageKey || {});
+}
+
+function readNormalizedPinsByKey(key) {
+  if (!key) return null;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) return null;
+  return parsed
+    .map((item, idx) => createCorkPin({ ...item, position: item?.position ?? idx }))
+    .sort((a, b) => a.position - b.position);
+}
+
+function writeNormalizedPinsByKey(key, pins) {
+  const normalized = pins.map((p, idx) => createCorkPin({ ...p, position: idx }));
+  localStorage.setItem(key, JSON.stringify(normalized));
+  return normalized;
+}
+
 export function reorderCorkPins(storageKey, draggedPinId, targetPinId) {
-  const key = typeof storageKey === 'string' ? storageKey : getCorkStorageKey(storageKey || {});
+  const key = resolveStorageKey(storageKey);
   const fromId = String(draggedPinId || '');
   const toId = String(targetPinId || '');
   if (!key || !fromId || !toId || fromId === toId) {
     return { ok: true, moved: false, pins: [] };
   }
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return { ok: true, moved: false, pins: [] };
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return { ok: true, moved: false, pins: [] };
-    const ordered = parsed
-      .map((item, idx) => createCorkPin({ ...item, position: item?.position ?? idx }))
-      .sort((a, b) => a.position - b.position);
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return { ok: true, moved: false, pins: [] };
     const fromIdx = ordered.findIndex((p) => p.id === fromId);
     const toIdx = ordered.findIndex((p) => p.id === toId);
     if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) {
@@ -503,11 +519,104 @@ export function reorderCorkPins(storageKey, draggedPinId, targetPinId) {
     }
     const [movedPin] = ordered.splice(fromIdx, 1);
     ordered.splice(toIdx, 0, movedPin);
-    const normalized = ordered.map((p, idx) => createCorkPin({ ...p, position: idx }));
-    localStorage.setItem(key, JSON.stringify(normalized));
+    const normalized = writeNormalizedPinsByKey(key, ordered);
     return { ok: true, moved: true, pins: normalized };
   } catch (err) {
     return { ok: false, moved: false, error: err?.name || 'StorageError', pins: [] };
+  }
+}
+
+export function updateCorkPinMeta(storageKey, pinId, patch = {}) {
+  const key = resolveStorageKey(storageKey);
+  const targetId = String(pinId || '');
+  if (!key || !targetId || !patch || typeof patch !== 'object') {
+    return { ok: false, updated: false, pin: null, pins: [] };
+  }
+  try {
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return { ok: false, updated: false, pin: null, pins: [] };
+    const idx = ordered.findIndex((p) => p.id === targetId);
+    if (idx === -1) return { ok: false, updated: false, pin: null, pins: ordered };
+    const current = ordered[idx];
+    const nextPatch = {};
+    if ('title' in patch) nextPatch.title = String(patch.title ?? '');
+    if ('content' in patch) nextPatch.content = String(patch.content ?? '');
+    if ('url' in patch) nextPatch.url = String(patch.url ?? '');
+    if ('fileMeta' in patch && patch.fileMeta && typeof patch.fileMeta === 'object') {
+      nextPatch.fileMeta = {
+        ...(current.fileMeta || {}),
+        ...patch.fileMeta,
+      };
+    }
+    if ('highlights' in patch && Array.isArray(patch.highlights)) {
+      nextPatch.highlights = patch.highlights;
+    }
+    const updatedPin = createCorkPin({ ...current, ...nextPatch, id: current.id, position: idx });
+    const nextList = ordered.slice();
+    nextList[idx] = updatedPin;
+    const normalized = writeNormalizedPinsByKey(key, nextList);
+    return { ok: true, updated: true, pin: normalized[idx], pins: normalized };
+  } catch (err) {
+    return { ok: false, updated: false, error: err?.name || 'StorageError', pin: null, pins: [] };
+  }
+}
+
+export function addCorkPinHighlight(storageKey, pinId, highlight = {}) {
+  const key = resolveStorageKey(storageKey);
+  const targetId = String(pinId || '');
+  const quote = String(highlight?.quote || '').trim();
+  const note = String(highlight?.note || '').trim();
+  if (!key || !targetId || (!quote && !note)) {
+    return { ok: false, added: false, highlight: null, pin: null, pins: [] };
+  }
+  try {
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return { ok: false, added: false, highlight: null, pin: null, pins: [] };
+    const idx = ordered.findIndex((p) => p.id === targetId);
+    if (idx === -1) return { ok: false, added: false, highlight: null, pin: null, pins: ordered };
+    const current = ordered[idx];
+    const newHighlight = {
+      id: String(highlight?.id || `hl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+      quote,
+      note,
+      createdAt: String(highlight?.createdAt || new Date().toISOString()),
+    };
+    const nextHighlights = [...(Array.isArray(current.highlights) ? current.highlights : []), newHighlight];
+    const updatedPin = createCorkPin({ ...current, highlights: nextHighlights, id: current.id, position: idx });
+    const nextList = ordered.slice();
+    nextList[idx] = updatedPin;
+    const normalized = writeNormalizedPinsByKey(key, nextList);
+    return { ok: true, added: true, highlight: newHighlight, pin: normalized[idx], pins: normalized };
+  } catch (err) {
+    return { ok: false, added: false, error: err?.name || 'StorageError', highlight: null, pin: null, pins: [] };
+  }
+}
+
+export function removeCorkPinHighlight(storageKey, pinId, highlightId) {
+  const key = resolveStorageKey(storageKey);
+  const targetId = String(pinId || '');
+  const hlId = String(highlightId || '');
+  if (!key || !targetId || !hlId) {
+    return { ok: false, removed: false, pin: null, pins: [] };
+  }
+  try {
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return { ok: false, removed: false, pin: null, pins: [] };
+    const idx = ordered.findIndex((p) => p.id === targetId);
+    if (idx === -1) return { ok: false, removed: false, pin: null, pins: ordered };
+    const current = ordered[idx];
+    const prevHighlights = Array.isArray(current.highlights) ? current.highlights : [];
+    const nextHighlights = prevHighlights.filter((h) => h.id !== hlId);
+    if (nextHighlights.length === prevHighlights.length) {
+      return { ok: true, removed: false, pin: current, pins: ordered };
+    }
+    const updatedPin = createCorkPin({ ...current, highlights: nextHighlights, id: current.id, position: idx });
+    const nextList = ordered.slice();
+    nextList[idx] = updatedPin;
+    const normalized = writeNormalizedPinsByKey(key, nextList);
+    return { ok: true, removed: true, pin: normalized[idx], pins: normalized };
+  } catch (err) {
+    return { ok: false, removed: false, error: err?.name || 'StorageError', pin: null, pins: [] };
   }
 }
 

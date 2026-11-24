@@ -173,8 +173,9 @@ export function renderCorkPinCard(pin, idx, {
   if (pin.type === 'note') {
     const excerpt = String(pin.content || '').trim();
     return `
-      <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}"
-        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-[#3a3a3a] flex flex-col justify-between gap-1.5 min-w-0 ${dragCursorCls} transition-colors">
+      <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}" data-cork-open-preview="${escapeHtml(pin.id)}" role="button" tabindex="0"
+        title="Abrir Vista Previa y apuntes"
+        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-cyan-500/50 flex flex-col justify-between gap-1.5 min-w-0 cursor-pointer transition-colors">
         <div class="space-y-1 min-w-0">
           <div class="flex items-center justify-between gap-1.5">
             <span class="font-mono text-[8.5px] uppercase tracking-wider text-[#8C8C8C] font-semibold">NOTA</span>
@@ -199,8 +200,9 @@ export function renderCorkPinCard(pin, idx, {
       domain = pin.url || '';
     }
     return `
-      <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}"
-        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-[#3a3a3a] flex flex-col justify-between gap-1.5 min-w-0 ${dragCursorCls} transition-colors">
+      <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}" data-cork-open-preview="${escapeHtml(pin.id)}" role="button" tabindex="0"
+        title="Abrir Vista Previa y apuntes"
+        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-cyan-500/50 flex flex-col justify-between gap-1.5 min-w-0 cursor-pointer transition-colors">
         <div class="space-y-1 min-w-0">
           <div class="flex items-center justify-between gap-1.5">
             <span class="font-mono text-[8.5px] uppercase tracking-wider text-sky-400/90 font-semibold">WEB</span>
@@ -239,8 +241,9 @@ export function renderCorkPinCard(pin, idx, {
        </div>`;
 
   return `
-    <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}"
-      class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-[#3a3a3a] flex flex-col justify-between gap-1.5 min-w-0 ${dragCursorCls} transition-colors">
+    <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}" data-cork-open-preview="${escapeHtml(pin.id)}" role="button" tabindex="0"
+      title="Abrir Vista Previa y apuntes"
+      class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-cyan-500/50 flex flex-col justify-between gap-1.5 min-w-0 cursor-pointer transition-colors">
       <div class="space-y-1.5 min-w-0">
         <div class="flex items-center justify-between gap-1.5">
           <div class="flex items-center gap-1.5 min-w-0">

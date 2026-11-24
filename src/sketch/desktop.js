@@ -1027,14 +1027,18 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       const tag = (document.activeElement?.tagName || '').toLowerCase();
-      if (['input', 'textarea', 'select'].includes(tag)) return;
 
       // Prioridad 1: cerrar Vista Previa de Pin dentro de C04 antes de salir de Escritorio Completo
       if (e.key === 'Escape' && hasOpenCorkPinPreview()) {
+        if (['input', 'textarea', 'select'].includes(tag)) {
+          document.activeElement?.blur?.();
+        }
         closeCorkPinPreview();
         rerender();
         return;
       }
+
+      if (['input', 'textarea', 'select'].includes(tag)) return;
 
       if (lightboxChartIdx !== null) {
         if (e.key === 'Escape') {

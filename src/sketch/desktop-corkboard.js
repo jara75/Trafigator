@@ -13,6 +13,7 @@ import {
   DND_MIME_SLOT,
   addChartCorkPin,
   addCorkPin,
+  addCorkPinHighlight,
   addLocalFilesToCorkboard,
   addOtMediaCorkPin,
   addOtOrTaskCorkPin,
@@ -23,6 +24,7 @@ import {
   findDuplicateOtMediaPin,
   findDuplicateOtOrTaskPin,
   getActiveCorkComposer,
+  getActiveCorkPinId,
   getActivePinnedChartId,
   getCorkBlobObjectUrl,
   getCorkStorageKey,
@@ -30,9 +32,12 @@ import {
   hasOpenCorkPinPreview,
   normalizeSafeWebUrl,
   removeCorkPin,
+  removeCorkPinHighlight,
   reorderCorkPins,
   setActiveCorkComposer,
+  setActiveCorkPinId,
   setActivePinnedChartId,
+  updateCorkPinMeta,
 } from './desktop-corkboard-store.js';
 import {
   renderChartOverlay,
@@ -42,8 +47,15 @@ import {
   buildPinnedChartBoard,
   renderCorkPinCard,
 } from './desktop-corkboard-cards.js';
+import {
+  renderCorkPinHighlightsList,
+  renderCorkPinPreview,
+  renderCorkPinPreviewCloseBtn,
+  renderCorkPinPreviewFooter,
+  renderCorkPinPreviewHeaderLeft,
+} from './desktop-corkboard-preview.js';
 
-// Re-exportación limpia para mantener dirección única: desktop.js → desktop-corkboard.js → { store, overlays, cards }
+// Re-exportación limpia para mantener dirección única: desktop.js → desktop-corkboard.js → { store, overlays, cards, preview }
 export {
   DND_MIME_PIN,
   DND_MIME_SLOT,
@@ -194,6 +206,60 @@ function hydrateCorkThumbnails(corkRoot) {
   });
 }
 
+function hydrateCorkPreviewMedia(corkRoot) {
+  if (!corkRoot) return;
+  const slot = corkRoot.querySelector('[data-cork-preview-blob-id]');
+  if (!slot) return;
+  const blobId = slot.dataset.corkPreviewBlobId;
+  const tag = slot.dataset.corkPreviewFileTag || 'ARCHIVO';
+  const fileName = slot.dataset.corkPreviewFileName || 'Archivo';
+  const fileSize = slot.dataset.corkPreviewFileSize || '';
+  if (!blobId) return;
+  getCorkBlobObjectUrl(blobId).then((objUrl) => {
+    if (!slot.isConnected) return;
+    if (!objUrl) {
+      slot.innerHTML = `<span class="font-mono text-[9.5px] text-[#737373]">Recurso local no disponible en IndexedDB.</span>`;
+      return;
+    }
+    if (tag === 'IMG') {
+      slot.innerHTML = `<img src="${escapeHtml(objUrl)}" alt="${escapeHtml(fileName)}" class="max-h-full max-w-full object-contain rounded" />`;
+    } else if (tag === 'VID') {
+      slot.innerHTML = `<video src="${escapeHtml(objUrl)}" controls class="max-h-full max-w-full rounded"></video>`;
+    } else if (tag === 'PDF') {
+      slot.innerHTML = `
+        <div class="w-full h-full flex flex-col gap-1.5 min-h-[180px]">
+          <iframe src="${escapeHtml(objUrl)}" title="${escapeHtml(fileName)}" class="w-full flex-1 min-h-[160px] rounded bg-[#141414] border-0"></iframe>
+          <div class="flex justify-end shrink-0">
+            <a href="${escapeHtml(objUrl)}" target="_blank" rel="noopener noreferrer"
+              class="font-mono text-[9px] text-[#8C8C8C] hover:text-obsidian-amber transition-colors">Abrir PDF ↗</a>
+          </div>
+        </div>
+      `;
+    } else {
+      slot.innerHTML = `
+        <div class="flex flex-col items-center justify-center gap-2 text-center px-4">
+          <div class="w-11 h-11 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold text-[#8C8C8C]">${escapeHtml(tag)}</div>
+          <div class="text-[11px] font-medium text-[#D4D4D4] break-all">${escapeHtml(fileName)}</div>
+          ${fileSize ? `<div class="font-mono text-[9px] text-[#737373]">${escapeHtml(fileSize)}</div>` : ''}
+          <a href="${escapeHtml(objUrl)}" download="${escapeHtml(fileName)}"
+            class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[10px] font-mono text-[#D4D4D4] transition-colors">Descargar archivo</a>
+        </div>
+      `;
+    }
+  });
+}
+
+function resolveActivePreviewPin(pins) {
+  const activeId = getActiveCorkPinId();
+  if (!activeId) return null;
+  const found = pins.find((p) => p.id === activeId && ['file', 'note', 'link'].includes(p.type)) || null;
+  if (!found) {
+    setActiveCorkPinId(null);
+    return null;
+  }
+  return found;
+}
+
 export function renderCorkboardQuadrant({
   lightboxChartIdx,
   lastPillBoard,
@@ -315,23 +381,33 @@ export function renderCorkboardQuadrant({
     closePinnedChart();
   }
 
-  // 3. Estado base: Tablero de Corcho (estilo Scrivener)
-  const activeComposer = perms.canEdit ? getActiveCorkComposer() : null;
+  // 3. Estado 1 (Cuadrícula de Corcho) o Estado 2 (Vista Previa de Pin dentro de C04)
+  const activePin = resolveActivePreviewPin(pins);
+  const activeComposer = perms.canEdit && !activePin ? getActiveCorkComposer() : null;
 
   return `
-    <div data-dk-cork-root="1" data-dk-cork-editable="${perms.canEdit ? '1' : '0'}"
+    <div data-dk-cork-root="1" data-dk-cork-editable="${perms.canEdit ? '1' : '0'}" data-dk-cork-mode="${activePin ? 'preview' : 'grid'}"
       class="relative p-3 border-t-2 border-t-cyan-500/70 flex flex-col min-h-0 flex-1 bg-[#161616]/60 transition-colors">
       <div class="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-obsidian-border/70 shrink-0">
-        <div class="flex items-center gap-1.5 min-w-0">
-          ${dragHandleHtml}
-          <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Tablero de Corcho</span>
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          <span data-dk-cork-drag-slot="1" class="${activePin ? 'hidden' : 'inline-flex items-center shrink-0'}">${dragHandleHtml}</span>
+          <div data-dk-cork-header-left="1" class="flex items-center gap-1.5 min-w-0 flex-1">
+            ${activePin
+              ? renderCorkPinPreviewHeaderLeft(activePin, { canEdit: perms.canEdit })
+              : `<span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Tablero de Corcho</span>`}
+          </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <div data-dk-cork-actions="1" class="flex items-center gap-1 shrink-0">
+          <div data-dk-cork-actions="1" class="${activePin ? 'hidden' : 'flex items-center gap-2 shrink-0'}">
             ${renderCorkHeaderActions(perms.canEdit, activeComposer)}
+            <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
           </div>
-          <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
-          ${rightActionBtns}
+          <div data-dk-cork-desktop-controls="1" class="inline-flex items-center gap-1 shrink-0">
+            ${rightActionBtns}
+          </div>
+          <div data-dk-cork-close-slot="1" class="${activePin ? 'inline-flex items-center shrink-0' : 'hidden'}">
+            ${activePin ? renderCorkPinPreviewCloseBtn() : ''}
+          </div>
         </div>
       </div>
 
@@ -344,27 +420,35 @@ export function renderCorkboardQuadrant({
         <input id="cork-file-upload-input" name="cork_file_upload" type="file" multiple data-cork-file-input="1" class="hidden" />
       ` : ''}
 
-      <div data-dk-cork-body="1" data-dk-scroll-id="corkboard-grid:${isPersonalScope ? 'personal' : 'global'}"
-        class="flex-1 min-h-0 overflow-y-auto flex flex-col pr-0.5">
-        ${renderCorkBodyHtml({
-          pins,
-          isFullDesktop,
-          canEdit: perms.canEdit,
-          activeComposer,
-          errorMsg: composerErrorMsg,
-          noticeMsg: corkNoticeMsg,
-          trafficOrders,
-          todayKey,
-          tomorrowKey,
-          dailyHours,
-          canSeeFinancial,
-          myMember,
-        })}
+      <div data-dk-cork-body="1" data-dk-scroll-id="${activePin ? `corkboard-preview:${escapeHtml(activePin.id)}` : `corkboard-grid:${isPersonalScope ? 'personal' : 'global'}`}"
+        class="flex-1 min-h-0 ${activePin ? 'overflow-hidden' : 'overflow-y-auto pr-0.5'} flex flex-col">
+        ${activePin
+          ? renderCorkPinPreview({
+              pin: activePin,
+              canEdit: perms.canEdit,
+              trafficOrders,
+            })
+          : renderCorkBodyHtml({
+              pins,
+              isFullDesktop,
+              canEdit: perms.canEdit,
+              activeComposer,
+              errorMsg: composerErrorMsg,
+              noticeMsg: corkNoticeMsg,
+              trafficOrders,
+              todayKey,
+              tomorrowKey,
+              dailyHours,
+              canSeeFinancial,
+              myMember,
+            })}
       </div>
 
       <div data-dk-cork-footer="1" class="flex items-center justify-between text-[8.5px] font-mono text-[#4A4A4A] pt-1.5 mt-1.5 border-t border-obsidian-border/40 shrink-0">
-        <span>CORCHO · ${pins.length} ${pins.length === 1 ? 'ficha' : 'fichas'}</span>
-        <span>${isPersonalScope ? 'Privado' : (perms.canEdit ? 'Estudio · Editable' : 'Estudio · Solo lectura')}</span>
+        ${activePin
+          ? renderCorkPinPreviewFooter(activePin, { canEdit: perms.canEdit, isPersonalScope })
+          : `<span>CORCHO · ${pins.length} ${pins.length === 1 ? 'ficha' : 'fichas'}</span>
+             <span>${isPersonalScope ? 'Privado' : (perms.canEdit ? 'Estudio · Editable' : 'Estudio · Solo lectura')}</span>`}
       </div>
     </div>
   `;
@@ -458,6 +542,25 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
       const rawTaskIdx = btn.dataset.corkOpenTaskIdx;
       const taskIdx = rawTaskIdx !== undefined && rawTaskIdx !== '' ? Number(rawTaskIdx) : null;
       ctx.openOt?.(otId, Number.isInteger(taskIdx) ? taskIdx : null);
+    });
+  });
+
+  // Abrir Vista Previa (Estado 2) al hacer clic en ficha file, note o link
+  corkRoot.querySelectorAll('[data-cork-open-preview]').forEach((cardEl) => {
+    const openPreview = (e) => {
+      if (e?.target?.closest('button, a, input, textarea')) return;
+      const pinId = cardEl.dataset.corkOpenPreview;
+      if (!pinId) return;
+      setActiveCorkComposer(null);
+      setActiveCorkPinId(pinId);
+      rerenderLocal();
+    };
+    cardEl.addEventListener('click', openPreview);
+    cardEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openPreview(e);
+      }
     });
   });
 
@@ -556,6 +659,163 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
   });
 
   hydrateCorkThumbnails(corkRoot);
+  bindCorkboardPreviewEvents(corkRoot, ctx, rerenderLocal);
+}
+
+function bindCorkboardPreviewEvents(corkRoot, ctx, rerenderLocal) {
+  const previewRoot = corkRoot.querySelector('[data-dk-cork-preview-root]');
+  if (!previewRoot) return;
+  const pinId = previewRoot.dataset.dkCorkPreviewRoot;
+  if (!pinId) return;
+
+  const { isPersonalScope = false, roleCaps = null, userProfile = null, studioSettings = null } = ctx;
+  const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
+  const storeOpts = { isPersonalScope, studioSettings, userProfile };
+  const storageKey = getCorkStorageKey(storeOpts);
+
+  // Cerrar Estado 2 (botón ‹ Corcho y botón × uniforme)
+  corkRoot.querySelectorAll('[data-cork-close-preview="1"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setActiveCorkPinId(null);
+      rerenderLocal();
+    });
+  });
+
+  // Hidratar blob local en IndexedDB si aplica
+  hydrateCorkPreviewMedia(corkRoot);
+
+  if (!perms.canEdit) return;
+
+  // Edición inline del título (sin perder foco)
+  const titleInput = corkRoot.querySelector('[data-cork-preview-title="1"]');
+  titleInput?.addEventListener('input', () => {
+    const nextTitle = titleInput.value.trim();
+    if (!nextTitle) return;
+    updateCorkPinMeta(storageKey, pinId, { title: nextTitle });
+  });
+  titleInput?.addEventListener('blur', () => {
+    const nextTitle = titleInput.value.trim() || 'Sin título';
+    titleInput.value = nextTitle;
+    updateCorkPinMeta(storageKey, pinId, { title: nextTitle });
+  });
+
+  // Guardado local continuo de contenido en nota o extracto de enlace (sin re-render ni pérdida de foco)
+  const saveStatusEl = corkRoot.querySelector('[data-cork-save-status="1"]');
+  const bindAutoSaveTextarea = (el) => {
+    if (!el) return;
+    let saveTimer = null;
+    const persist = () => {
+      updateCorkPinMeta(storageKey, pinId, { content: el.value });
+      if (saveStatusEl) saveStatusEl.textContent = 'Guardado local';
+    };
+    el.addEventListener('input', () => {
+      if (saveStatusEl) saveStatusEl.textContent = 'Guardando...';
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(persist, 160);
+    });
+    el.addEventListener('blur', () => {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      persist();
+    });
+  };
+  const noteEditor = corkRoot.querySelector('[data-cork-note-editor="1"]');
+  const linkExcerpt = corkRoot.querySelector('[data-cork-link-excerpt="1"]');
+  bindAutoSaveTextarea(noteEditor);
+  bindAutoSaveTextarea(linkExcerpt);
+
+  // Capturar selección de texto en Nota como resaltado
+  const selectionHint = corkRoot.querySelector('[data-cork-selection-hint="1"]');
+  corkRoot.querySelector('[data-cork-capture-selection="1"]')?.addEventListener('click', () => {
+    if (!noteEditor) return;
+    const start = noteEditor.selectionStart ?? 0;
+    const end = noteEditor.selectionEnd ?? 0;
+    const selected = noteEditor.value.slice(start, end).trim();
+    if (!selected) {
+      if (selectionHint) {
+        selectionHint.textContent = 'Selecciona un fragmento en la nota para capturarlo como resaltado.';
+        selectionHint.classList.remove('hidden');
+      }
+      return;
+    }
+    if (selectionHint) selectionHint.classList.add('hidden');
+    const quoteInput = corkRoot.querySelector('#cork-hl-quote');
+    const noteInput = corkRoot.querySelector('#cork-hl-note');
+    if (quoteInput) quoteInput.value = selected.slice(0, 320);
+    noteInput?.focus();
+  });
+
+  // Capturar extracto/selección de Enlace como resaltado
+  corkRoot.querySelector('[data-cork-capture-link-excerpt="1"]')?.addEventListener('click', () => {
+    if (!linkExcerpt) return;
+    const start = linkExcerpt.selectionStart ?? 0;
+    const end = linkExcerpt.selectionEnd ?? 0;
+    const selected = linkExcerpt.value.slice(start, end).trim() || linkExcerpt.value.trim();
+    if (!selected) return;
+    const quoteInput = corkRoot.querySelector('#cork-hl-quote');
+    const noteInput = corkRoot.querySelector('#cork-hl-note');
+    if (quoteInput) quoteInput.value = selected.slice(0, 320);
+    noteInput?.focus();
+  });
+
+  // Actualización in-place de la lista de resaltados (preserva visor izquierdo y foco)
+  const refreshHighlightsUi = (updatedPin) => {
+    const listSlot = corkRoot.querySelector('[data-cork-hl-list="1"]');
+    const countSlot = corkRoot.querySelector('[data-cork-hl-count="1"]');
+    const footerSlot = corkRoot.querySelector('[data-dk-cork-footer="1"]');
+    if (listSlot) {
+      listSlot.innerHTML = renderCorkPinHighlightsList(updatedPin, { canEdit: perms.canEdit });
+      listSlot.scrollTop = listSlot.scrollHeight;
+    }
+    if (countSlot) {
+      countSlot.textContent = String(Array.isArray(updatedPin?.highlights) ? updatedPin.highlights.length : 0);
+    }
+    if (footerSlot) {
+      footerSlot.innerHTML = renderCorkPinPreviewFooter(updatedPin, { canEdit: perms.canEdit, isPersonalScope });
+    }
+    bindRemoveHighlightButtons();
+  };
+
+  const bindRemoveHighlightButtons = () => {
+    corkRoot.querySelectorAll('[data-cork-remove-hl]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const hlId = btn.dataset.corkRemoveHl;
+        if (!hlId) return;
+        const res = removeCorkPinHighlight(storageKey, pinId, hlId);
+        if (res.removed && res.pin) {
+          refreshHighlightsUi(res.pin);
+        }
+      });
+    });
+  };
+  bindRemoveHighlightButtons();
+
+  // Formulario de nuevo resaltado / apunte privado
+  corkRoot.querySelector('[data-cork-hl-form="1"]')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const quoteInput = corkRoot.querySelector('#cork-hl-quote');
+    const noteInput = corkRoot.querySelector('#cork-hl-note');
+    const errorSlot = corkRoot.querySelector('[data-cork-hl-error="1"]');
+    const quote = String(quoteInput?.value || '').trim();
+    const note = String(noteInput?.value || '').trim();
+    if (!quote && !note) {
+      if (errorSlot) errorSlot.textContent = 'Escribe una cita o un apunte.';
+      noteInput?.focus();
+      return;
+    }
+    const res = addCorkPinHighlight(storageKey, pinId, { quote, note });
+    if (res.added && res.pin) {
+      if (quoteInput) quoteInput.value = '';
+      if (noteInput) noteInput.value = '';
+      if (errorSlot) errorSlot.textContent = '';
+      refreshHighlightsUi(res.pin);
+      noteInput?.focus();
+    }
+  });
 }
 
 function markOverlayPinButtonPinned(btn, labelText = 'Fijado') {
@@ -689,35 +949,74 @@ export function bindCorkboardEvents(container, ctx = {}) {
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
 
   const rerenderLocal = () => {
+    const dragSlot = corkRoot.querySelector('[data-dk-cork-drag-slot="1"]');
+    const headerLeftSlot = corkRoot.querySelector('[data-dk-cork-header-left="1"]');
     const actionsSlot = corkRoot.querySelector('[data-dk-cork-actions="1"]');
+    const closeSlot = corkRoot.querySelector('[data-dk-cork-close-slot="1"]');
     const bodySlot = corkRoot.querySelector('[data-dk-cork-body="1"]');
     const footerSlot = corkRoot.querySelector('[data-dk-cork-footer="1"]');
     if (!bodySlot) return;
     const prevScrollTop = bodySlot.scrollTop;
     const pins = ensureCorkPinsInitialized(storeOpts);
-    const activeComposer = perms.canEdit ? getActiveCorkComposer() : null;
-    if (actionsSlot) actionsSlot.innerHTML = renderCorkHeaderActions(perms.canEdit, activeComposer);
-    bodySlot.innerHTML = renderCorkBodyHtml({
-      pins,
-      isFullDesktop,
-      canEdit: perms.canEdit,
-      activeComposer,
-      errorMsg: composerErrorMsg,
-      noticeMsg: corkNoticeMsg,
-      trafficOrders,
-      todayKey,
-      tomorrowKey,
-      dailyHours,
-      canSeeFinancial,
-      myMember,
-    });
-    if (footerSlot) {
-      footerSlot.innerHTML = `
-        <span>CORCHO · ${pins.length} ${pins.length === 1 ? 'ficha' : 'fichas'}</span>
-        <span>${isPersonalScope ? 'Privado' : (perms.canEdit ? 'Estudio · Editable' : 'Estudio · Solo lectura')}</span>
-      `;
+    const activePin = resolveActivePreviewPin(pins);
+    const activeComposer = perms.canEdit && !activePin ? getActiveCorkComposer() : null;
+
+    corkRoot.dataset.dkCorkMode = activePin ? 'preview' : 'grid';
+    if (dragSlot) dragSlot.classList.toggle('hidden', Boolean(activePin));
+    if (headerLeftSlot) {
+      headerLeftSlot.innerHTML = activePin
+        ? renderCorkPinPreviewHeaderLeft(activePin, { canEdit: perms.canEdit })
+        : `<span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Tablero de Corcho</span>`;
     }
-    bodySlot.scrollTop = prevScrollTop;
+    if (actionsSlot) {
+      actionsSlot.classList.toggle('hidden', Boolean(activePin));
+      if (!activePin) {
+        actionsSlot.innerHTML = `
+          ${renderCorkHeaderActions(perms.canEdit, activeComposer)}
+          <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
+        `;
+      }
+    }
+    if (closeSlot) {
+      closeSlot.classList.toggle('hidden', !activePin);
+      closeSlot.innerHTML = activePin ? renderCorkPinPreviewCloseBtn() : '';
+    }
+
+    bodySlot.classList.toggle('overflow-hidden', Boolean(activePin));
+    bodySlot.classList.toggle('overflow-y-auto', !activePin);
+    bodySlot.classList.toggle('pr-0.5', !activePin);
+    bodySlot.dataset.dkScrollId = activePin
+      ? `corkboard-preview:${activePin.id}`
+      : `corkboard-grid:${isPersonalScope ? 'personal' : 'global'}`;
+
+    bodySlot.innerHTML = activePin
+      ? renderCorkPinPreview({
+          pin: activePin,
+          canEdit: perms.canEdit,
+          trafficOrders,
+        })
+      : renderCorkBodyHtml({
+          pins,
+          isFullDesktop,
+          canEdit: perms.canEdit,
+          activeComposer,
+          errorMsg: composerErrorMsg,
+          noticeMsg: corkNoticeMsg,
+          trafficOrders,
+          todayKey,
+          tomorrowKey,
+          dailyHours,
+          canSeeFinancial,
+          myMember,
+        });
+
+    if (footerSlot) {
+      footerSlot.innerHTML = activePin
+        ? renderCorkPinPreviewFooter(activePin, { canEdit: perms.canEdit, isPersonalScope })
+        : `<span>CORCHO · ${pins.length} ${pins.length === 1 ? 'ficha' : 'fichas'}</span>
+           <span>${isPersonalScope ? 'Privado' : (perms.canEdit ? 'Estudio · Editable' : 'Estudio · Solo lectura')}</span>`;
+    }
+    bodySlot.scrollTop = activePin ? 0 : prevScrollTop;
     bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal);
   };
 
