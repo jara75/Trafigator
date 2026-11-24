@@ -464,6 +464,11 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         studioSettings,
         effectiveStatsPill,
         statsEffectiveState: statsQuery.effectiveState,
+        activeWsId,
+        deptChartPageWsId,
+        dailyHours,
+        myMember,
+        canSeeFinancial: statsQuery.rbac.canSeeFinancial,
         scopedOrders,
         trafficOrders,
         todayKey,
@@ -654,6 +659,9 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextOtId = otId;
         selectedContextTaskIdx = taskIdx;
         selectedMediaIndex = null;
+        lightboxChartIdx = null;
+        closeCorkPinPreview();
+        ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
         renderTrafficNotesInspector(otId, taskIdx !== null ? String(taskIdx) : '', false, { onOpenOt: (id) => openOt(id, taskIdx) });
       },
@@ -662,6 +670,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextOtId = otId;
         selectedContextTaskIdx = null;
         selectedMediaIndex = null;
+        lightboxChartIdx = null;
+        closeCorkPinPreview();
         ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
         renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
@@ -1081,11 +1091,13 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   };
 
   container.querySelectorAll('[data-dk-select-media]').forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
       selectedMediaIndex = Number(btn.dataset.dkSelectMedia);
       rerender();
     });
-    btn.addEventListener('dblclick', () => {
+    btn.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button')) return;
       openMediaReview(Number(btn.dataset.dkSelectMedia));
     });
   });
@@ -1161,8 +1173,18 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     roleCaps,
     userProfile,
     studioSettings,
+    selectedContextOt,
+    selectedContextTask,
+    selectedContextTaskIdx,
+    lightboxChartIdx,
+    lastPillBoard,
     effectiveStatsPill,
     statsEffectiveState: statsQuery.effectiveState,
+    activeWsId,
+    deptChartPageWsId,
+    dailyHours,
+    myMember,
+    canSeeFinancial: statsQuery.rbac.canSeeFinancial,
     scopedOrders,
     trafficOrders,
     todayKey,

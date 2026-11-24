@@ -12,16 +12,24 @@ import {
   getClientColor,
   getPriorityDotHtml,
 } from './store.js';
+import { renderStatsPillChartsGrid } from './ot-en-proceso-charts.js';
 import {
   DND_MIME_CORK_CARD,
   DND_MIME_PIN,
   DND_MIME_SLOT,
+  addChartCorkPin,
   addCorkPin,
   addLocalFilesToCorkboard,
+  addOtMediaCorkPin,
   addOtOrTaskCorkPin,
   closeCorkPinPreview,
+  closePinnedChart,
   ensureCorkPinsInitialized,
+  findDuplicateChartPin,
+  findDuplicateOtMediaPin,
+  findDuplicateOtOrTaskPin,
   getActiveCorkComposer,
+  getActivePinnedChartId,
   getCorkBlobObjectUrl,
   getCorkboardPermissions,
   getFileTypeTag,
@@ -29,6 +37,7 @@ import {
   normalizeSafeWebUrl,
   removeCorkPin,
   setActiveCorkComposer,
+  setActivePinnedChartId,
 } from './desktop-corkboard-store.js';
 import {
   renderChartOverlay,
@@ -47,6 +56,67 @@ export {
 let composerErrorMsg = '';
 let corkNoticeMsg = '';
 let corkNoticeTimer = null;
+
+function buildSnapshotSummary(chartMeta) {
+  if (!chartMeta) return '';
+  const snap = chartMeta.filtersSnapshot || {};
+  const anchors = snap.anchors || chartMeta.anchors || {};
+  const parts = [];
+  const metricLabel = snap.metric === 'ots' ? 'OTs' : (snap.metric === 'tasks' ? 'Tareas' : 'Horas');
+  parts.push(metricLabel);
+  if (snap.activeWsId && snap.activeWsId !== 'studio') parts.push(`Perfil: ${snap.activeWsId}`);
+  Object.entries(anchors).forEach(([k, v]) => {
+    if (v && v !== 'all') parts.push(`${k}: ${v}`);
+  });
+  return parts.join(' · ');
+}
+
+function buildPinnedChartBoard(chartMeta, {
+  trafficOrders = [],
+  todayKey = '',
+  tomorrowKey = '',
+  dailyHours = 8,
+  canSeeFinancial = false,
+  myMember = '',
+} = {}) {
+  if (!chartMeta || typeof chartMeta !== 'object') return null;
+  const snap = chartMeta.filtersSnapshot || {};
+  const snapWsId = snap.activeWsId || 'studio';
+  const snapPersonal = Boolean(snap.isPersonalScope);
+  const snapMember = snap.myMember || myMember || '';
+  const workspaceOrders = (trafficOrders || []).filter((o) => {
+    if (o.archived) return false;
+    if (snapWsId !== 'studio' && (o.workspaceId || 'diseno-publicidad') !== snapWsId) return false;
+    return true;
+  });
+  const snapScopedOrders = snapPersonal
+    ? workspaceOrders.filter((o) => o.responsible === snapMember || (o.subtasks || []).some((st) => (st.responsible || o.responsible) === snapMember))
+    : workspaceOrders;
+  const board = renderStatsPillChartsGrid({
+    pillId: snap.pillId || chartMeta.pillId || 'ots-active',
+    allOrders: trafficOrders,
+    scopedOrders: snapScopedOrders,
+    anchors: snap.anchors || chartMeta.anchors || {},
+    metric: snap.metric || chartMeta.metric || 'hours',
+    todayKey,
+    tomorrowKey,
+    dailyHours: Number(dailyHours) || 8,
+    activeWsId: snapWsId,
+    deptPageWsId: snap.deptPageWsId || null,
+    isPersonalScope: snapPersonal,
+    myMember: snapMember,
+    canSeeFinancial: Boolean(canSeeFinancial),
+  });
+  const idx = Number.isInteger(chartMeta.chartIdx) ? chartMeta.chartIdx : 0;
+  const card = Array.isArray(board?.cards) ? (board.cards[idx] || board.cards[0] || null) : null;
+  if (!card) return null;
+  return {
+    board,
+    card,
+    chartIdx: Array.isArray(board.cards) && board.cards[idx] ? idx : 0,
+    summary: buildSnapshotSummary(chartMeta),
+  };
+}
 
 function renderCorkHeaderActions(canEdit, activeComposer) {
   if (!canEdit) {
@@ -135,7 +205,15 @@ function renderCorkComposerHtml(activeComposer, errorMsg = '') {
   return '';
 }
 
-function renderCorkPinCard(pin, idx, { canEdit, trafficOrders = [], todayKey = '', tomorrowKey = '' }) {
+function renderCorkPinCard(pin, idx, {
+  canEdit,
+  trafficOrders = [],
+  todayKey = '',
+  tomorrowKey = '',
+  dailyHours = 8,
+  canSeeFinancial = false,
+  myMember = '',
+}) {
   const notesCount = Array.isArray(pin.highlights) ? pin.highlights.length : 0;
   const unpinBtn = canEdit
     ? `<button type="button" data-cork-unpin="${escapeHtml(pin.id)}" title="Quitar del Corcho" aria-label="Quitar ${escapeHtml(pin.title || 'ficha')} del Corcho"
@@ -143,6 +221,41 @@ function renderCorkPinCard(pin, idx, { canEdit, trafficOrders = [], todayKey = '
          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
        </button>`
     : '';
+
+  if (pin.type === 'chart') {
+    const resolved = buildPinnedChartBoard(pin.chartMeta, {
+      trafficOrders,
+      todayKey,
+      tomorrowKey,
+      dailyHours,
+      canSeeFinancial,
+      myMember,
+    });
+    const chartTitle = resolved?.card?.title || pin.chartMeta?.title || pin.title || 'Gráfico';
+    const boardTitle = resolved?.board?.title || pin.chartMeta?.boardTitle || '';
+    const summary = resolved?.summary || buildSnapshotSummary(pin.chartMeta);
+    const miniChartHtml = resolved?.card?.body
+      ? `<div class="max-h-24 overflow-hidden pointer-events-none select-none rounded bg-[#141414] border border-obsidian-border/70 p-2">${resolved.card.body}</div>`
+      : `<div class="h-14 rounded bg-[#141414] border border-obsidian-border/70 flex items-center justify-center font-mono text-[9px] text-[#5A5A5A]">Vista de gráfico</div>`;
+    return `
+      <article data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}" data-cork-open-pinned-chart="${escapeHtml(pin.id)}" role="button" tabindex="0"
+        title="Abrir gráfico ampliado con filtros fijados"
+        class="group p-2.5 rounded-lg bg-[#202020] hover:bg-[#252525] border border-obsidian-border hover:border-cyan-500/50 flex flex-col justify-between gap-1.5 min-w-0 cursor-pointer transition-colors">
+        <div class="space-y-1.5 min-w-0">
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="font-mono text-[8.5px] uppercase tracking-wider text-violet-400 font-semibold">GRÁFICO</span>
+            ${unpinBtn}
+          </div>
+          <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug truncate" title="${escapeHtml(chartTitle)}">${escapeHtml(chartTitle)}</h4>
+          ${miniChartHtml}
+        </div>
+        <div class="flex items-center justify-between gap-1.5 text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50 min-w-0">
+          <span class="truncate" title="${escapeHtml(summary || boardTitle)}">${escapeHtml(summary || boardTitle || 'Vivo')}</span>
+          <span class="text-cyan-400/80 shrink-0">Ampliar ↗</span>
+        </div>
+      </article>
+    `;
+  }
 
   if (pin.type === 'ot' || pin.type === 'task') {
     const isTask = pin.type === 'task';
@@ -260,7 +373,10 @@ function renderCorkPinCard(pin, idx, { canEdit, trafficOrders = [], todayKey = '
         <div class="flex items-center justify-between gap-1.5">
           <div class="flex items-center gap-1.5 min-w-0">
             <span class="font-mono text-[8.5px] uppercase tracking-wider font-semibold ${tagColorCls}">${tag}</span>
-            ${shortOt ? `<span class="font-mono text-[8.5px] text-obsidian-amber truncate">${escapeHtml(shortOt)}</span>` : ''}
+            ${shortOt
+              ? `<button type="button" data-cork-open-ot="${escapeHtml(pin.otId)}" title="Abrir OT ${escapeHtml(shortOt)}"
+                   class="font-mono text-[8.5px] font-semibold text-obsidian-amber hover:underline cursor-pointer truncate">${escapeHtml(shortOt)}</button>`
+              : ''}
           </div>
           ${unpinBtn}
         </div>
@@ -275,14 +391,27 @@ function renderCorkPinCard(pin, idx, { canEdit, trafficOrders = [], todayKey = '
   `;
 }
 
-function renderCorkBodyHtml({ pins, isFullDesktop, canEdit, activeComposer, errorMsg, noticeMsg = '', trafficOrders = [], todayKey = '', tomorrowKey = '' }) {
+function renderCorkBodyHtml({
+  pins,
+  isFullDesktop,
+  canEdit,
+  activeComposer,
+  errorMsg,
+  noticeMsg = '',
+  trafficOrders = [],
+  todayKey = '',
+  tomorrowKey = '',
+  dailyHours = 8,
+  canSeeFinancial = false,
+  myMember = '',
+}) {
   const gridColsCls = isFullDesktop ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2';
   const noticeHtml = noticeMsg
     ? `<div data-dk-cork-notice="1" role="status" class="mb-2 px-2.5 py-1 rounded-md bg-[#202020] border border-obsidian-border font-mono text-[9.5px] text-obsidian-amber shrink-0">${escapeHtml(noticeMsg)}</div>`
     : '';
   const composerHtml = canEdit ? renderCorkComposerHtml(activeComposer, errorMsg) : '';
   const listHtml = pins.length
-    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pins.map((p, idx) => renderCorkPinCard(p, idx, { canEdit, trafficOrders, todayKey, tomorrowKey })).join('')}</div>`
+    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pins.map((p, idx) => renderCorkPinCard(p, idx, { canEdit, trafficOrders, todayKey, tomorrowKey, dailyHours, canSeeFinancial, myMember })).join('')}</div>`
     : `
       <div class="flex flex-col items-center justify-center flex-1 py-6 gap-1.5 text-center">
         <div class="w-8 h-8 rounded-lg border border-dashed border-obsidian-border flex items-center justify-center text-[#5A5A5A]">
@@ -327,6 +456,11 @@ export function renderCorkboardQuadrant({
   studioSettings = null,
   effectiveStatsPill = 'ots-active',
   statsEffectiveState = null,
+  activeWsId = 'studio',
+  deptChartPageWsId = null,
+  dailyHours = 8,
+  myMember = '',
+  canSeeFinancial = false,
   scopedOrders = [],
   trafficOrders = [],
   todayKey = '',
@@ -335,39 +469,101 @@ export function renderCorkboardQuadrant({
   rightActionBtns = '',
 }) {
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
-  void effectiveStatsPill;
-  void statsEffectiveState;
+  const storeOpts = { isPersonalScope, studioSettings, userProfile };
+  const pins = ensureCorkPinsInitialized(storeOpts);
   void scopedOrders;
-  void trafficOrders;
-  void todayKey;
-  void tomorrowKey;
 
-  // 1. Gráfico seleccionado desde Estadística -> se muestra en C04 (sin modal)
+  // 1. Gráfico seleccionado desde Estadística (C02) -> se muestra en C04 con botón Pin
   if (lightboxChartIdx !== null && lastPillBoard && Array.isArray(lastPillBoard.cards) && lastPillBoard.cards[lightboxChartIdx]) {
+    const card = lastPillBoard.cards[lightboxChartIdx];
+    const currentChartMeta = {
+      pillId: effectiveStatsPill,
+      chartIdx: lightboxChartIdx,
+      title: card.title,
+      boardTitle: lastPillBoard.title || '',
+      anchors: statsEffectiveState?.anchors || {},
+      metric: statsEffectiveState?.metric || 'hours',
+      filtersSnapshot: {
+        pillId: effectiveStatsPill,
+        anchors: statsEffectiveState?.anchors || {},
+        metric: statsEffectiveState?.metric || 'hours',
+        activeWsId,
+        deptPageWsId: deptChartPageWsId,
+        isPersonalScope,
+        myMember,
+      },
+    };
+    const isPinned = Boolean(findDuplicateChartPin(pins, currentChartMeta));
     return renderChartOverlay({
       lightboxChartIdx,
       lastPillBoard,
+      canEdit: perms.canEdit,
+      isPinned,
+      isPinnedSnapshot: false,
       dragHandleHtml,
       rightActionBtns,
     });
   }
 
-  // 2. OT / Tarea seleccionada -> Galería + Vista previa sobre C04
+  // 2. OT / Tarea seleccionada -> Galería + Vista previa sobre C04 con botones Pin
   if (selectedContextOt) {
+    const hasTask = Boolean(selectedContextTask) && Number.isInteger(selectedContextTaskIdx);
+    const pinnedOt = Boolean(findDuplicateOtOrTaskPin(pins, {
+      type: hasTask ? 'task' : 'ot',
+      otId: selectedContextOt.id,
+      taskIndex: hasTask ? selectedContextTaskIdx : null,
+    }));
+    const mediaItems = Array.isArray(selectedContextOt.mediaFiles) ? selectedContextOt.mediaFiles : [];
+    const pinnedMediaIndices = new Set();
+    mediaItems.forEach((m, mIdx) => {
+      if (findDuplicateOtMediaPin(pins, { otId: selectedContextOt.id, mediaIndex: mIdx, title: m.name })) {
+        pinnedMediaIndices.add(mIdx);
+      }
+    });
     return renderOtGalleryOverlay({
       selectedContextOt,
       selectedContextTask,
       selectedContextTaskIdx,
       selectedMediaIndex,
+      canEdit: perms.canEdit,
+      pinnedOt,
+      pinnedMediaIndices,
       borderClass: 'border-t-2 border-t-obsidian-amber/80',
       dragHandleHtml,
       collapseBtnHtml: rightActionBtns,
     });
   }
 
+  // 2b. Gráfico clavado abierto desde el propio Corcho (usa su filtersSnapshot inmutable)
+  const activePinnedChartId = getActivePinnedChartId();
+  if (activePinnedChartId) {
+    const chartPin = pins.find((p) => p.id === activePinnedChartId && p.type === 'chart');
+    if (chartPin) {
+      const resolved = buildPinnedChartBoard(chartPin.chartMeta, {
+        trafficOrders,
+        todayKey,
+        tomorrowKey,
+        dailyHours,
+        canSeeFinancial,
+        myMember,
+      });
+      if (resolved) {
+        return renderChartOverlay({
+          lightboxChartIdx: resolved.chartIdx,
+          lastPillBoard: resolved.board,
+          canEdit: perms.canEdit,
+          isPinned: true,
+          isPinnedSnapshot: true,
+          snapshotSummary: resolved.summary,
+          dragHandleHtml,
+          rightActionBtns,
+        });
+      }
+    }
+    closePinnedChart();
+  }
+
   // 3. Estado base: Tablero de Corcho (estilo Scrivener)
-  const storeOpts = { isPersonalScope, studioSettings, userProfile };
-  const pins = ensureCorkPinsInitialized(storeOpts);
   const activeComposer = perms.canEdit ? getActiveCorkComposer() : null;
 
   return `
@@ -408,6 +604,9 @@ export function renderCorkboardQuadrant({
           trafficOrders,
           todayKey,
           tomorrowKey,
+          dailyHours,
+          canSeeFinancial,
+          myMember,
         })}
       </div>
 
@@ -510,6 +709,24 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
     });
   });
 
+  // Abrir gráfico clavado en vista ampliada usando su filtersSnapshot (sin mutar C02)
+  corkRoot.querySelectorAll('[data-cork-open-pinned-chart]').forEach((cardEl) => {
+    const openChart = (e) => {
+      if (e?.target?.closest('button')) return;
+      const pinId = cardEl.dataset.corkOpenPinnedChart;
+      if (!pinId) return;
+      setActivePinnedChartId(pinId);
+      ctx.rerender?.();
+    };
+    cardEl.addEventListener('click', openChart);
+    cardEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openChart(e);
+      }
+    });
+  });
+
   // Despinar ficha (×)
   corkRoot.querySelectorAll('[data-cork-unpin]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -525,6 +742,108 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
   hydrateCorkThumbnails(corkRoot);
 }
 
+function markOverlayPinButtonPinned(btn, labelText = 'Fijado') {
+  if (!btn) return;
+  btn.dataset.corkPinned = '1';
+  btn.classList.remove('text-[#8C8C8C]', 'text-[#737373]', 'hover:bg-obsidian-elevated', 'opacity-70');
+  btn.classList.add('text-obsidian-amber', 'bg-amber-500/15');
+  const span = btn.querySelector('span');
+  if (span) span.textContent = labelText;
+}
+
+function bindOverlayPinEvents(container, ctx) {
+  const {
+    isPersonalScope = false,
+    roleCaps = null,
+    userProfile = null,
+    studioSettings = null,
+    selectedContextOt = null,
+    selectedContextTask = null,
+    selectedContextTaskIdx = null,
+    lightboxChartIdx = null,
+    lastPillBoard = null,
+    effectiveStatsPill = 'ots-active',
+    statsEffectiveState = null,
+    activeWsId = 'studio',
+    deptChartPageWsId = null,
+    myMember = '',
+    rerender,
+  } = ctx;
+  const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
+  const storeOpts = { isPersonalScope, studioSettings, userProfile };
+
+  // Cerrar gráfico clavado abierto desde el Corcho (sin tocar C02)
+  container.querySelector('[data-cork-close-pinned-chart="1"]')?.addEventListener('click', () => {
+    closePinnedChart();
+    rerender?.();
+  });
+
+  if (!perms.canEdit) return;
+
+  // Pin de gráfico ampliado desde C02 (guarda copia profunda de filtersSnapshot)
+  container.querySelector('[data-dk-cork-pin-chart="1"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (lightboxChartIdx === null || !lastPillBoard?.cards?.[lightboxChartIdx]) return;
+    const card = lastPillBoard.cards[lightboxChartIdx];
+    addChartCorkPin({
+      pillId: effectiveStatsPill,
+      chartIdx: lightboxChartIdx,
+      title: card.title,
+      boardTitle: lastPillBoard.title || '',
+      anchors: statsEffectiveState?.anchors || {},
+      metric: statsEffectiveState?.metric || 'hours',
+      filtersSnapshot: {
+        pillId: effectiveStatsPill,
+        anchors: statsEffectiveState?.anchors || {},
+        metric: statsEffectiveState?.metric || 'hours',
+        activeWsId,
+        deptPageWsId: deptChartPageWsId,
+        isPersonalScope,
+        myMember,
+      },
+    }, storeOpts);
+    markOverlayPinButtonPinned(e.currentTarget, 'Fijado');
+  });
+
+  // Pin de la OT / Tarea actual desde cabecera de Galería
+  container.querySelector('[data-dk-cork-pin-ctx-ot="1"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!selectedContextOt) return;
+    const hasTask = Boolean(selectedContextTask) && Number.isInteger(selectedContextTaskIdx);
+    addOtOrTaskCorkPin({
+      type: hasTask ? 'task' : 'ot',
+      otId: selectedContextOt.id,
+      taskIndex: hasTask ? selectedContextTaskIdx : null,
+      title: hasTask ? (selectedContextTask.title || selectedContextOt.title) : selectedContextOt.title,
+    }, storeOpts);
+    markOverlayPinButtonPinned(e.currentTarget, 'Fijada');
+  });
+
+  // Pin de archivo de OT por referencia (desde tarjeta de Galería o cabecera de Vista previa)
+  container.querySelectorAll('[data-dk-cork-pin-media]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!selectedContextOt) return;
+      const mIdx = Number(btn.dataset.dkCorkPinMedia);
+      const media = Number.isInteger(mIdx) ? (selectedContextOt.mediaFiles || [])[mIdx] : null;
+      if (!media) return;
+      const isPdf = /\.pdf$/i.test(media.name || '') || /PDF/i.test(media.meta || '');
+      const isVideo = /\.(mp4|mov|webm)$/i.test(media.name || '') || /VIDEO/i.test(media.meta || '');
+      const inferredMime = isPdf ? 'application/pdf' : (isVideo ? 'video/mp4' : 'image/png');
+      addOtMediaCorkPin({
+        otId: selectedContextOt.id,
+        mediaIndex: mIdx,
+        title: media.name || 'Archivo de OT',
+        mime: media.mime || inferredMime,
+        sizeLabel: media.meta || '',
+      }, storeOpts);
+      container.querySelectorAll(`[data-dk-cork-pin-media="${mIdx}"]`).forEach((matchingBtn) => {
+        markOverlayPinButtonPinned(matchingBtn, 'Fijado');
+      });
+    });
+  });
+}
+
 /**
  * Capa propia de eventos de C04.
  * Regla 3: enlaza eventos únicamente dentro de `container` (nunca en window/document)
@@ -532,6 +851,8 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
  */
 export function bindCorkboardEvents(container, ctx = {}) {
   if (!container) return;
+  bindOverlayPinEvents(container, ctx);
+
   const corkRoot = container.querySelector('[data-dk-cork-root="1"]');
   if (!corkRoot) return;
 
@@ -544,6 +865,9 @@ export function bindCorkboardEvents(container, ctx = {}) {
     trafficOrders = [],
     todayKey = '',
     tomorrowKey = '',
+    dailyHours = 8,
+    canSeeFinancial = false,
+    myMember = '',
   } = ctx;
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
@@ -567,6 +891,9 @@ export function bindCorkboardEvents(container, ctx = {}) {
       trafficOrders,
       todayKey,
       tomorrowKey,
+      dailyHours,
+      canSeeFinancial,
+      myMember,
     });
     if (footerSlot) {
       footerSlot.innerHTML = `

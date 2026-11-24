@@ -14,6 +14,7 @@ export const DND_MIME_CORK_CARD = 'application/x-trafigator-cork-card';
 // --- Estado interno de UI de C04 (sin listeners globales acumulados) ---
 export const corkUiState = {
   activePinId: null,
+  activePinnedChartId: null,
   activeComposer: null, // null | 'note' | 'link' | 'file'
 };
 
@@ -26,14 +27,36 @@ export function setActiveCorkPinId(pinId) {
   return corkUiState.activePinId;
 }
 
+export function getActivePinnedChartId() {
+  return corkUiState.activePinnedChartId;
+}
+
+export function setActivePinnedChartId(pinId) {
+  corkUiState.activePinnedChartId = pinId ? String(pinId) : null;
+  return corkUiState.activePinnedChartId;
+}
+
+export function closePinnedChart() {
+  if (corkUiState.activePinnedChartId === null) return false;
+  corkUiState.activePinnedChartId = null;
+  return true;
+}
+
 export function hasOpenCorkPinPreview() {
-  return corkUiState.activePinId !== null;
+  return corkUiState.activePinId !== null || corkUiState.activePinnedChartId !== null;
 }
 
 export function closeCorkPinPreview() {
-  if (corkUiState.activePinId === null) return false;
-  corkUiState.activePinId = null;
-  return true;
+  let closed = false;
+  if (corkUiState.activePinId !== null) {
+    corkUiState.activePinId = null;
+    closed = true;
+  }
+  if (corkUiState.activePinnedChartId !== null) {
+    corkUiState.activePinnedChartId = null;
+    closed = true;
+  }
+  return closed;
 }
 
 export function getActiveCorkComposer() {
@@ -62,6 +85,15 @@ export function getCorkboardPermissions({ isPersonalScope = false, roleCaps = nu
     isReadOnly: canAccess && !canEdit,
     isOwnerOrAdmin,
   };
+}
+
+function clonePlainObject(obj, fallback = {}) {
+  if (!obj || typeof obj !== 'object') return { ...fallback };
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return { ...fallback };
+  }
 }
 
 // --- Esquema completo del objeto Pin (Sección 5 + Regla 1) ---
@@ -118,8 +150,18 @@ export function createCorkPin({
           pillId: String(chartMeta.pillId || 'ots-active'),
           chartIdx: Number.isInteger(chartMeta.chartIdx) ? chartMeta.chartIdx : 0,
           title: String(chartMeta.title || ''),
-          anchors: chartMeta.anchors && typeof chartMeta.anchors === 'object' ? { ...chartMeta.anchors } : {},
+          boardTitle: String(chartMeta.boardTitle || ''),
+          anchors: clonePlainObject(chartMeta.anchors, {}),
           metric: String(chartMeta.metric || 'hours'),
+          filtersSnapshot: clonePlainObject(chartMeta.filtersSnapshot, {
+            pillId: String(chartMeta.pillId || 'ots-active'),
+            anchors: clonePlainObject(chartMeta.anchors, {}),
+            metric: String(chartMeta.metric || 'hours'),
+            activeWsId: 'studio',
+            deptPageWsId: null,
+            isPersonalScope: false,
+            myMember: '',
+          }),
         }
       : null,
     position: Number.isFinite(Number(position)) ? Number(position) : 0,
@@ -296,6 +338,99 @@ export function addOtOrTaskCorkPin({ type, otId, taskIndex = null, title = '' },
     otId: String(otId),
     taskIndex: safeTaskIdx,
     title: String(title || ''),
+  }, opts);
+  return { ...res, duplicate: false };
+}
+
+export function findDuplicateOtMediaPin(pins, { otId, mediaIndex = null, title = '' }) {
+  if (!Array.isArray(pins) || !otId) return null;
+  const normOtId = String(otId);
+  const idx = Number.isInteger(mediaIndex) ? mediaIndex : null;
+  return pins.find((p) => {
+    if (p.type !== 'file' || p.otId !== normOtId) return false;
+    if (idx !== null && p.mediaIndex !== null) return p.mediaIndex === idx;
+    return Boolean(title) && p.title === String(title);
+  }) || null;
+}
+
+export function addOtMediaCorkPin({ otId, mediaIndex = null, title = '', mime = '', sizeLabel = '' }, opts = {}) {
+  const safeOtId = String(otId || '');
+  const safeIdx = Number.isInteger(mediaIndex) ? mediaIndex : null;
+  const current = ensureCorkPinsInitialized(opts);
+  const existing = findDuplicateOtMediaPin(current, { otId: safeOtId, mediaIndex: safeIdx, title });
+  if (existing) {
+    return { ok: true, duplicate: true, pin: existing, pins: current };
+  }
+  // Referencia pura a mediaFiles de la OT (sin copiar binarios a IndexedDB)
+  const res = addCorkPin({
+    type: 'file',
+    title: String(title || 'Archivo de OT'),
+    otId: safeOtId,
+    mediaIndex: safeIdx,
+    fileMeta: {
+      mime: String(mime || ''),
+      sizeLabel: String(sizeLabel || ''),
+      blobId: null,
+    },
+  }, opts);
+  return { ...res, duplicate: false };
+}
+
+export function buildChartSnapshotSignature(chartMeta) {
+  if (!chartMeta || typeof chartMeta !== 'object') return '';
+  const snap = chartMeta.filtersSnapshot || {};
+  const anchors = snap.anchors || chartMeta.anchors || {};
+  const sortedAnchors = Object.keys(anchors)
+    .sort()
+    .map((k) => `${k}:${String(anchors[k] ?? 'all')}`)
+    .join('|');
+  return [
+    String(snap.pillId || chartMeta.pillId || 'ots-active'),
+    String(Number.isInteger(chartMeta.chartIdx) ? chartMeta.chartIdx : 0),
+    String(snap.metric || chartMeta.metric || 'hours'),
+    String(snap.activeWsId || 'studio'),
+    String(snap.deptPageWsId || ''),
+    snap.isPersonalScope ? 'personal' : 'global',
+    sortedAnchors,
+  ].join('::');
+}
+
+export function findDuplicateChartPin(pins, chartMeta) {
+  if (!Array.isArray(pins) || !chartMeta) return null;
+  const sig = buildChartSnapshotSignature(chartMeta);
+  if (!sig) return null;
+  return pins.find((p) => p.type === 'chart' && buildChartSnapshotSignature(p.chartMeta) === sig) || null;
+}
+
+export function addChartCorkPin(chartMeta, opts = {}) {
+  const deepAnchors = clonePlainObject(chartMeta?.anchors, {});
+  const deepSnapshot = clonePlainObject(chartMeta?.filtersSnapshot, {
+    pillId: String(chartMeta?.pillId || 'ots-active'),
+    anchors: deepAnchors,
+    metric: String(chartMeta?.metric || 'hours'),
+    activeWsId: 'studio',
+    deptPageWsId: null,
+    isPersonalScope: Boolean(opts.isPersonalScope),
+    myMember: String(opts.userProfile?.shortName || ''),
+  });
+  const normalizedMeta = {
+    pillId: String(chartMeta?.pillId || deepSnapshot.pillId || 'ots-active'),
+    chartIdx: Number.isInteger(chartMeta?.chartIdx) ? chartMeta.chartIdx : 0,
+    title: String(chartMeta?.title || 'Gráfico'),
+    boardTitle: String(chartMeta?.boardTitle || ''),
+    anchors: deepAnchors,
+    metric: String(chartMeta?.metric || deepSnapshot.metric || 'hours'),
+    filtersSnapshot: deepSnapshot,
+  };
+  const current = ensureCorkPinsInitialized(opts);
+  const existing = findDuplicateChartPin(current, normalizedMeta);
+  if (existing) {
+    return { ok: true, duplicate: true, pin: existing, pins: current };
+  }
+  const res = addCorkPin({
+    type: 'chart',
+    title: normalizedMeta.title,
+    chartMeta: normalizedMeta,
   }, opts);
   return { ...res, duplicate: false };
 }
