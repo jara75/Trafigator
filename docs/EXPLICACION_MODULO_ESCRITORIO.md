@@ -22,7 +22,7 @@ Todos los cuadrantes son intercambiables mediante su manija (`⋮⋮`), llevan l
 | **C01** | **Prioridades** | Rojo / Ámbar / Celeste | 3 columnas (`Urgentes`, `Para Hoy`, `Para Mañana`) con switch `OTs \| Tareas` independiente por columna. |
 | **C02** | **Estadística** | Violeta | Panel completo de análisis: cabecera con controles arriba, **Vistas Rápidas** en 2 filas, gráficos **Masonry** (izquierda `4/5`) y **Filtros jerárquicos** (derecha `1/5`). |
 | **C03** | **Calendario / Galería** | Esmeralda (Ámbar en Galería) | Vista `Semana` (`Esta Semana` con `(Hoy)` marcado + `Semana Próxima` navegable) y `Mes` (`24 (Hoy)`), o `Galería + Vista previa` contextual al seleccionar una OT. |
-| **C04** | **Franja inferior (`140px`)** | Cian | **En `Global`:** Alertas operativas y dock de Widgets/Plugins del ecosistema.<br>**En `Personal`:** **Mi Mesa / Pines Personales** (archivos/PDF Brief de OT, notas y enlaces web con Vista Previa en Caja de Luz, resaltado/comentarios privados y envío como mensaje a equipo o cliente). |
+| **C04** | **Tablero de Corcho (`140px`)** | Cian | **En `Global` y `Personal`:** tu tablero de pines (archivos/PDF Brief de OT, notas, enlaces web con Vista Previa, resaltado/comentarios y envío como mensaje), widgets de **Plugins** y espacio reservado para **publicidad en la versión gratis**. |
 
 ---
 
@@ -67,10 +67,11 @@ El flujo de consulta progresa de lo general a lo particular sin salir del Escrit
 
 ---
 
-## 4. Diseño Objetivo de **Cuadrante 04** (`140px`)
+## 4. Diseño Objetivo de **Cuadrante 04 — Tablero de Corcho (`140px`)**
 
-- **En `Global`:** franja horizontal de **Alertas operativas** (cuellos de botella, OTs sin acuse, sobrecarga) y **Widgets de Plugins** del ecosistema ([`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)).
-- **En `Personal` (Mi Mesa / Pines Personales):**
-  - Permite pinear archivos (ej. el **PDF del Brief** de una OT), notas privadas y enlaces web en el Escritorio.
-  - Soporta dos niveles en **Caja de Luz**: ver todo C04 a pantalla completa (`⤢`), o abrir un pin (PDF/imagen/video/nota) en **Vista Previa** con **resaltado y comentarios privados** (reutilizando el motor de Revisión Colaborativa).
-  - Cualquier resaltado o comentario puede compartirse en 1 clic como **mensaje directo** a otro miembro del equipo o al cliente (vinculado a la OT de origen cuando aplique).
+Tanto en **Global** como en **Personal**, C04 funciona como el **Tablero de Corcho** del Escritorio:
+
+- **Pines (archivos, notas y enlaces):** permite fijar archivos (ej. el **PDF del Brief** de una OT), notas rápidas y enlaces web (compartidos del Estudio en `Global`; privados en `Personal`).
+- **Doble zoom en Caja de Luz:** ver todo el Tablero de Corcho a pantalla completa (`⤢`), o abrir un pin (PDF/imagen/video/nota) en **Vista Previa** con **resaltado y comentarios** (reutilizando el motor de Revisión Colaborativa), con opción de compartir cualquier resaltado o comentario como **mensaje directo** a otro miembro del equipo o al cliente.
+- **Widgets de Plugins:** dock natural para extensiones instaladas del ecosistema ([`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)) y alertas operativas.
+- **Monetización en versión gratis:** espacio limpio y no invasivo para mostrar **publicidad** en la versión gratuita (sin tocar ni ensuciar Prioridades, Calendario ni Estadística), que se libera por completo en planes pagos.
