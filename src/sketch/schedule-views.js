@@ -120,7 +120,14 @@ export function renderInspectorMiniCalendar({ anchorDate, busyDates = new Set(),
 
     let calSlot = rightBody.querySelector('#insp-cal-slot');
     if (!calSlot) {
-      rightBody.innerHTML = `<div id="insp-cal-slot" class="pb-3 mb-3 border-b border-obsidian-border"></div><div id="insp-content-slot"></div>`;
+      rightBody.innerHTML = `
+        <div class="h-full flex flex-col min-h-0">
+          <div id="insp-content-slot" class="flex-1 min-h-0 overflow-y-auto pb-2 pr-0.5">
+            <div class="text-[10.5px] text-[#737373] py-2 leading-relaxed">Selecciona una OT o tarea para ver su detalle.</div>
+          </div>
+          <div id="insp-cal-slot" class="shrink-0 pt-3 mt-1 border-t border-obsidian-border bg-[#191919]"></div>
+        </div>
+      `;
       calSlot = rightBody.querySelector('#insp-cal-slot');
     }
 

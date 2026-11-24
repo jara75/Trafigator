@@ -42,36 +42,68 @@
 
 ---
 
-## 3. Áreas / Departamentos por Perfil Operativo
+## 3. Áreas / Departamentos por Espacio (Perfil Operativo)
 
-Cada perfil precarga sus áreas base (editables, con opción de agregar nuevas áreas y asignar colores):
+Cada espacio base precarga sus áreas de fábrica (con `Cliente` y `Facturación` incluidos en todos, y personalización de color 7×5):
 
-1. **`Diseño / Publicidad`:** `Cuentas`, `Tráfico`, `Creativos`, `Producción`, `Medios`, `Cliente`
-2. **`Diseño / Branding`:** `Dirección`, `Estrategia`, `Identidad`, `Maquetación`, `Arte Final`, `Cliente` *(incluye Maquetación y Arte Final para editorial y packaging)*
-3. **`Diseño / Web`:** `Dirección`, `UX/UI`, `Maquetación`, `Contenido`, `Cliente`
-4. **`Desarrollo de Software`:** `Product`, `Frontend`, `Backend`, `QA`, `DevOps`, `Cliente`
-5. **`Productora / Contenido`:** `Preproducción`, `Rodaje`, `Edición`, `Color/Audio`, `Cliente`
-6. **`Personalizado`:** áreas definidas libremente por el estudio.
-
----
-
-## 4. Etapas (Ciclo / Flujo de la OT)
-
-Secuencia principal del recorrido y facturación de la OT (5 etapas):
-
-`Tráfico` → `Recibida` → `Cerrar OT y Facturar` → `Facturada` → `Pagada`
+1. **`Diseño / Publicidad` (`Publicidad`):** `Cuentas`, `Creativos`, `Medios`, `Producción`, `Cliente`, `Facturación`
+2. **`Diseño / Branding` (`Branding`):** `Dirección`, `Estrategia`, `Identidad`, `Maquetación`, `Arte Final`, `Cliente`, `Facturación` *(incluye Maquetación y Arte Final para editorial y packaging)*
+3. **`Diseño / Web` (`Web`):** `Dirección`, `UX/UI`, `Maquetación`, `Contenido`, `Cliente`, `Facturación`
+4. **`Desarrollo de Software` (`Software`):** `Product`, `Frontend`, `Backend`, `QA`, `DevOps`, `Cliente`, `Facturación`
+5. **`Productora / Contenido` (`Contenido`):** `Preproducción`, `Rodaje`, `Edición`, `Color/Audio`, `Cliente`, `Facturación`
+6. **`Personalizado` *(Fase futura / Space Packs)*:** espacios definidos por industria o a medida.
 
 ---
 
-## 5. Estados (Condición Operativa de la OT)
+## 4. Árbol del Estudio y Relaciones de Dominio
 
-Situación operativa actual de la OT *(aún pendiente de ubicar en el layout)*:
+```text
+Estudio
+├── Perfil (Unidades operativas — cada una con sus propios Deptos)
+│   ├── Publicidad            → Depto: Cuentas, Creativos, Medios, Producción, Cliente, Facturación
+│   ├── Branding              → Depto: Dirección, Estrategia, Identidad, Maquetación, Arte Final, Cliente, Facturación
+│   ├── Web                   → Depto: Dirección, UX/UI, Maquetación, Contenido, Cliente, Facturación
+│   ├── Software              → Depto: Product, Frontend, Backend, QA, DevOps, Cliente, Facturación
+│   └── Productora Contenido  → Depto: Preproducción, Rodaje, Edición, Color/Audio, Cliente, Facturación
+│
+├── Equipo (transversal al Estudio — puede participar en uno o varios Perfiles)
+│   ├── Dueño
+│   └── Colaboradores (01..N)
+│
+├── Cliente (transversal al Estudio — puede tener OTs en uno o varios Perfiles)
+│   └── Cliente 01..N → Marca → Producto
+│
+└── Operación (vive dentro de un Perfil y pertenece a un Cliente)
+    └── OTs
+        ├── Etapa (5): Tráfico → Recibida → Cerrar OT y Facturar → Facturada → Pagada
+        ├── Estado (5): Activa, En Proceso, Suspendida, Cancelada, Archivada
+        ├── Prioridad: Urgente (sí/no)
+        ├── Tiempo: Fecha entrada · Tiempo asignado · Fecha Entrega
+        └── Tareas (hijas de una OT; heredan Perfil y Cliente)
+            ├── Etapa (2): Tráfico → Recibida
+            ├── Estado (5): Activa, En Proceso, Suspendida, Cancelada, Terminada
+            ├── Prioridad: Urgente (sí/no)
+            └── Tiempo: Fecha entrada · Tiempo asignado · Fecha Entrega
+```
 
-- `Activa`
-- `En proceso`
-- `Suspendida`
-- `Cancelada`
-- `Archivada`
+### Reglas estructurales del árbol
+- **`Depto`** pertenece estrictamente a cada **`Perfil`** (no se mezclan áreas de un perfil con otro al filtrar por perfil).
+- **`Equipo`** y **`Cliente`** son transversales al **`Estudio`**.
+- **Diferencia `OTs` vs `Tareas`:**
+  - Las **`OTs`** recorren las 5 etapas (incluyendo cierre, facturación y pago) y cierran en estado `Archivada` (o `Cancelada`).
+  - Las **`Tareas`** solo tienen 2 etapas operativas (`Tráfico` y `Recibida`) porque no se facturan por separado, y cierran en estado **`Terminada`** (o `Cancelada`) mientras su OT puede seguir abierta.
+
+---
+
+## 5. Etapas y Estados (Resumen Operativo)
+
+### Etapas
+- **OTs (5):** `Tráfico` → `Recibida` → `Cerrar OT y Facturar` → `Facturada` → `Pagada`
+- **Tareas (2):** `Tráfico` → `Recibida`
+
+### Estados
+- **OTs (5):** `Activa`, `En proceso`, `Suspendida`, `Cancelada`, `Archivada`
+- **Tareas (5):** `Activa`, `En proceso`, `Suspendida`, `Cancelada`, `Terminada`
 
 ---
 
@@ -127,3 +159,45 @@ Situación operativa actual de la OT *(aún pendiente de ubicar en el layout)*:
    - La persona asignada recibe la notificación, abre la OT y cambia la **Etapa** de **`Tráfico`** a **`Recibida`** (ese cambio queda registrado en **Actividad**).
 4. **Ciclo iterativo entre departamentos:**
    - Cuando el responsable termina su entregable (ej. boceto en Galería), llena la siguiente fila en blanco (`DE: Creativos`, `PARA: Cuentas`, `Descripción: Adjunto boceto...`), selecciona su **Firma** (actualizando la hora a la de la firma, bloqueando la fila y abriendo otra en blanco), notifica al siguiente destinatario y el ciclo se repite hasta `Cerrar OT y Facturar → Facturada → Pagada`.
+
+---
+
+## 10. Arquitectura de Espacios por Perfil (Modelo DaVinci Resolve)
+
+> **Principio rector:** *Juntos, pero no revueltos.* Pensado para estudios unipersonales y micro-estudios multidisciplinarios (1–3 personas) que operan varias disciplinas bajo un mismo techo sin querer mezclar departamentos ni perder visibilidad de su carga real.
+
+### 1. Nivel Paraguas: `Estudio`
+Pertenece al Estudio completo (nunca se duplica por Espacio):
+- Identidad (`nombre`, `logo`, `iniciales`, `prefijo OT`, `jornada diaria`, `zona horaria`) y suscripción.
+- **Clientes** (un mismo cliente puede tener OTs en distintos Espacios).
+- **Equipo** (miembros internos del estudio).
+- **Etapas base** (`Tráfico → Recibida → Cerrar OT y Facturar → Facturada → Pagada`) y **Estados** (`Activa`, `En proceso`, `Suspendida`, `Cancelada`, `Archivada`).
+- **Vista panorámica `Estudio`:** consolida todas las OTs de todos los Espacios (mostrando la columna `Espacio` y permitiendo `Agrupar por: Espacio` en Lista y Kanban).
+
+### 2. Nivel Operativo: `Espacios` (`ON / OFF`)
+- En `Estudio → Perfiles y Flujo`, el usuario enciende (`ON / OFF`, mínimo 1) qué Espacios opera su Estudio.
+- Cuando hay **2 o más Espacios en `ON`**, aparece centrada en la fila superior del panel central la barra de navegación estilo DaVinci Resolve:
+  `Estudio | ● Publicidad | ● Web | ● Software | ...`
+  *(Se oculta automáticamente cuando el estudio solo tiene 1 Espacio activo).*
+- Cada OT nace con un `workspaceId` (desde `Nueva OT` con selector `Espacio *` preseleccionado al espacio actual).
+- Dentro de cualquier OT, su **Bitácora (`De:` / `Para:`)** únicamente muestra los departamentos de `ot.workspaceId`, incluso si fue abierta desde `Tráfico · Estudio`.
+- Al entrar a un Espacio puntual (`Publicidad`, `Web`, `Software`), la columna `Espacio` se oculta, el filtro `Depto.` y el Kanban por Departamento muestran únicamente las áreas de ese Espacio, y `Tráfico`, `Todas las Tareas`, `Mis OTs`, `Galería` y `Escritorio` filtran solo ese Espacio.
+
+### 3. Regla Física del `Stripboard` (Hoja de Tiempos Invertida)
+- **Tu jornada diaria (ej. 8h/día) es una sola**, aunque tus OTs se separen por Espacio.
+- En el **Stripboard** (`Mis Tareas`), el cálculo de horas diarias (`Día: Xh / 8h`) siempre suma la carga real total entre todos los Espacios para impedir la ceguera de sobrecarga.
+- Dentro de un Espacio puntual (ej. `Web`), las tareas de otros Espacios permanecen visibles pero atenuadas (`opacity-45`), acompañadas del desglose `Día: Xh / 8h (Nh Web + Mh otros)`.
+- **Filosofía de presupuesto de tiempo:** El usuario asigna horas *hacia adelante* desde el inicio de semana/día como presupuesto de enfoque (en lugar de llenar planillas de memoria al final de la semana). El tracking competitivo en tiempo real (`Asignado vs. Real`) se documenta como plugin desacoplado en [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md).
+
+---
+
+## 11. Presets de Escritorio y Estadísticas por Rol
+
+El Escritorio comparte un único motor de consultas (`LIVE` vs. `THROUGHPUT` con Regla de Nodos Hoja; especificación completa en [`arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md)) y despliega un **preset inicial según el rol**:
+
+| Rol | Ancla inicial | Bloques predeterminados | Restricciones de visibilidad |
+| :--- | :--- | :--- | :--- |
+| **Dueño (`owner`)** | `Estudio` *(Global, con conmutador a Personal)* | 1. Horizonte de Entregas (`LIVE`) · 2. Pulso de Acuse y Operación (`LIVE`) · 3. Capacidad y Carga del Estudio (`LIVE` vs. `dailyHours`) · 4. Distribución por Espacio y Cuellos (`LIVE`) · 5. Ritmo y Ciclo de Facturación (`THROUGHPUT`) · 6. Concentración por Cliente (`LIVE`). | Acceso total + tramo financiero (`Cerrar OT/Facturar → Facturada → Pagada`). |
+| **Colaborador (`member`)** | `Colaborador = Yo` *(Personal)* | 1. Mi Horizonte de Entregas (`LIVE`) · 2. Mi Bandeja de Acuse y Ejecución (`LIVE`) · 3. Mi Capacidad Horaria (`LIVE` vs. `dailyHours`) · 4. Mi Distribución por Cliente y Depto (`LIVE`) · 5. Mi Ritmo de Cierre y Cumplimiento (`THROUGHPUT`). | Sin tramo financiero ni capacidad de terceros. Si tiene `allowed_client_id = '*'` o rol `Tráfico`, habilita conmutador operativo a `Estudio` sin tramo financiero (salvo permiso del Dueño). |
+| **Cliente (`client`)** | `Cliente = allowed_client_id` *(Bloqueado)* | 1. Horizonte de Entregas de su cuenta (`LIVE`) · 2. Estado de avance de sus OTs (`LIVE`) · 3. Pendientes en su cancha (`Depto: Cliente` y piezas en revisión). | Sin acceso a otros clientes, capacidad interna del equipo ni estadísticas financieras del estudio. |
+| **Invitado (`share_token`)** | — | Sin acceso a Escritorio ni Estadísticas. | Solo enlace `/review/:token`. |

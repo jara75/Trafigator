@@ -99,7 +99,7 @@ export const studioScopes = ['Estudio', 'Departamento', 'Propio'];
 
 export const userAccounts = [
   { fullName: 'Andrés Jaramillo', shortName: 'Andrés', email: 'direccion@elmarcante.com', role: 'Dueño', scope: 'Todo el estudio', departments: ['Todos'], dailyHours: 8, color: '#f59e0b', avatarMode: 'initials', avatarIcon: 'compass', avatarImage: '' },
-  { fullName: 'Camila Rojas', shortName: 'Camila', email: 'camila@elmarcante.com', role: 'Tráfico', scope: 'Todo el estudio', departments: ['Tráfico', 'Cuentas'], dailyHours: 8, color: '#38bdf8', avatarMode: 'initials', avatarIcon: 'zap', avatarImage: '' },
+  { fullName: 'Camila Rojas', shortName: 'Camila', email: 'camila@elmarcante.com', role: 'Tráfico', scope: 'Todo el estudio', departments: ['Cuentas'], dailyHours: 8, color: '#38bdf8', avatarMode: 'initials', avatarIcon: 'zap', avatarImage: '' },
   { fullName: 'Mateo Silva', shortName: 'Mateo', email: 'mateo@elmarcante.com', role: 'Creativo', scope: 'Clientes asignados', departments: ['Creativos', 'Producción'], dailyHours: 8, color: '#a78bfa', avatarMode: 'initials', avatarIcon: 'palette', avatarImage: '' },
   { fullName: 'Sofía Pardo', shortName: 'Sofía', email: 'sofia@elmarcante.com', role: 'Producción', scope: 'Clientes asignados', departments: ['Producción', 'Medios'], dailyHours: 8, color: '#34d399', avatarMode: 'initials', avatarIcon: 'film', avatarImage: '' },
 ];
@@ -113,7 +113,7 @@ export const userProfile = {
 
 export const studioTeamList = [
   { name: 'Andrés', email: 'direccion@elmarcante.com', role: 'Dueño', scope: 'Estudio', departments: ['Todos'], isOwner: true, status: 'Activo' },
-  { name: 'Camila', email: 'camila@elmarcante.com', role: 'Admin / Tráfico', scope: 'Estudio', departments: ['Tráfico', 'Cuentas'], isOwner: false, status: 'Activo' },
+  { name: 'Camila', email: 'camila@elmarcante.com', role: 'Admin / Tráfico', scope: 'Estudio', departments: ['Cuentas'], isOwner: false, status: 'Activo' },
   { name: 'Mateo', email: 'mateo@elmarcante.com', role: 'Operativo', scope: 'Departamento', departments: ['Creativos', 'Producción'], isOwner: false, status: 'Activo' },
   { name: 'Sofía', email: 'sofia@elmarcante.com', role: 'Operativo', scope: 'Propio', departments: ['Producción', 'Medios'], isOwner: false, status: 'Activo' }
 ];
@@ -143,7 +143,7 @@ export const studioProfiles = [
     color: '#f59e0b',
     active: true,
     isBase: true,
-    departments: ['Cuentas', 'Tráfico', 'Creativos', 'Producción', 'Medios', 'Cliente', 'Facturación'],
+    departments: ['Cuentas', 'Creativos', 'Producción', 'Medios', 'Cliente', 'Facturación'],
   },
   {
     id: 'diseno-branding',
@@ -183,7 +183,7 @@ export const studioProfiles = [
   },
 ];
 
-export const trafficDepartments = ['Dirección', 'Cuentas', 'Tráfico', 'Creativos', 'Producción', 'Medios', 'UX/UI', 'Maquetación', 'Contenido', 'Product', 'Frontend', 'Backend', 'QA', 'DevOps', 'Cliente', 'Facturación'];
+export const trafficDepartments = ['Dirección', 'Cuentas', 'Creativos', 'Producción', 'Medios', 'UX/UI', 'Maquetación', 'Contenido', 'Product', 'Frontend', 'Backend', 'QA', 'DevOps', 'Cliente', 'Facturación'];
 
 export function getActiveWorkspaces() {
   return studioProfiles.filter((p) => p.active);
@@ -250,7 +250,7 @@ export const departmentColors = {
   'Facturación': '#fb7185',
 };
 
-const START_ANCHOR_DEPTS = ['Dirección', 'Cuentas', 'Tráfico'];
+const START_ANCHOR_DEPTS = ['Dirección', 'Cuentas'];
 const END_ANCHOR_DEPTS = ['Cliente', 'Facturación'];
 
 export function orderStudioDepartments(list) {
@@ -390,13 +390,13 @@ export const trafficOrders = [
   { id: 'OT-26-001', workspaceId: 'diseno-publicidad', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Alojamiento', media: 'IG Carousel 1080x1350', ref: 'Temporada Verde', title: 'Campaña lanzamiento temporada baja y escapadas', entryDate: relDate(-5, '09:00'), deliveryDate: relDate(3, '17:00'), department: 'Creativos', status: 'En proceso', responsible: 'Andrés', notes: 'Esperando fotos finales de cabañas', urgent: true },
   { id: 'OT-26-002', workspaceId: 'diseno-web', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiro Detox', media: 'Landing + Reel 9:16', ref: 'Equilibrio 2026', title: 'Piezas digitales para retiro de fin de semana', entryDate: relDate(-4, '10:30'), deliveryDate: relDate(4, '12:00'), department: 'Contenido', status: 'En proceso', responsible: 'Camila', notes: 'Revisar copy de itinerario', urgent: false },
   { id: 'OT-26-003', workspaceId: 'diseno-web', client: 'Club Premium', brand: 'Club Premium', product: 'Institucional', media: 'Email + Banner Web', ref: 'Black Benefits', title: 'Actualización beneficios Q4 para socios Black', entryDate: relDate(-2, '08:45'), deliveryDate: relDate(3, '18:00'), department: 'Cliente', status: 'En proceso', responsible: 'Mateo', notes: 'Enviado a aprobación de gerencia', urgent: false },
-  { id: 'OT-26-004', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Impreso + Invitación Digital', ref: 'Noche Dorada', title: 'Invitación VIP y señalética del salón principal', entryDate: relDate(-1, '14:15'), deliveryDate: relDate(5, '16:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Sofía', notes: 'Cotizar papel texturizado', urgent: true },
+  { id: 'OT-26-004', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Impreso + Invitación Digital', ref: 'Noche Dorada', title: 'Invitación VIP y señalética del salón principal', entryDate: relDate(-1, '14:15'), deliveryDate: relDate(5, '16:00'), department: 'Producción', status: 'En proceso', responsible: 'Sofía', notes: 'Cotizar papel texturizado', urgent: true },
   { id: 'OT-26-005', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Tostión Media', product: 'Empaque 340g', media: 'Troquel + Arte Final', ref: 'Sierra Nevada', title: 'Ajuste tabla nutricional y código de barras', entryDate: relDate(0, '11:00'), deliveryDate: relDate(0, '15:00'), department: 'Producción', status: 'En proceso', responsible: 'Andrés', notes: 'Validar Pantone dorado', urgent: false },
   { id: 'OT-26-006', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Cold Brew', product: 'Botella 300ml', media: 'Pauta Meta Ads', ref: 'Verano Frío', title: 'Adaptaciones 3 formatos para pauta pagada', entryDate: relDate(0, '09:20'), deliveryDate: relDate(0, '17:00'), department: 'Medios', status: 'En proceso', responsible: 'Camila', notes: 'Listo para pauta lunes', urgent: false },
   { id: 'OT-26-007', workspaceId: 'diseno-publicidad', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Restaurante', media: 'Video Reel 9:16', ref: 'Amanecer Bosque', title: 'Edición reel experiencia desayuno en terraza', entryDate: relDate(-6, '09:10'), deliveryDate: relDate(3, '16:00'), department: 'Creativos', status: 'En proceso', responsible: 'Mateo', notes: 'Falta colorización final', urgent: false },
   { id: 'OT-26-008', workspaceId: 'diseno-web', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Rituales', media: 'Brochure PDF', ref: 'Carta Masajes', title: 'Diagramación menú de terapias y precios 2026', entryDate: relDate(-5, '15:20'), deliveryDate: relDate(5, '18:00'), department: 'Maquetación', status: 'En proceso', responsible: 'Sofía', notes: 'En revisión con dirección', urgent: false },
   { id: 'OT-26-009', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Roja', product: 'Edición Especial', media: 'Impreso Offset', ref: 'Welcome Box', title: 'Caja rígida y tarjeta personalizada nuevos socios', entryDate: relDate(-4, '11:00'), deliveryDate: relDate(6, '12:00'), department: 'Producción', status: 'En proceso', responsible: 'Andrés', notes: 'Prueba de barniz UV pendiente', urgent: true },
-  { id: 'OT-26-010', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Pendones + Backing', ref: 'Copa Otoño', title: 'Señalética de hoyos y backing premiación', entryDate: relDate(-3, '16:40'), deliveryDate: relDate(7, '10:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Camila', notes: 'Confirmar medidas con club', urgent: false },
+  { id: 'OT-26-010', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Pendones + Backing', ref: 'Copa Otoño', title: 'Señalética de hoyos y backing premiación', entryDate: relDate(-3, '16:40'), deliveryDate: relDate(7, '10:00'), department: 'Cuentas', status: 'En proceso', responsible: 'Camila', notes: 'Confirmar medidas con club', urgent: false },
   { id: 'OT-26-011', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Tostión Media', product: 'Molido 500g', media: 'Post + Stories IG', ref: 'Cosecha Altura', title: 'Carrusel educativo proceso de lavado', entryDate: relDate(-3, '08:30'), deliveryDate: relDate(4, '17:00'), department: 'Cuentas', status: 'En proceso', responsible: 'Mateo', notes: 'Textos aprobados por marca', urgent: false },
   { id: 'OT-26-012', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Cold Brew', product: 'Lata 250ml', media: 'Render 3D', ref: 'Pack x4', title: 'Renders de producto sobre hielo para e-commerce', entryDate: relDate(-2, '13:15'), deliveryDate: relDate(5, '19:00'), department: 'Creativos', status: 'En proceso', responsible: 'Sofía', notes: 'Ajustar reflejos metálicos', urgent: true },
   { id: 'OT-26-013', workspaceId: 'diseno-web', client: 'Shambhala Ecohotel', brand: 'Ecohotel Boutique', product: 'Habitaciones', media: 'Banner Hero Web', ref: 'Puente Festivo', title: 'Actualización banner principal tarifa especial', entryDate: relDate(-2, '10:00'), deliveryDate: relDate(1, '14:00'), department: 'UX/UI', status: 'En proceso', responsible: 'Andrés', notes: 'Subir versión desktop y móvil', urgent: false },
@@ -410,7 +410,7 @@ export const trafficOrders = [
   { id: 'OT-26-021', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Tostión Media', product: 'Empaque 340g', media: 'Etiqueta Adhesiva', ref: 'Edición Microlote', title: 'Diseño sello numerado cosecha limitada', entryDate: relDate(0, '10:40'), deliveryDate: relDate(4, '15:00'), department: 'Creativos', status: 'En proceso', responsible: 'Andrés', notes: 'Usar papel kraft texturizado', urgent: true },
   { id: 'OT-26-022', workspaceId: 'diseno-publicidad', client: 'Shambhala Ecohotel', brand: 'Spa & Retiros', product: 'Retiros', media: 'Reel + Carrusel', ref: 'Sonoterapia', title: 'Cobertura sesión de cuencos y edición rápida', entryDate: relDate(0, '12:00'), deliveryDate: relDate(5, '17:00'), department: 'Producción', status: 'En proceso', responsible: 'Camila', notes: 'Grabación programada sábado', urgent: false },
   { id: 'OT-26-023', workspaceId: 'desarrollo-software', client: 'Club Premium', brand: 'Club Premium', product: 'Eventos', media: 'Registro QR Web', ref: 'Check-in Gala', title: 'Sistema de confirmación y código QR invitados', entryDate: relDate(0, '14:00'), deliveryDate: relDate(8, '12:00'), department: 'Frontend', status: 'En proceso', responsible: 'Mateo', notes: 'Probar lectura en tablet puerta', urgent: false },
-  { id: 'OT-26-024', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Cold Brew', product: 'Botella 300ml', media: 'Pauta TikTok', ref: 'Receta Tonic', title: 'Video tutorial 15s preparación Cold Brew Tonic', entryDate: relDate(0, '15:10'), deliveryDate: relDate(7, '16:00'), department: 'Tráfico', status: 'En proceso', responsible: 'Sofía', notes: 'Revisar música sin copyright', urgent: false },
+  { id: 'OT-26-024', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Cold Brew', product: 'Botella 300ml', media: 'Pauta TikTok', ref: 'Receta Tonic', title: 'Video tutorial 15s preparación Cold Brew Tonic', entryDate: relDate(0, '15:10'), deliveryDate: relDate(7, '16:00'), department: 'Producción', status: 'En proceso', responsible: 'Sofía', notes: 'Revisar música sin copyright', urgent: false },
   { id: 'OT-26-025', workspaceId: 'diseno-publicidad', client: 'Shambhala Ecohotel', brand: 'Shambhala Ecohotel', product: 'Institucional', media: 'Facturación Cierre', ref: 'Fee Noviembre', title: 'Consolidado horas y entregables mes actual', entryDate: relDate(-7, '09:00'), deliveryDate: relDate(9, '17:00'), department: 'Facturación', status: 'En proceso', responsible: 'Andrés', notes: 'Adjuntar orden de compra', urgent: false },
   { id: 'OT-26-026', workspaceId: 'diseno-publicidad', client: 'Club Premium', brand: 'Club Premium', product: 'Institucional', media: 'Reporte Mensual', ref: 'KPIs Octubre', title: 'Informe resultados pauta y aperturas email', entryDate: relDate(-8, '10:00'), deliveryDate: relDate(0, '14:00'), department: 'Cuentas', status: 'Archivada', responsible: 'Camila', notes: 'Presentado en comité', urgent: false, archived: true },
   { id: 'OT-25-118', workspaceId: 'diseno-publicidad', client: 'Café Origen', brand: 'Tostión Media', product: 'Lanzamiento', media: 'Campaña Integral', ref: 'Cosecha 2025', title: 'Cierre campaña anual origen y empaques', entryDate: relDate(-45, '09:00'), deliveryDate: relDate(-20, '18:00'), department: 'Cuentas', status: 'Archivada', responsible: 'Andrés', notes: 'Archivada tras aprobación final', urgent: false, archived: true }

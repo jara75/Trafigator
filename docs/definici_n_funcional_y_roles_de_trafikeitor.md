@@ -83,7 +83,33 @@ Versión: 2.1 | Estado: Aprobada para Implementación | Última actualización: 
 | Editar catálogos globales | Sí | No | No | No | No |
 | Borrar OTs/clientes / Importar backup | Sí | No | No | No | No |
 | Reabrir OT `Archivada` (con nota) | Sí | No | No | No | No |
+| Escritorio y Estadísticas (Preset por Rol) | Global (`Estudio`) + Financiero | Bloqueado a su `allowed_client_id` (sin financiero ni capacidad interna) | Personal (`Colaborador = Yo`); si `*`, conmutador operativo `Estudio` sin financiero | Sin acceso | Sin acceso |
 | Activar/suspender licencia (`status`) | No | No | No | No | Sí |
+
+### 3.7. Presets Predeterminados de Escritorio y Estadísticas por Rol
+
+Referencia técnica completa del motor: [`docs/arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md) (Secciones 6 y 7).
+
+* **Dueño (`owner` — Ancla inicial: `Estudio`):**
+  1. *Horizonte de Entregas* (`LIVE` sin `Suspendida`: Vencidas/Urgentes · Hoy · Mañana · Esta semana · Próxima semana).
+  2. *Pulso de Acuse y Operación* (`LIVE`: Sin recibir `Tráfico + Activa`, En ejecución `En Proceso`, Detenidas `Suspendida`).
+  3. *Capacidad y Carga del Estudio* (`LIVE`, Nodos Hoja, solo equipo interno activo vs. `dailyHours`).
+  4. *Distribución por Espacio y Cuellos de Botella* (`LIVE`: por `Perfil` si hay 2+ perfiles o `Depto` si hay 1, destacando `Depto: Cliente`).
+  5. *Ritmo del Estudio y Ciclo de Facturación* (`THROUGHPUT`: Abiertas vs. Cerradas + `Cerrar OT/Facturar → Facturada → Pagada`).
+  6. *Concentración por Cliente* (`LIVE`, Nodos Hoja: OTs activas, horas presupuestadas y urgencias).
+* **Colaborador (`member` — Ancla inicial: `Colaborador = Yo`):**
+  1. *Mi Horizonte de Entregas* (`LIVE` sin `Suspendida`).
+  2. *Mi Bandeja de Acuse y Ejecución* (`LIVE`: Sin recibir, En ejecución, En pausa).
+  3. *Mi Capacidad Horaria* (`LIVE`, Nodos Hoja vs. `dailyHours`, enlazado a su Stripboard personal).
+  4. *Mi Distribución por Cliente y Depto* (`LIVE`, acotado a cuentas/deptos permitidos).
+  5. *Mi Ritmo de Cierre y Cumplimiento* (`THROUGHPUT`: tareas/OTs cerradas y `%` a tiempo).
+  * *Variante con Visibilidad Global (`allowed_client_id = '*'`) o rol `Tráfico`:* mantiene `Colaborador = Yo` al inicio y habilita conmutador a vistas operativas de `Estudio`, **manteniendo oculto el tramo financiero** salvo permiso explícito del `owner`.
+* **Cliente / Cuentas Colaborativo (`client` — Ancla bloqueada: `allowed_client_id`):**
+  1. *Horizonte de Entregas de su cuenta* (`LIVE`).
+  2. *Estado de avance de sus OTs* (`LIVE`).
+  3. *Pendientes en su cancha* (`Depto: Cliente` y piezas en revisión).
+  * *Ocultos:* otros clientes, capacidad horaria interna del equipo y estadísticas financieras del estudio.
+* **Invitado (`share_token`):** Sin acceso a Escritorio ni Estadísticas.
 
 ---
 

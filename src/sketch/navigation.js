@@ -167,14 +167,13 @@ export function initNavigation(handlers = {}) {
       const isDrillDown = otView !== 'new-ot';
       resetSubNavButtons();
 
-      if (!isDrillDown) {
-        btn.classList.add('bg-obsidian-elevated', 'text-[#D4D4D4]');
-        btn.classList.remove('hover:bg-obsidian-elevated', 'text-[#8C8C8C]', 'hover:text-[#D4D4D4]');
-        const svg = btn.querySelector('svg');
-        if (svg) {
-          svg.classList.remove('text-[#8C8C8C]');
-          svg.classList.add('text-[#D4D4D4]');
-        }
+      // Resaltado uniforme con pastilla gris y texto claro para cualquier módulo seleccionado
+      btn.classList.add('bg-obsidian-elevated', 'text-[#D4D4D4]');
+      btn.classList.remove('hover:bg-obsidian-elevated', 'text-[#8C8C8C]', 'hover:text-[#D4D4D4]');
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        svg.classList.remove('text-[#8C8C8C]');
+        svg.classList.add('text-[#D4D4D4]');
       }
 
       const viewNewOt = document.getElementById('view-new-ot');
@@ -204,6 +203,7 @@ export function initNavigation(handlers = {}) {
       document.getElementById('view-desktop')?.classList.add('hidden');
       if (viewTraffic) viewTraffic.classList.toggle('hidden', !isTrafficGridView);
       document.getElementById('settings-modal')?.classList.add('hidden');
+      document.getElementById('view-review')?.classList.add('hidden');
       if (viewMyOts) viewMyOts.classList.toggle('hidden', !isMyOtsView);
       if (viewEnvelopeOpen) viewEnvelopeOpen.classList.add('hidden');
       if (viewGallery) viewGallery.classList.toggle('hidden', !isArchiveGridView);
@@ -259,10 +259,11 @@ export function initNavigation(handlers = {}) {
   document.getElementById('btn-desktop-menu')?.addEventListener('click', () => {
     const centerTitle = document.getElementById('center-page-title');
     if (centerTitle) centerTitle.textContent = 'Escritorio';
+    resetSubNavButtons();
     hideAllWorkspaceViews();
     document.getElementById('view-desktop')?.classList.remove('hidden');
     handlers.onDesktop?.();
-    document.getElementById('left-menu-track')?.classList.add('-translate-x-1/2');
+    document.getElementById('left-menu-track')?.classList.remove('-translate-x-1/2');
   });
 
   document.getElementById('btn-left-back')?.addEventListener('click', () => {

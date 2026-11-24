@@ -66,6 +66,8 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 
 - **Botón primario:** `px-3.5 py-1 rounded-lg bg-obsidian-amber hover:bg-amber-400 text-[#191919] font-semibold transition-colors cursor-pointer`
 - **Botón secundario:** `px-3 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[#8C8C8C] hover:text-[#D4D4D4] transition-colors cursor-pointer` (o `bg-[#191919] border border-obsidian-border text-[#D4D4D4]`)
+- **Selectores / Switches / Pestañas inline (sin pastillas):** Texto limpio sin borde ni caja individual ni contenedor con borde (`text-[#737373] hover:text-[#D4D4D4]`); solo la opción seleccionada se resalta (`bg-obsidian-elevated text-[#D4D4D4] font-semibold`). Nunca envolver cada opción en bordes o pastillitas.
+- **Puntos de color (semáforo exclusivo):** **Solo el semáforo de Prioridades** (Urgente / Hoy / Mañana) lleva punto de color (`rounded-full`). En perfiles/espacios de la barra superior y otros ítems con contador, **nunca** poner punto de color — el color del perfil se aplica al número contador.
 - **Inputs / Selects:** `bg-[#222222]` o `bg-[#191919]` + `border border-obsidian-border rounded-lg px-2.5 py-1.5 text-[#D4D4D4] placeholder-[#5a6169] focus:border-[#3f3f3f] focus:outline-none`
 - **Tablas densas (Tráfico y Stripboard):** contenedor `border border-obsidian-border rounded-xl bg-[#202020]`, `thead` con `bg-[#191919] text-[9.5px] text-[#8C8C8C] uppercase tracking-wider`, filas zebra alternando `bg-[#1d1d1d]` y `bg-[#262626]` con `hover:bg-obsidian-elevated/70`.
 - **Modales:** overlay `fixed inset-0 bg-black/70 flex items-center justify-center p-4`. Usar `z-40` para `#settings-modal` y `z-50` para `#new-client-modal` (para que crear/editar cliente desde Ajustes se superponga correctamente).

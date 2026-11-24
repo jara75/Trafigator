@@ -28,12 +28,15 @@ export function initWorkspaceBar() {
     const current = sketchState.activeWorkspaceId || 'studio';
     const tab = (id, label, color, count) => {
       const isActive = id === current;
+      const countStyle = color ? ` style="color:${escapeHtml(color)}"` : '';
+      const countClass = color
+        ? (isActive ? 'font-semibold' : 'opacity-85')
+        : (isActive ? 'text-obsidian-amber font-semibold' : 'text-[#8C8C8C]');
       return `
         <button type="button" data-workspace-tab="${escapeHtml(id)}"
           class="h-6 px-3 rounded-md text-[11px] flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${isActive ? 'bg-obsidian-elevated text-[#D4D4D4] font-medium' : 'text-[#8C8C8C] hover:text-[#D4D4D4] hover:bg-obsidian-elevated/60'}">
-          ${color ? `<span class="w-2 h-2 rounded-full shrink-0" style="background:${escapeHtml(color)}"></span>` : ''}
           <span>${escapeHtml(label)}</span>
-          <span class="font-mono text-[9.5px] ${isActive ? 'text-obsidian-amber' : 'text-[#5a6169]'}">${count}</span>
+          <span class="font-mono text-[9.5px] ${countClass}"${countStyle}>${count}</span>
         </button>
       `;
     };

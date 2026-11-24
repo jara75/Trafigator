@@ -152,9 +152,47 @@ initStripboard({
   onOpenOt: (otId, taskIndex) => openOtInDetail(otId, taskIndex)
 });
 
+const desktopCallbacks = {
+  onOpenOt: (payload) => openOtInDetail(payload),
+  onGoToTraffic: (filters = null) => {
+    if (filters) {
+      sketchState.trafficFilter = filters.client ? { type: 'client', client: filters.client, brand: null } : { type: 'all', client: null, brand: null };
+      sketchState.trafficDeptFilter = filters.department || 'all';
+      sketchState.trafficStageFilter = filters.stage || 'all';
+      sketchState.trafficStatusFilter = filters.status || 'all';
+      sketchState.trafficDateFilter = filters.dateFilter || 'all';
+    }
+    jumpToSubView('traffic');
+  },
+  onGoToAllTasks: (filters = null) => {
+    if (filters) {
+      sketchState.trafficFilter = filters.client ? { type: 'client', client: filters.client, brand: null } : { type: 'all', client: null, brand: null };
+      sketchState.trafficDeptFilter = filters.department || 'all';
+      sketchState.trafficStageFilter = filters.stage || 'all';
+      sketchState.trafficStatusFilter = filters.status || 'all';
+      sketchState.trafficDateFilter = filters.dateFilter || 'all';
+    }
+    jumpToSubView('all-tasks');
+  },
+  onGoToStripboardDate: (isoDate) => {
+    if (isoDate) {
+      sketchState.stripboardDate = isoDate;
+      sketchState.stripboardViewMode = 'day';
+    }
+    jumpToSubView('my-tasks');
+  },
+};
+
+const refreshDesktopIfVisible = () => {
+  const desktopEl = document.getElementById('view-desktop');
+  if (desktopEl && !desktopEl.classList.contains('hidden')) {
+    renderDesktopOverview(desktopCallbacks.onGoToTraffic, desktopCallbacks);
+  }
+};
+
 initNavigation({
   onDesktop: () => {
-    renderDesktopOverview(() => jumpToSubView('traffic'));
+    renderDesktopOverview(desktopCallbacks.onGoToTraffic, desktopCallbacks);
   },
   onTraffic: () => {
     renderTrafficTree();
@@ -173,14 +211,11 @@ initNavigation({
   }
 });
 
-renderDesktopOverview(() => jumpToSubView('traffic'));
+renderDesktopOverview(desktopCallbacks.onGoToTraffic, desktopCallbacks);
 
-onSketchChange('orders', () => {
-  const desktopEl = document.getElementById('view-desktop');
-  if (desktopEl && !desktopEl.classList.contains('hidden')) {
-    renderDesktopOverview(() => jumpToSubView('traffic'));
-  }
-});
+onSketchChange('orders', refreshDesktopIfVisible);
+onSketchChange('stripboard', refreshDesktopIfVisible);
+onSketchChange('workspace', refreshDesktopIfVisible);
 
 onSketchChange('open-ot', (payload) => {
   if (payload?.otId) {
