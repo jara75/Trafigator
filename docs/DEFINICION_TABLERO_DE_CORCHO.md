@@ -135,3 +135,13 @@ Cada ítem fijado en el Corcho sigue una estructura uniforme serializable tanto 
 | **`Colaborador` (`member`)** | Solo lectura (si tiene alcance global) | Privado total (su espacio principal de trabajo) | A miembros/clientes dentro de sus OTs asignadas |
 | **`Cliente` (`client`)** | Sin acceso | Sin acceso (usa su portal / `/review/:token`) | — |
 | **`Invitado` (`share_token`)** | Sin acceso | Sin acceso | — |
+
+---
+
+## 7. Prerequisitos Técnicos Detectados para Implementar C04
+
+1. **Aislar Drag & Drop de pines frente al intercambio de cuadrantes (`desktop.js`):** exigir `draggedSlotIdx !== null` o MIME dedicado (`application/x-trafigator-slot`) en `[data-dk-drop-slot]` y usar MIME propio + `stopPropagation()` en C04 para que un `drop` de pines/reordenamiento (HU-01 / HU-04) nunca intercambie cuadrantes.
+2. **Inyectar contexto y RBAC en `renderCorkboardQuadrant` (`desktop-corkboard.js`):** pasar `isFullDesktop` (grilla 2 vs 4 cols), `roleCaps` / `userProfile` / `studioSettings` (partición `localStorage`, solo lectura en Global para `Colaborador`, tarjeta `ad` HU-07) y estado activo de Estadística (`effectiveStatsPill`, `statsQuery.effectiveState`) para HU-02.
+3. **Capa propia de estado y eventos en `desktop-corkboard.js`:** definir persistencia local y `bindCorkboardEvents(container, ctx)` dentro del módulo para mantener `desktop.js` liviano.
+4. **Atributos de arrastre en C01 y C03 (HU-01):** añadir `draggable` y `data-dk-pin-drag` en `renderOtRow` / `renderTaskRow` (`desktop-cards.js`) y en las tarjetas de vista Mes (`desktop-calendar.js`).
+5. **Prioridad de `Escape` y cierre uniforme:** contemplar el cierre de *Vista Previa de Pin* antes de salir de Escritorio Completo (`panelLightboxModId`) y unificar el botón `Cerrar` de la Galería contextual al SVG `×`.

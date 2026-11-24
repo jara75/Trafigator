@@ -56,7 +56,7 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 2. **Resizer (`#resizer-left` / `#resizer-right`):** línea de `1px` (`bg-obsidian-border hover:bg-obsidian-cyan cursor-col-resize`).
 3. **Columna Central (`#pane-center`, `flex-1 min-w-0`):**
    - Cabecera `h-10 px-4` con `#center-page-title` y acciones rápidas a la derecha.
-   - `#center-body` alberga vistas mutuamente excluyentes (`hidden` toggle): `#view-new-ot`, `#view-traffic`, `#view-my-ots`, `#view-gallery`, `#view-stripboard`.
+   - `#center-body` alberga vistas mutuamente excluyentes (`hidden` toggle): `#view-desktop`, `#view-new-ot`, `#view-traffic`, `#view-my-ots`, `#view-gallery`, `#view-stripboard`, `#view-review`.
 4. **Columna Derecha (`#pane-right`, `220px`):**
    - Cabecera `h-10 px-3` con `INSPECTOR` y `#right-body` para controles contextuales de la tarea seleccionada (horas dedicadas, día programado, capacidad diaria `Xh / jornada`).
 
@@ -88,6 +88,7 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 - **Escritorio Completo (`⤢`) sin modales flotantes de cuadrante:** Expandir un cuadrante (`⤢`) ocupa el 100% de la columna central (`#view-desktop`) conservando siempre visibles `#pane-left`, `#workspace-bar` y el **Inspector derecho (`#pane-right`)**; nunca montar un modal `fixed inset-0` que tape el Inspector.
 - **Tablero de Corcho (`C04`) vs. Inspector (`#pane-right`):** `C04` tiene la misma altura (`50% / 50%`) que los demás cuadrantes, aloja el Tablero de Corcho estilo Scrivener (pines de archivos/Briefs PDF, notas, enlaces, plugins y publicidad en plan gratis) y actúa como visor contextual temporal al tocar una OT (`Galería + Vista previa`) o un gráfico en Estadística. Los **Recordatorios / Alarmas** con reloj pertenecen al **Inspector derecho** (junto a campana y reloj, persistentes en toda la app), nunca al Corcho.
 - **Iconografía simétrica:** `panel-left-close/open` (`w-3.5 h-3.5`) a la izquierda y `panel-right-close/open` (`w-3.5 h-3.5`) a la derecha; botón cerrar siempre con SVG `x` uniforme.
+- **Arquitectura modular del Escritorio (`src/sketch/desktop*.js`):** `desktop.js` (orquestador), `desktop-cards.js` (tarjetas OT/Tarea, anillos KPI y controles de cuadrante), `desktop-calendar.js` (`C01 Prioridades` y `C03 Calendario`), `desktop-stats-panel.js` (`C02 Estadística`), `desktop-corkboard.js` (`C04 Tablero de Corcho`, renderizado y eventos), `desktop-corkboard-store.js` (esquema de pines, MIME, persistencia `localStorage`/IndexedDB, RBAC y estado de `C04`) y `desktop-inspector.js` (Inspector derecho en reposo).
 
 
 
