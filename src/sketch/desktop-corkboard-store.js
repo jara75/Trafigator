@@ -472,7 +472,43 @@ export function removeCorkPin(pinId, opts = {}) {
   if (target?.fileMeta?.blobId) {
     deleteCorkBlob(target.fileMeta.blobId).catch(() => {});
   }
+  if (corkUiState.activePinId === pinId) {
+    corkUiState.activePinId = null;
+  }
+  if (corkUiState.activePinnedChartId === pinId) {
+    corkUiState.activePinnedChartId = null;
+  }
   return { ...saved, removed: target || null };
+}
+
+export function reorderCorkPins(storageKey, draggedPinId, targetPinId) {
+  const key = typeof storageKey === 'string' ? storageKey : getCorkStorageKey(storageKey || {});
+  const fromId = String(draggedPinId || '');
+  const toId = String(targetPinId || '');
+  if (!key || !fromId || !toId || fromId === toId) {
+    return { ok: true, moved: false, pins: [] };
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { ok: true, moved: false, pins: [] };
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return { ok: true, moved: false, pins: [] };
+    const ordered = parsed
+      .map((item, idx) => createCorkPin({ ...item, position: item?.position ?? idx }))
+      .sort((a, b) => a.position - b.position);
+    const fromIdx = ordered.findIndex((p) => p.id === fromId);
+    const toIdx = ordered.findIndex((p) => p.id === toId);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) {
+      return { ok: true, moved: false, pins: ordered };
+    }
+    const [movedPin] = ordered.splice(fromIdx, 1);
+    ordered.splice(toIdx, 0, movedPin);
+    const normalized = ordered.map((p, idx) => createCorkPin({ ...p, position: idx }));
+    localStorage.setItem(key, JSON.stringify(normalized));
+    return { ok: true, moved: true, pins: normalized };
+  } catch (err) {
+    return { ok: false, moved: false, error: err?.name || 'StorageError', pins: [] };
+  }
 }
 
 // --- Almacenamiento de blobs locales en IndexedDB (evita QuotaExceededError en localStorage) ---

@@ -25,10 +25,12 @@ import {
   getActiveCorkComposer,
   getActivePinnedChartId,
   getCorkBlobObjectUrl,
+  getCorkStorageKey,
   getCorkboardPermissions,
   hasOpenCorkPinPreview,
   normalizeSafeWebUrl,
   removeCorkPin,
+  reorderCorkPins,
   setActiveCorkComposer,
   setActivePinnedChartId,
 } from './desktop-corkboard-store.js';
@@ -477,6 +479,70 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
     });
   });
 
+  // Reordenamiento interno de fichas por ID (HU-04 · MIME dedicado DND_MIME_CORK_CARD, aislado de cuadrantes y dropzone externo)
+  if (perms.canEdit) {
+    let draggedCardId = null;
+    const clearCardIndicators = () => {
+      corkRoot.querySelectorAll('[data-cork-card-id]').forEach((el) => {
+        el.classList.remove('ring-2', 'ring-inset', 'ring-cyan-500/70', 'opacity-50');
+      });
+    };
+
+    corkRoot.querySelectorAll('[data-cork-card-id]').forEach((cardEl) => {
+      const cardId = cardEl.dataset.corkCardId;
+      if (!cardId) return;
+
+      cardEl.addEventListener('dragstart', (e) => {
+        if (e.target && e.target.closest('button, a, input, textarea')) {
+          e.preventDefault();
+          return;
+        }
+        e.stopPropagation();
+        draggedCardId = cardId;
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData(DND_MIME_CORK_CARD, cardId);
+        }
+        cardEl.classList.add('opacity-50');
+      });
+
+      cardEl.addEventListener('dragend', (e) => {
+        e.stopPropagation();
+        draggedCardId = null;
+        clearCardIndicators();
+      });
+
+      cardEl.addEventListener('dragover', (e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        const isInternal = draggedCardId !== null || types.includes(DND_MIME_CORK_CARD);
+        if (!isInternal || draggedCardId === cardId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        cardEl.classList.add('ring-2', 'ring-inset', 'ring-cyan-500/70');
+      });
+
+      cardEl.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget && cardEl.contains(e.relatedTarget)) return;
+        cardEl.classList.remove('ring-2', 'ring-inset', 'ring-cyan-500/70');
+      });
+
+      cardEl.addEventListener('drop', (e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        const isInternal = draggedCardId !== null || types.includes(DND_MIME_CORK_CARD);
+        if (!isInternal) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const fromId = draggedCardId || e.dataTransfer?.getData(DND_MIME_CORK_CARD) || '';
+        draggedCardId = null;
+        clearCardIndicators();
+        if (!fromId || fromId === cardId) return;
+        const res = reorderCorkPins(getCorkStorageKey(storeOpts), fromId, cardId);
+        if (res.moved) rerenderLocal();
+      });
+    });
+  }
+
   // Despinar ficha (×)
   corkRoot.querySelectorAll('[data-cork-unpin]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -689,10 +755,14 @@ export function bindCorkboardEvents(container, ctx = {}) {
   };
 
   const hasType = (e, mime) => Array.from(e.dataTransfer?.types || []).includes(mime);
-  const isPinOrFileDrop = (e) => hasType(e, DND_MIME_PIN) || hasType(e, 'Files');
   const isInternalCorkDrag = (e) => hasType(e, DND_MIME_CORK_CARD);
+  const isPinOrFileDrop = (e) => !isInternalCorkDrag(e) && (hasType(e, DND_MIME_PIN) || hasType(e, 'Files'));
 
   corkRoot.addEventListener('dragenter', (e) => {
+    if (isInternalCorkDrag(e)) {
+      e.stopPropagation();
+      return;
+    }
     if (!isPinOrFileDrop(e)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -705,6 +775,7 @@ export function bindCorkboardEvents(container, ctx = {}) {
     if (isInternalCorkDrag(e)) {
       e.preventDefault();
       e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
       return;
     }
     if (!isPinOrFileDrop(e)) return;
