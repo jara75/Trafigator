@@ -121,6 +121,7 @@ let draggedSlotIdx = null;
 let selectedCardKey = null;
 let selectedCalendarDate = null;
 let nextWeekAnchorIso = null;
+let leftCollapseMode = 'none'; // 'none' | 'q1' | 'q3'
 let rightCollapseMode = 'none'; // 'none' | 'q2' | 'q4'
 let dismissListenersBound = false;
 
@@ -771,10 +772,11 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
 
   const renderCollapseBtn = (target) => {
     if (!target) return '';
-    const isUp = target === 'q2';
+    const isUp = target === 'q1' || target === 'q2';
+    const attrName = (target === 'q1' || target === 'q3') ? 'data-dk-collapse-left' : 'data-dk-collapse-right';
     return `
-      <button type="button" data-dk-collapse-right="${target}" title="${isUp ? 'Colapsar cuadrante superior' : 'Colapsar cuadrante inferior'}"
-        class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-[#D4D4D4] flex items-center justify-center cursor-pointer transition-colors">
+      <button type="button" ${attrName}="${target}" title="${isUp ? 'Colapsar cuadrante superior' : 'Colapsar cuadrante inferior'}"
+        class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-[#D4D4D4] flex items-center justify-center cursor-pointer transition-colors shrink-0">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${isUp ? '<polyline points="18 15 12 9 6 15"/>' : '<polyline points="6 9 12 15 18 9"/>'}</svg>
       </button>
     `;
@@ -900,40 +902,87 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     `;
   };
 
-  const renderQ4Content = (dragHandleHtml = '', collapseBtnHtml = '') => `
-    <div class="relative p-3 border-t-2 border-t-cyan-500/65 flex flex-col justify-between min-h-0 flex-1 group hover:bg-[#202020]/25 transition-colors">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-1 min-w-0">
-          ${dragHandleHtml}
-          <span class="font-mono text-[9px] text-[#5A5A5A] tracking-wider uppercase truncate">04 // CUADRANTE INF. DER</span>
+  const renderQ4Content = (dragHandleHtml = '', rightActionBtns = '') => {
+    // 1. Gráfico seleccionado desde Estadística -> se muestra en C04 (sin modal)
+    if (lightboxChartIdx !== null && lastPillBoard && Array.isArray(lastPillBoard.cards) && lastPillBoard.cards[lightboxChartIdx]) {
+      const card = lastPillBoard.cards[lightboxChartIdx];
+      const total = lastPillBoard.cards.length;
+      return `
+        <div id="dk-q4-chart-root" class="flex-1 flex flex-col min-h-0 border-t-2 border-t-violet-500/75 bg-[#171717]">
+          <div class="px-3 py-1.5 border-b border-obsidian-border bg-[#1b1b1b] flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 min-w-0">
+              ${dragHandleHtml}
+              <span class="font-mono text-[9px] text-obsidian-amber font-semibold shrink-0">0${lightboxChartIdx + 1}/${total}</span>
+              <span class="font-mono text-[9.5px] text-[#F0F0F0] uppercase tracking-wider font-semibold truncate">${escapeHtml(card.title)}</span>
+              <span class="font-mono text-[8.5px] text-[#737373] truncate hidden sm:inline">· ${escapeHtml(lastPillBoard.title)}</span>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button type="button" data-dk-lb-nav="-1" title="Gráfico anterior (←)"
+                class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">‹</button>
+              <button type="button" data-dk-lb-nav="1" title="Gráfico siguiente (→)"
+                class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">›</button>
+              <button type="button" data-dk-lb-close="1" title="Volver al Tablero de Corcho (Esc)" aria-label="Cerrar gráfico"
+                class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+              ${rightActionBtns}
+            </div>
+          </div>
+          <div class="flex-1 min-h-0 overflow-y-auto p-4">
+            ${card.largeBody}
+          </div>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <span class="text-[9px] font-mono text-[#3a3a3a] group-hover:text-[#737373] transition-colors">VACÍO</span>
-          ${collapseBtnHtml}
+      `;
+    }
+
+    // 2. OT / Tarea seleccionada -> Galería + Vista previa sobre C04
+    if (selectedContextOt) {
+      return renderQ2GalleryOverlay('border-t-2 border-t-obsidian-amber/80', dragHandleHtml, rightActionBtns);
+    }
+
+    // 3. Estado base: Tablero de Corcho (estilo Scrivener)
+    return `
+      <div class="relative p-3 border-t-2 border-t-cyan-500/70 flex flex-col justify-between min-h-0 flex-1 bg-[#161616]/60">
+        <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-obsidian-border/70 shrink-0">
+          <div class="flex items-center gap-1.5 min-w-0">
+            ${dragHandleHtml}
+            <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Tablero de Corcho</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
+            ${rightActionBtns}
+          </div>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 py-4 gap-1.5 text-center">
+          <div class="w-8 h-8 rounded-lg border border-dashed border-obsidian-border flex items-center justify-center text-[#5A5A5A]">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
+            </svg>
+          </div>
+          <span class="text-[10.5px] text-[#8C8C8C] font-medium">Tablero de Corcho</span>
+          <span class="text-[9px] text-[#5A5A5A] font-mono">Fija archivos, notas, enlaces o selecciona una OT / gráfico para inspeccionar aquí</span>
+        </div>
+        <div class="flex items-center justify-between text-[8.5px] font-mono text-[#4A4A4A] pt-1 border-t border-obsidian-border/40 shrink-0">
+          <span>CORCHO · 04</span>
+          <span>Pines · Vista previa · Plugins</span>
         </div>
       </div>
-      <div class="flex flex-col items-center justify-center flex-1 py-4">
-        <svg class="w-3 h-3 text-[#3a3a3a] mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"></path>
-        </svg>
-        <span class="text-[10px] text-[#5A5A5A] font-mono tracking-wide">Área disponible</span>
-      </div>
-      <div class="flex items-center justify-between text-[9px] font-mono text-[#3a3a3a]">
-        <span>PANEL_04</span>
-        <span>--:--</span>
-      </div>
-    </div>
-  `;
+    `;
+  };
 
   const getQuadrantCollapsedLabel = (modId) => {
     if (modId === 'priorities') return 'Prioridades · Urgentes · Hoy · Mañana';
     if (modId === 'calendar') {
-      return selectedContextOt
-        ? `Galería · ${escapeHtml(String(selectedContextOt.id || '').replace(/^OT-/i, ''))}`
-        : (q2ViewMode === 'month' ? 'Mes' : 'Semanas · Esta semana · Semana próxima');
+      return q2ViewMode === 'month' ? 'Mes' : 'Semanas · Esta semana · Semana próxima';
     }
     if (modId === 'stats') return `Estadística · ${escapeHtml(statsChartTitle)}`;
-    return '04 // Cuadrante disponible';
+    if (lightboxChartIdx !== null && lastPillBoard?.cards?.[lightboxChartIdx]) {
+      return `Tablero de Corcho · ${escapeHtml(lastPillBoard.cards[lightboxChartIdx].title)}`;
+    }
+    if (selectedContextOt) {
+      return `Galería · ${escapeHtml(String(selectedContextOt.id || '').replace(/^OT-/i, ''))}`;
+    }
+    return 'Tablero de Corcho';
   };
 
   let fullStatsPanelLightboxHtml = '';
@@ -960,20 +1009,30 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     `
     : '';
 
-  const renderExpandPanelBtn = (modId) => `
-    <button type="button" data-dk-lb-open-panel="${escapeHtml(modId)}" title="Abrir panel en caja de luz"
-      class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-obsidian-amber flex items-center justify-center cursor-pointer transition-colors shrink-0">
-      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
-        <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-      </svg>
-    </button>
-  `;
+  const renderExpandPanelBtn = (modId, isExpanded = false) => isExpanded
+    ? `
+      <button type="button" data-dk-lb-close="1" title="Volver a los 4 cuadrantes (Esc)" aria-label="Restaurar cuadrantes"
+        class="w-6 h-6 rounded hover:bg-obsidian-elevated text-obsidian-amber hover:text-white flex items-center justify-center cursor-pointer transition-colors shrink-0">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+          <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
+    `
+    : `
+      <button type="button" data-dk-lb-open-panel="${escapeHtml(modId)}" title="Expandir a Escritorio completo" aria-label="Expandir panel"
+        class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-obsidian-amber flex items-center justify-center cursor-pointer transition-colors shrink-0">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
+    `;
 
-  const renderQuadrantModule = (modId, slotIdx, { collapseTarget = '', borderBottomClass = '', slotClass = 'flex-1', inLightbox = false } = {}) => {
-    const dragHandleHtml = inLightbox ? '' : renderDragHandle(slotIdx);
-    const collapseBtnHtml = inLightbox ? '' : renderCollapseBtn(collapseTarget);
-    const expandBtnHtml = (!inLightbox && modId !== 'empty') ? renderExpandPanelBtn(modId) : '';
+  const renderQuadrantModule = (modId, slotIdx, { collapseTarget = '', borderBottomClass = '', slotClass = 'flex-1', isFullDesktop = false } = {}) => {
+    const dragHandleHtml = isFullDesktop ? '' : renderDragHandle(slotIdx);
+    const collapseBtnHtml = isFullDesktop ? '' : renderCollapseBtn(collapseTarget);
+    const expandBtnHtml = renderExpandPanelBtn(modId, isFullDesktop);
     const rightActionBtns = `${expandBtnHtml}${collapseBtnHtml}`;
     let innerHtml = '';
 
@@ -1024,28 +1083,26 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         </div>
       `;
     } else if (modId === 'calendar') {
-      innerHtml = selectedContextOt
-        ? renderQ2GalleryOverlay('border-t-2 border-t-obsidian-amber/80', dragHandleHtml, rightActionBtns)
-        : (q2ViewMode === 'month'
-            ? renderQ2MonthView({ borderClass: 'border-t-2 border-t-emerald-500/70', dragHandleHtml, collapseBtnHtml: rightActionBtns })
-            : `<div class="flex-1 grid grid-rows-2 min-h-0">
-                ${renderQ2WeekRow({
-                  rowKey: 'thisWeek',
-                  title: 'Esta Semana',
-                  anchorIso: todayKey,
-                  borderClass: 'border-t-2 border-t-emerald-500/70 border-b border-obsidian-border',
-                  dragHandleHtml,
-                  collapseBtnHtml: rightActionBtns,
-                  showViewSwitch: true,
-                })}
-                ${renderQ2WeekRow({
-                  rowKey: 'nextWeek',
-                  title: 'Semana Próxima',
-                  anchorIso: nextWeekAnchor,
-                  borderClass: '',
-                  navigable: true,
-                })}
-              </div>`);
+      innerHtml = q2ViewMode === 'month'
+        ? renderQ2MonthView({ borderClass: 'border-t-2 border-t-emerald-500/70', dragHandleHtml, collapseBtnHtml: rightActionBtns })
+        : `<div class="flex-1 grid grid-rows-2 min-h-0">
+            ${renderQ2WeekRow({
+              rowKey: 'thisWeek',
+              title: 'Esta Semana',
+              anchorIso: todayKey,
+              borderClass: 'border-t-2 border-t-emerald-500/70 border-b border-obsidian-border',
+              dragHandleHtml,
+              collapseBtnHtml: rightActionBtns,
+              showViewSwitch: true,
+            })}
+            ${renderQ2WeekRow({
+              rowKey: 'nextWeek',
+              title: 'Semana Próxima',
+              anchorIso: nextWeekAnchor,
+              borderClass: '',
+              navigable: true,
+            })}
+          </div>`;
     } else if (modId === 'stats') {
       const renderSelectOpts = (items, currentVal, allLabel = 'Todos') => `
         <option value="all" ${currentVal === 'all' ? 'selected' : ''}>${escapeHtml(allLabel)}</option>
@@ -1124,11 +1181,11 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       if (lightboxChartIdx !== null && (!pillBoard.cards || !pillBoard.cards[lightboxChartIdx])) {
         lightboxChartIdx = null;
       }
-      const vizBodyHtml = pillBoard.html;
+      const vizBodyHtml = isFullDesktop ? pillBoard.wideHtml : pillBoard.html;
 
       const statsKpiRowsHtml = `
-        <div class="p-1.5 border-b border-obsidian-border flex flex-col gap-1 shrink-0 bg-[#171717]">
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1">
+        <div class="p-1.5 border-b border-obsidian-border ${isFullDesktop ? `grid grid-cols-2 sm:grid-cols-4 ${showFinalizadasKpi || isPersonalScope ? 'xl:grid-cols-8' : 'xl:grid-cols-7'} gap-1.5` : 'flex flex-col gap-1'} shrink-0 bg-[#171717]">
+          ${isFullDesktop ? '' : '<div class="grid grid-cols-2 sm:grid-cols-4 gap-1">'}
             ${renderTopRingWidget({
               title: isPersonalScope ? 'Mis OTs' : 'OTs Activas',
               value: scopedOrders.length,
@@ -1173,8 +1230,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
                 { num: tomorrowTasks.length, numColor: '#22c55e', label: 'Mañana' },
               ],
             })}
-          </div>
-          <div class="grid grid-cols-2 ${showFinalizadasKpi ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-1">
+          ${isFullDesktop ? '' : `</div><div class="grid grid-cols-2 ${showFinalizadasKpi ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-1">`}
             ${renderTopRingWidget({
               title: 'En Cliente',
               value: waitingClientItems.length,
@@ -1246,7 +1302,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
                 ],
               })}
             `}
-          </div>
+          ${isFullDesktop ? '' : '</div>'}
         </div>
       `;
 
@@ -1585,8 +1641,10 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
                   <span>·</span>
                   <span class="text-[#D4D4D4] font-semibold">${pillBoard.totalHours}h</span>
                   <span class="w-px h-3.5 bg-obsidian-border"></span>
-                  <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)"
-                    class="px-2.5 py-1 rounded text-[10px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">Cerrar</button>
+                  <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)" aria-label="Cerrar"
+                    class="w-7 h-7 rounded-md text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 </div>
               </div>
               ${wideKpiRowHtml}
@@ -1614,37 +1672,12 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         `;
       }
     } else {
-      innerHtml = renderQ4Content(dragHandleHtml, collapseBtnHtml);
+      innerHtml = renderQ4Content(dragHandleHtml, rightActionBtns);
     }
 
     return `
       <div data-dk-drop-slot="${slotIdx}" class="${slotClass} flex flex-col min-h-0 ${borderBottomClass} transition-shadow">
         ${innerHtml}
-      </div>
-    `;
-  };
-
-  const renderGenericPanelLightboxHtml = () => {
-    if (!panelLightboxModId || panelLightboxModId === 'stats') return '';
-    const title = panelLightboxModId === 'priorities'
-      ? 'Prioridades · Urgentes · Hoy · Mañana'
-      : (selectedContextOt
-          ? `Galería · ${String(selectedContextOt.id || '').replace(/^OT-/i, '')}`
-          : (q2ViewMode === 'month' ? 'Calendario · Mes' : 'Calendario · Semanas'));
-    return `
-      <div id="dk-generic-panel-lightbox" data-dk-lb-backdrop="1"
-        class="fixed inset-0 z-50 bg-black/80 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6">
-        <div class="w-full max-w-[1440px] h-[90vh] bg-[#191919] border border-obsidian-border rounded-2xl shadow-2xl flex flex-col overflow-hidden" onclick="event.stopPropagation()">
-          <div class="px-4 py-2.5 border-b border-obsidian-border bg-[#1c1c1c] flex items-center justify-between gap-3 shrink-0">
-            <span class="font-mono text-[11px] text-[#F0F0F0] uppercase tracking-wider font-semibold truncate">${escapeHtml(title)}</span>
-            ${lbWsTabsHtml}
-            <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)"
-              class="px-2.5 py-1 rounded text-[10px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors shrink-0">Cerrar</button>
-          </div>
-          <div class="flex-1 min-h-0 flex flex-col">
-            ${renderQuadrantModule(panelLightboxModId, -1, { inLightbox: true })}
-          </div>
-        </div>
       </div>
     `;
   };
@@ -1664,55 +1697,88 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       </div>
     ` : ''}
 
-    <!-- Espacio acuartelado 2×2 (intercambiable por arrastre · mitad derecha colapsable) -->
-    <div class="flex-1 min-h-[420px] grid grid-cols-1 lg:grid-cols-2 border border-obsidian-border rounded-xl overflow-hidden bg-[#191919]">
-      <!-- Mitad izquierda: Slot 0 (arriba) + Slot 2 (abajo) -->
-      <div class="grid grid-rows-2 border-b lg:border-b-0 lg:border-r border-obsidian-border min-h-0">
-        ${renderQuadrantModule(quadrantOrder[0], 0, { borderBottomClass: 'border-b border-obsidian-border' })}
-        ${renderQuadrantModule(quadrantOrder[2], 2)}
-      </div>
-
-      <!-- Mitad derecha: Slot 1 (arriba) + Slot 3 (abajo), colapsables -->
-      <div class="flex flex-col min-h-0">
-        ${rightCollapseMode === 'q2'
-          ? `
-            <button type="button" data-dk-drop-slot="1" data-dk-collapse-right="none" title="Expandir cuadrante superior"
-              class="h-7 px-3 border-b border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
-              <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[1])}</span>
-              <span class="inline-flex items-center gap-1 font-mono text-[9.5px] text-obsidian-amber shrink-0">
-                <span>Expandir</span>
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
-            </button>
-            ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4' })}
-          `
-          : (rightCollapseMode === 'q4'
+    ${panelLightboxModId
+      ? `
+        <!-- Vista de Escritorio completo (100% área central · conserva menú izquierdo, barra Perfiles e Inspector) -->
+        <div class="flex-1 min-h-[420px] flex flex-col border border-obsidian-border rounded-xl overflow-hidden bg-[#161616]/75">
+          ${renderQuadrantModule(panelLightboxModId, -1, { isFullDesktop: true })}
+        </div>
+      `
+      : `
+        <!-- Espacio acuartelado 2×2 (intercambiable por arrastre · ambas mitades colapsables) -->
+        <div class="flex-1 min-h-[420px] grid grid-cols-1 lg:grid-cols-2 border border-obsidian-border rounded-xl overflow-hidden bg-[#161616]/75">
+          <!-- Mitad izquierda: Slot 0 (arriba) + Slot 2 (abajo), colapsables -->
+          <div class="flex flex-col border-b lg:border-b-0 lg:border-r border-obsidian-border min-h-0">
+            ${leftCollapseMode === 'q1'
               ? `
-                ${renderQuadrantModule(quadrantOrder[1], 1, { collapseTarget: 'q2' })}
-                <button type="button" data-dk-drop-slot="3" data-dk-collapse-right="none" title="Expandir cuadrante inferior"
-                  class="h-7 px-3 border-t border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
-                  <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[3])}</span>
+                <button type="button" data-dk-drop-slot="0" data-dk-collapse-left="none" title="Expandir cuadrante superior"
+                  class="h-7 px-3 border-b border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
+                  <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[0])}</span>
                   <span class="inline-flex items-center gap-1 font-mono text-[9.5px] text-obsidian-amber shrink-0">
                     <span>Expandir</span>
-                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                   </span>
                 </button>
+                ${renderQuadrantModule(quadrantOrder[2], 2, { collapseTarget: 'q3' })}
               `
-              : `
-                ${renderQuadrantModule(quadrantOrder[1], 1, { collapseTarget: 'q2', borderBottomClass: 'border-b border-obsidian-border' })}
-                ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4', slotClass: 'h-[140px] shrink-0' })}
-              `)
-        }
-      </div>
-    </div>
-    ${lightboxChartIdx !== null && lastPillBoard
-      ? renderChartLightboxHtml({
-          pillBoard: lastPillBoard,
-          activeIdx: lightboxChartIdx,
-          activeFilterChips: statsQuery.activeAnchorChips || [],
-          showBackToPanel: panelLightboxModId === 'stats',
-        })
-      : (panelLightboxModId === 'stats' ? fullStatsPanelLightboxHtml : renderGenericPanelLightboxHtml())}
+              : (leftCollapseMode === 'q3'
+                  ? `
+                    ${renderQuadrantModule(quadrantOrder[0], 0, { collapseTarget: 'q1' })}
+                    <button type="button" data-dk-drop-slot="2" data-dk-collapse-left="none" title="Expandir cuadrante inferior"
+                      class="h-7 px-3 border-t border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
+                      <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[2])}</span>
+                      <span class="inline-flex items-center gap-1 font-mono text-[9.5px] text-obsidian-amber shrink-0">
+                        <span>Expandir</span>
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+                      </span>
+                    </button>
+                  `
+                  : `
+                    <div class="flex-1 grid grid-rows-2 min-h-0">
+                      ${renderQuadrantModule(quadrantOrder[0], 0, { collapseTarget: 'q1', borderBottomClass: 'border-b border-obsidian-border' })}
+                      ${renderQuadrantModule(quadrantOrder[2], 2, { collapseTarget: 'q3' })}
+                    </div>
+                  `)
+            }
+          </div>
+
+          <!-- Mitad derecha: Slot 1 (arriba) + Slot 3 (abajo), colapsables -->
+          <div class="flex flex-col min-h-0">
+            ${rightCollapseMode === 'q2'
+              ? `
+                <button type="button" data-dk-drop-slot="1" data-dk-collapse-right="none" title="Expandir cuadrante superior"
+                  class="h-7 px-3 border-b border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
+                  <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[1])}</span>
+                  <span class="inline-flex items-center gap-1 font-mono text-[9.5px] text-obsidian-amber shrink-0">
+                    <span>Expandir</span>
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                  </span>
+                </button>
+                ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4' })}
+              `
+              : (rightCollapseMode === 'q4'
+                  ? `
+                    ${renderQuadrantModule(quadrantOrder[1], 1, { collapseTarget: 'q2' })}
+                    <button type="button" data-dk-drop-slot="3" data-dk-collapse-right="none" title="Expandir cuadrante inferior"
+                      class="h-7 px-3 border-t border-obsidian-border bg-[#1d1d1d] hover:bg-[#242424] flex items-center justify-between gap-2 shrink-0 cursor-pointer transition-colors">
+                      <span class="font-mono text-[9px] text-[#8C8C8C] tracking-wider uppercase truncate">${getQuadrantCollapsedLabel(quadrantOrder[3])}</span>
+                      <span class="inline-flex items-center gap-1 font-mono text-[9.5px] text-obsidian-amber shrink-0">
+                        <span>Expandir</span>
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+                      </span>
+                    </button>
+                  `
+                  : `
+                    <div class="flex-1 grid grid-rows-2 min-h-0">
+                      ${renderQuadrantModule(quadrantOrder[1], 1, { collapseTarget: 'q2', borderBottomClass: 'border-b border-obsidian-border' })}
+                      ${renderQuadrantModule(quadrantOrder[3], 3, { collapseTarget: 'q4' })}
+                    </div>
+                  `)
+            }
+          </div>
+        </div>
+      `
+    }
   `;
 
   // Render Inspector mini-calendar pinned at the bottom
@@ -1772,8 +1838,10 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
               <div class="text-[11px] font-semibold text-[#F0F0F0] truncate mt-0.5">${escapeHtml(activeStatsDrill.title)}</div>
               <div class="font-mono text-[8.5px] text-[#8C8C8C] mt-0.5">${activeStatsDrill.items.length} ${escapeHtml(activeStatsDrill.itemNoun)} · <span class="text-[#D4D4D4]">${activeStatsDrill.totalHours}h</span></div>
             </div>
-            <button type="button" data-dk-insp-clear-drill="1" title="Cerrar lista"
-              class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors shrink-0">×</button>
+            <button type="button" data-dk-insp-clear-drill="1" title="Cerrar lista" aria-label="Cerrar lista"
+              class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors shrink-0">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
 
@@ -2044,13 +2112,17 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     });
   });
 
-  // Bind Caja de Luz (Lightbox) on Masonry chart cards
+  // Bind Chart click -> open enlarged chart inside C04 (Tablero de Corcho)
   container.querySelectorAll('[data-dk-chart-zoom]').forEach((cardEl) => {
     const openZoom = (e) => {
       if (e && e.target && e.target.closest('button, [data-dk-chart-drill]')) return;
       const idx = Number(cardEl.dataset.dkChartZoom);
       if (!Number.isNaN(idx)) {
         lightboxChartIdx = idx;
+        selectedContextOtId = null;
+        selectedContextTaskIdx = null;
+        panelLightboxModId = null;
+        if (rightCollapseMode === 'q4') rightCollapseMode = 'none';
         renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
       }
     };
@@ -2182,7 +2254,15 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
   });
 
-  // Bind right-half collapse/expand toggles (02 / 04)
+  // Bind left-half & right-half collapse/expand toggles (01 / 03 y 02 / 04)
+  container.querySelectorAll('[data-dk-collapse-left]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const next = btn.dataset.dkCollapseLeft || 'none';
+      leftCollapseMode = next === leftCollapseMode ? 'none' : next;
+      renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
+    });
+  });
+
   container.querySelectorAll('[data-dk-collapse-right]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const next = btn.dataset.dkCollapseRight || 'none';
@@ -2481,6 +2561,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextOtId = otId;
       selectedContextTaskIdx = null;
       selectedMediaIndex = null;
+      lightboxChartIdx = null;
+      if (rightCollapseMode === 'q4') rightCollapseMode = 'none';
       renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
       renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
     });
@@ -2509,6 +2591,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextOtId = otId;
       selectedContextTaskIdx = taskIdx;
       selectedMediaIndex = null;
+      lightboxChartIdx = null;
+      if (rightCollapseMode === 'q4') rightCollapseMode = 'none';
       renderDesktopOverview(lastCallbacks.onGoToTraffic, lastCallbacks);
       renderTrafficNotesInspector(otId, String(taskIdx), false, { onOpenOt: (id) => openOt(id, taskIdx) });
     });

@@ -1,8 +1,8 @@
 import { sketchState, notifySketchChange } from './store.js';
 import { clearInspectorPanel } from './inspector.js';
 
-const MENU_FOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M10 12h10"/><path d="M4 18h16"/><path d="m7 9-3 3 3 3"/></svg>';
-const MENU_UNFOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="m17 9 3 3-3 3"/></svg>';
+const MENU_FOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>';
+const MENU_UNFOLD_SVG = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>';
 
 const COLLAPSED_W = 44;
 
@@ -23,11 +23,21 @@ export function syncLeftState(widthPx) {
     resizerLeft.classList.toggle('bg-obsidian-border', !collapsed);
     resizerLeft.classList.toggle('bg-transparent', collapsed);
   }
+  const btnToggleLeft = document.getElementById('btn-toggle-left');
   if (leftHeader) {
     leftHeader.classList.toggle('justify-between', !collapsed);
     leftHeader.classList.toggle('justify-center', collapsed);
     leftHeader.classList.toggle('px-3', !collapsed);
+    leftHeader.classList.toggle('pt-2.5', !collapsed);
+    leftHeader.classList.toggle('pb-2', !collapsed);
     leftHeader.classList.toggle('px-0', collapsed);
+    leftHeader.classList.toggle('h-10', collapsed);
+  }
+  if (btnToggleLeft) {
+    btnToggleLeft.classList.toggle('absolute', !collapsed);
+    btnToggleLeft.classList.toggle('top-4', !collapsed);
+    btnToggleLeft.classList.toggle('right-4', !collapsed);
+    btnToggleLeft.classList.toggle('bg-black/45', !collapsed);
   }
   if (iconToggleLeft) {
     iconToggleLeft.innerHTML = collapsed ? MENU_UNFOLD_SVG : MENU_FOLD_SVG;

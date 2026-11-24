@@ -1102,8 +1102,10 @@ export function renderChartLightboxHtml({ pillBoard, activeIdx, activeFilterChip
                 class="px-2 py-1 rounded text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">Sig. ›</button>
             </div>
             <span class="w-px h-4 bg-obsidian-border"></span>
-            <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)"
-              class="px-2.5 py-1 rounded text-[10px] font-mono text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated cursor-pointer transition-colors">Cerrar</button>
+            <button type="button" data-dk-lb-close="1" title="Cerrar (Esc)" aria-label="Cerrar"
+              class="w-7 h-7 rounded-md text-[#A3A3A3] hover:text-white hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
 

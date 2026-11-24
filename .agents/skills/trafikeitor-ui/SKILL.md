@@ -85,5 +85,9 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
   - `Etapa`, `Estado` y `Tiempo` respetan siempre los límites de la Vista Rápida activa (ej. `Tareas` solo `Tráfico`/`Recibida`; `Finalizadas` solo cobro; `Hoy`/`Mañana` fijan `Tiempo`).
 - **Ergonomía de Filtros en Escritorio / Estadística:** Los filtros van a la **derecha** (`1/5`) alineados con la primera fila de gráficos (estilo software creativo / Inspector derecho), nunca como muro intermedio a la izquierda.
 - **Tareas Libres vs. Separadores:** `Tarea Libre` = trabajo productivo fuera de OT de 2 tipos (`Estudio` interno o `Cliente`); `Separador` = pausa/bloque personal de agenda (*15 min descanso*, *Almorzar*, *Pasear a los perros*). En Escritorio `Global` ocupan las dos últimas Vistas Rápidas; `Mi Jornada Hoy` y `Mañana` pertenecen solo a Escritorio `Personal`.
+- **Escritorio Completo (`⤢`) sin modales flotantes de cuadrante:** Expandir un cuadrante (`⤢`) ocupa el 100% de la columna central (`#view-desktop`) conservando siempre visibles `#pane-left`, `#workspace-bar` y el **Inspector derecho (`#pane-right`)**; nunca montar un modal `fixed inset-0` que tape el Inspector.
+- **Tablero de Corcho (`C04`) vs. Inspector (`#pane-right`):** `C04` tiene la misma altura (`50% / 50%`) que los demás cuadrantes, aloja el Tablero de Corcho estilo Scrivener (pines de archivos/Briefs PDF, notas, enlaces, plugins y publicidad en plan gratis) y actúa como visor contextual temporal al tocar una OT (`Galería + Vista previa`) o un gráfico en Estadística. Los **Recordatorios / Alarmas** con reloj pertenecen al **Inspector derecho** (junto a campana y reloj, persistentes en toda la app), nunca al Corcho.
+- **Iconografía simétrica:** `panel-left-close/open` (`w-3.5 h-3.5`) a la izquierda y `panel-right-close/open` (`w-3.5 h-3.5`) a la derecha; botón cerrar siempre con SVG `x` uniforme.
+
 
 
