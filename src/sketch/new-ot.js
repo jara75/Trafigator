@@ -94,7 +94,7 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
   const mediaInput = form?.querySelector('input[placeholder*="TV 20"]');
   const descInput = document.getElementById('ot-desc-input');
   const urgentCheckbox = document.getElementById('sketch-urgent');
-  const cancelBtn = form?.querySelector('button[type="button"]');
+  const cancelBtn = document.getElementById('btn-cancel-new-ot');
 
   const syncNextCode = () => {
     if (orderInput) orderInput.value = getNextOtCode();
