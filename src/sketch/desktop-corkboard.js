@@ -35,6 +35,7 @@ import {
   getEgoMakerTimerState,
   hasOpenCorkPinPreview,
   installDemoPackPins,
+  isSafeMediaSrc,
   isStudioFreePlan,
   loadCorkInternalMessages,
   normalizeSafeWebUrl,
@@ -71,13 +72,17 @@ export {
   closeCorkPinPreview,
   hasOpenCorkPinPreview,
   loadCorkInternalMessages,
-  renderOtGalleryOverlay,
 };
 
 let composerErrorMsg = '';
 let corkNoticeMsg = '';
 let corkNoticeTimer = null;
 let egoMakerTickInterval = null;
+
+export function resetCorkComposerState() {
+  composerErrorMsg = '';
+  setActiveCorkComposer(null);
+}
 
 function clearEgoMakerInterval() {
   if (egoMakerTickInterval !== null) {
@@ -190,6 +195,7 @@ function renderCorkComposerHtml(activeComposer, errorMsg = '') {
 
 function renderCorkBodyHtml({
   pins,
+  isPersonalScope = false,
   isFullDesktop,
   canEdit,
   activeComposer,
@@ -225,7 +231,7 @@ function renderCorkBodyHtml({
   const emptyHintHtml = !pins.length
     ? `
       <div class="mb-2 px-3 py-2 rounded-lg border border-dashed border-obsidian-border bg-[#191919]/70 flex items-center justify-between gap-2 shrink-0">
-        <span class="text-[10px] text-[#8C8C8C] font-medium">Sin fichas personales fijadas</span>
+        <span class="text-[10px] text-[#8C8C8C] font-medium">${isPersonalScope ? 'Sin fichas personales fijadas' : 'Sin fichas fijadas en este tablero'}</span>
         <span class="text-[8.5px] text-[#5A5A5A] font-mono truncate">${canEdit ? 'Crea una nota, enlace o archivo arriba, o arrastra una OT' : 'Solo lectura'}</span>
       </div>
     `
@@ -259,7 +265,7 @@ function hydrateCorkThumbnails(corkRoot) {
     const blobId = slot.dataset.corkBlobThumb;
     if (!blobId) return;
     getCorkBlobObjectUrl(blobId).then((objUrl) => {
-      if (!objUrl || !slot.isConnected) return;
+      if (!objUrl || !slot.isConnected || !isSafeMediaSrc(objUrl, 'img')) return;
       slot.innerHTML = `<img src="${escapeHtml(objUrl)}" alt="Vista previa" class="w-full h-full object-cover" />`;
     });
   });
@@ -295,7 +301,6 @@ export function renderCorkboardQuadrant({
   dailyHours = 8,
   myMember = '',
   canSeeFinancial = false,
-  scopedOrders = [],
   trafficOrders = [],
   todayKey = '',
   tomorrowKey = '',
@@ -303,9 +308,28 @@ export function renderCorkboardQuadrant({
   rightActionBtns = '',
 }) {
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
+  if (!perms.canAccess) {
+    return `
+      <div data-dk-cork-root="1" data-dk-cork-editable="0" data-dk-cork-access="0"
+        class="relative p-3 border-t-2 border-t-cyan-500/40 flex flex-col min-h-0 flex-1 bg-[#161616]/60">
+        <div class="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-obsidian-border/70 shrink-0">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="inline-flex items-center shrink-0">${dragHandleHtml}</span>
+            <span class="font-mono text-[9.5px] text-[#D4D4D4] tracking-wider uppercase font-semibold truncate">Tablero de Corcho</span>
+          </div>
+          <div class="inline-flex items-center gap-1 shrink-0">
+            ${rightActionBtns}
+          </div>
+        </div>
+        <div class="flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-1.5 py-6 px-3">
+          <span class="text-[11px] font-medium text-[#8C8C8C]">Sin acceso al Tablero de Corcho</span>
+          <span class="font-mono text-[9px] text-[#5A5A5A]">Tu rol actual no tiene permisos para visualizar este módulo.</span>
+        </div>
+      </div>
+    `;
+  }
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
   const pins = ensureCorkPinsInitialized(storeOpts);
-  void scopedOrders;
 
   // 1. Gráfico seleccionado desde Estadística (C02) -> se muestra en C04 con botón Pin
   if (lightboxChartIdx !== null && lastPillBoard && Array.isArray(lastPillBoard.cards) && lastPillBoard.cards[lightboxChartIdx]) {
@@ -415,8 +439,10 @@ export function renderCorkboardQuadrant({
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <div data-dk-cork-actions="1" class="${activePin ? 'hidden' : 'flex items-center gap-2 shrink-0'}">
-            ${renderCorkHeaderActions(perms.canEdit, activeComposer)}
-            <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
+            ${activePin ? '' : `
+              ${renderCorkHeaderActions(perms.canEdit, activeComposer)}
+              <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
+            `}
           </div>
           <div data-dk-cork-desktop-controls="1" class="inline-flex items-center gap-1 shrink-0">
             ${rightActionBtns}
@@ -448,6 +474,7 @@ export function renderCorkboardQuadrant({
             })
           : renderCorkBodyHtml({
               pins,
+              isPersonalScope,
               isFullDesktop,
               canEdit: perms.canEdit,
               activeComposer,
@@ -841,11 +868,6 @@ function bindOverlayPinEvents(container, ctx) {
  */
 export function bindCorkboardEvents(container, ctx = {}) {
   if (!container) return;
-  bindOverlayPinEvents(container, ctx);
-
-  const corkRoot = container.querySelector('[data-dk-cork-root="1"]');
-  if (!corkRoot) return;
-
   const {
     isPersonalScope = false,
     isFullDesktop = false,
@@ -860,9 +882,17 @@ export function bindCorkboardEvents(container, ctx = {}) {
     myMember = '',
   } = ctx;
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
+  if (!perms.canAccess) return;
+
+  bindOverlayPinEvents(container, ctx);
+
+  const corkRoot = container.querySelector('[data-dk-cork-root="1"]');
+  if (!corkRoot) return;
+
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
 
   const rerenderLocal = () => {
+    if (!corkRoot.isConnected) return;
     const dragSlot = corkRoot.querySelector('[data-dk-cork-drag-slot="1"]');
     const headerLeftSlot = corkRoot.querySelector('[data-dk-cork-header-left="1"]');
     const actionsSlot = corkRoot.querySelector('[data-dk-cork-actions="1"]');
@@ -884,12 +914,12 @@ export function bindCorkboardEvents(container, ctx = {}) {
     }
     if (actionsSlot) {
       actionsSlot.classList.toggle('hidden', Boolean(activePin));
-      if (!activePin) {
-        actionsSlot.innerHTML = `
+      actionsSlot.innerHTML = activePin
+        ? ''
+        : `
           ${renderCorkHeaderActions(perms.canEdit, activeComposer)}
           <span class="text-[8.5px] font-mono text-[#666666] uppercase tracking-wider shrink-0">${isPersonalScope ? 'Personal' : 'Estudio'}</span>
         `;
-      }
     }
     if (closeSlot) {
       closeSlot.classList.toggle('hidden', !activePin);
@@ -913,6 +943,7 @@ export function bindCorkboardEvents(container, ctx = {}) {
         })
       : renderCorkBodyHtml({
           pins,
+          isPersonalScope,
           isFullDesktop,
           canEdit: perms.canEdit,
           activeComposer,

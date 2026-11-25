@@ -5,6 +5,10 @@
  */
 
 import { escapeHtml } from './store.js';
+import {
+  getFileTypeTag,
+  isSafeMediaSrc,
+} from './desktop-corkboard-store.js';
 
 function renderPinIconSvg(sizeCls = 'w-3 h-3') {
   return `<svg class="${sizeCls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
@@ -105,9 +109,11 @@ export function renderOtGalleryOverlay({
   const isActiveMediaPinned = activeIdx !== null && pinnedMediaIndices.has(activeIdx);
 
   const renderMediaPreviewHtml = (m) => {
-    const isVideo = /\.(mp4|mov|webm)$/i.test(m.name || '') || /VIDEO/i.test(m.meta || '');
-    const isPdf = /\.pdf$/i.test(m.name || '') || /PDF/i.test(m.meta || '');
-    const isImg = !isVideo && !isPdf;
+    const fileTag = m.mime ? getFileTypeTag(m.mime, m.name || '') : '';
+    const isUnsafe = fileTag === 'ARCHIVO';
+    const isVideo = !isUnsafe && (fileTag === 'VID' || /\.(mp4|mov|webm)$/i.test(m.name || '') || /VIDEO/i.test(m.meta || ''));
+    const isPdf = !isUnsafe && (fileTag === 'PDF' || /\.pdf$/i.test(m.name || '') || /PDF/i.test(m.meta || ''));
+    const isImg = !isUnsafe && !isVideo && !isPdf;
     const statusCls = m.status === 'Aprobado'
       ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
       : 'text-obsidian-amber bg-amber-500/15 border-amber-500/30';
@@ -115,13 +121,15 @@ export function renderOtGalleryOverlay({
       ? m.versions
       : [{ label: 'v1', name: m.name, meta: m.meta }];
     const activeVer = versions[versions.length - 1];
-    const previewVisual = m.dataUrl && isImg
-      ? `<img src="${escapeHtml(m.dataUrl)}" alt="${escapeHtml(m.name)}" class="max-h-full max-w-full object-contain rounded" />`
-      : (m.dataUrl && isVideo
-          ? `<video src="${escapeHtml(m.dataUrl)}" controls class="max-h-full max-w-full rounded"></video>`
+    const safeImgSrc = isImg && m.dataUrl && isSafeMediaSrc(m.dataUrl, 'img') ? m.dataUrl : '';
+    const safeVidSrc = isVideo && m.dataUrl && isSafeMediaSrc(m.dataUrl, 'vid') ? m.dataUrl : '';
+    const previewVisual = safeImgSrc
+      ? `<img src="${escapeHtml(safeImgSrc)}" alt="${escapeHtml(m.name)}" class="max-h-full max-w-full object-contain rounded" />`
+      : (safeVidSrc
+          ? `<video src="${escapeHtml(safeVidSrc)}" controls class="max-h-full max-w-full rounded"></video>`
           : `<div class="flex flex-col items-center justify-center gap-1.5 text-center px-3">
-              <div class="w-10 h-10 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold ${isVideo ? 'text-sky-400' : (isPdf ? 'text-rose-400' : 'text-obsidian-amber')}">
-                ${isVideo ? 'VID' : (isPdf ? 'PDF' : 'IMG')}
+              <div class="w-10 h-10 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold ${isVideo ? 'text-sky-400' : (isPdf ? 'text-rose-400' : (isImg ? 'text-obsidian-amber' : 'text-[#8C8C8C]'))}">
+                ${isVideo ? 'VID' : (isPdf ? 'PDF' : (isImg ? 'IMG' : 'ARCHIVO'))}
               </div>
               <div class="text-[10.5px] font-medium text-[#D4D4D4] truncate max-w-full">${escapeHtml(m.name)}</div>
               <div class="text-[9px] font-mono text-[#737373]">${escapeHtml(m.meta || 'Archivo')}</div>

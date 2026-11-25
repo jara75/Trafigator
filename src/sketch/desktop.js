@@ -50,6 +50,7 @@ import {
   hasOpenCorkPinPreview,
   loadCorkInternalMessages,
   renderCorkboardQuadrant,
+  resetCorkComposerState,
 } from './desktop-corkboard.js';
 import {
   buildInspectorIdleStreams,
@@ -471,7 +472,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         dailyHours,
         myMember,
         canSeeFinancial: statsQuery.rbac.canSeeFinancial,
-        scopedOrders,
         trafficOrders,
         todayKey,
         tomorrowKey,
@@ -766,6 +766,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextOtId = null;
         selectedContextTaskIdx = null;
         panelLightboxModId = null;
+        closeCorkPinPreview();
         ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
       }
@@ -985,6 +986,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       if ((next === 'global' || next === 'personal') && next !== desktopScopePref) {
         desktopScopePref = next;
         saveDesktopScope(next);
+        resetCorkComposerState();
         rerender();
       }
     });
@@ -1164,6 +1166,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextTaskIdx = null;
       selectedMediaIndex = null;
       lightboxChartIdx = null;
+      closeCorkPinPreview();
       ensureQuadrantVisible('empty', quadrantOrder);
       rerender();
       renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
@@ -1194,6 +1197,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextTaskIdx = taskIdx;
       selectedMediaIndex = null;
       lightboxChartIdx = null;
+      closeCorkPinPreview();
       ensureQuadrantVisible('empty', quadrantOrder);
       rerender();
       renderTrafficNotesInspector(otId, String(taskIdx), false, { onOpenOt: (id) => openOt(id, taskIdx) });
@@ -1220,7 +1224,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     dailyHours,
     myMember,
     canSeeFinancial: statsQuery.rbac.canSeeFinancial,
-    scopedOrders,
     trafficOrders,
     todayKey,
     tomorrowKey,

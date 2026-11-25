@@ -118,6 +118,9 @@ export function createCorkPin({
 } = {}) {
   const nowIso = createdAt || new Date().toISOString();
   const safeId = id || `pin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const rawUrl = String(url || '').trim();
+  const parsedUrl = rawUrl ? normalizeSafeWebUrl(rawUrl) : null;
+  const safeUrl = parsedUrl?.ok ? parsedUrl.url : '';
   return {
     id: String(safeId),
     organizationId: String(organizationId || 'org_studio'),
@@ -128,7 +131,7 @@ export function createCorkPin({
     otId: otId ? String(otId) : null,
     taskIndex: Number.isInteger(taskIndex) ? taskIndex : null,
     mediaIndex: Number.isInteger(mediaIndex) ? mediaIndex : null,
-    url: String(url || ''),
+    url: safeUrl,
     content: String(content || ''),
     fileMeta: fileMeta && typeof fileMeta === 'object'
       ? {
@@ -244,12 +247,60 @@ export function normalizeSafeWebUrl(raw) {
   }
 }
 
+const UNSAFE_MEDIA_MIMES = new Set([
+  'text/html',
+  'image/svg+xml',
+  'application/xhtml+xml',
+]);
+
+function normalizeMimeType(mime = '') {
+  return String(mime || '').trim().toLowerCase().split(';')[0].trim();
+}
+
+export function isSafeMediaSrc(url, kind = 'any') {
+  const trimmed = String(url || '').trim();
+  if (!trimmed) return false;
+  const normKind = String(kind || 'any').toLowerCase();
+
+  if (/^blob:/i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === 'blob:';
+    } catch {
+      return false;
+    }
+  }
+
+  if (/^https:/i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === 'https:' && Boolean(parsed.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  if (/^data:/i.test(trimmed)) {
+    const isSafeImgData = /^data:image\/(?!svg\+xml\b)[a-z0-9.+-]+(?:;[^,]*)?,/i.test(trimmed);
+    const isSafeVidData = /^data:video\/[a-z0-9.+-]+(?:;[^,]*)?,/i.test(trimmed);
+    const isSafePdfData = /^data:application\/pdf(?:;[^,]*)?,/i.test(trimmed);
+    if (normKind === 'img' || normKind === 'image') return isSafeImgData;
+    if (normKind === 'vid' || normKind === 'video') return isSafeVidData;
+    if (normKind === 'pdf') return isSafePdfData;
+    return isSafeImgData || isSafeVidData || isSafePdfData;
+  }
+
+  return false;
+}
+
 export function getFileTypeTag(mime = '', name = '') {
-  const m = String(mime || '').toLowerCase();
+  const m = normalizeMimeType(mime);
   const n = String(name || '');
-  if (m === 'application/pdf' || /\.pdf$/i.test(n)) return 'PDF';
-  if (m.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(n)) return 'IMG';
-  if (m.startsWith('video/') || /\.(mp4|mov|webm|m4v)$/i.test(n)) return 'VID';
+  if (m && UNSAFE_MEDIA_MIMES.has(m)) return 'ARCHIVO';
+  if (/\.svg$/i.test(n) && (!m || m === 'image/svg+xml')) return 'ARCHIVO';
+  if (m === 'application/pdf' || (!m && /\.pdf$/i.test(n))) return 'PDF';
+  if ((m.startsWith('image/') && m !== 'image/svg+xml') || (!m && /\.(png|jpe?g|gif|webp|avif)$/i.test(n))) return 'IMG';
+  if (m.startsWith('video/') || (!m && /\.(mp4|mov|webm|m4v)$/i.test(n))) return 'VID';
   return 'ARCHIVO';
 }
 
@@ -461,6 +512,12 @@ export async function addLocalFilesToCorkboard(fileList, opts = {}) {
         blobId: storedBlobId,
       },
     }, opts);
+    if (!res.ok) {
+      if (storedBlobId) {
+        deleteCorkBlob(storedBlobId).catch(() => {});
+      }
+      continue;
+    }
     lastPins = res.pins;
     addedCount += 1;
   }
@@ -505,6 +562,19 @@ function writeNormalizedPinsByKey(key, pins) {
   return normalized;
 }
 
+export function getCorkPinById(storageKey, pinId) {
+  const key = resolveStorageKey(storageKey);
+  const targetId = String(pinId || '');
+  if (!key || !targetId) return null;
+  try {
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return null;
+    return ordered.find((p) => p.id === targetId) || null;
+  } catch {
+    return null;
+  }
+}
+
 export function reorderCorkPins(storageKey, draggedPinId, targetPinId) {
   const key = resolveStorageKey(storageKey);
   const fromId = String(draggedPinId || '');
@@ -544,7 +614,18 @@ export function updateCorkPinMeta(storageKey, pinId, patch = {}) {
     const nextPatch = {};
     if ('title' in patch) nextPatch.title = String(patch.title ?? '');
     if ('content' in patch) nextPatch.content = String(patch.content ?? '');
-    if ('url' in patch) nextPatch.url = String(patch.url ?? '');
+    if ('url' in patch) {
+      const rawUrl = String(patch.url ?? '').trim();
+      if (!rawUrl) {
+        nextPatch.url = '';
+      } else {
+        const parsed = normalizeSafeWebUrl(rawUrl);
+        if (!parsed.ok) {
+          return { ok: false, updated: false, error: parsed.error || 'InvalidUrl', pin: current, pins: ordered };
+        }
+        nextPatch.url = parsed.url;
+      }
+    }
     if ('fileMeta' in patch && patch.fileMeta && typeof patch.fileMeta === 'object') {
       nextPatch.fileMeta = {
         ...(current.fileMeta || {}),
@@ -664,8 +745,7 @@ export function getAssignableOrdersForShare({ roleCaps = null, userProfile = nul
   const active = (trafficOrders || []).filter((o) => !o.archived);
   const perms = getCorkboardPermissions({ isPersonalScope: true, roleCaps, userProfile });
   if (!perms.canAccess) return [];
-  const hasGlobal = Boolean(roleCaps?.isOwner || roleCaps?.hasGlobalScope || perms.isOwnerOrAdmin);
-  if (hasGlobal) return active;
+  if (perms.isOwnerOrAdmin) return active;
   const myName = String(userProfile?.shortName || '');
   if (!myName) return [];
   return active.filter(
@@ -676,8 +756,7 @@ export function getAssignableOrdersForShare({ roleCaps = null, userProfile = nul
 export function canShareCorkHighlight({ pin = null, roleCaps = null, userProfile = null, trafficOrders = [] } = {}) {
   const perms = getCorkboardPermissions({ isPersonalScope: true, roleCaps, userProfile });
   if (!perms.canAccess) return false;
-  const hasGlobal = Boolean(roleCaps?.isOwner || roleCaps?.hasGlobalScope || perms.isOwnerOrAdmin);
-  if (hasGlobal) return true;
+  if (perms.isOwnerOrAdmin) return true;
   if (!pin?.otId) return true;
   const allowed = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
   return allowed.some((o) => o.id === pin.otId);
@@ -836,10 +915,13 @@ const CORK_BLOB_DB_NAME = 'trafigator_cork_blobs_v1';
 const CORK_BLOB_STORE = 'blobs';
 let corkBlobDbPromise = null;
 const blobObjectUrlCache = new Map();
+const blobObjectUrlInFlight = new Map();
 
 export function revokeCorkBlobObjectUrl(blobId) {
   const key = String(blobId || '');
-  if (!key || !blobObjectUrlCache.has(key)) return;
+  if (!key) return;
+  blobObjectUrlInFlight.delete(key);
+  if (!blobObjectUrlCache.has(key)) return;
   try {
     URL.revokeObjectURL(blobObjectUrlCache.get(key));
   } catch {
@@ -852,15 +934,29 @@ export async function getCorkBlobObjectUrl(blobId) {
   const key = String(blobId || '');
   if (!key) return null;
   if (blobObjectUrlCache.has(key)) return blobObjectUrlCache.get(key);
-  try {
-    const rec = await getCorkBlob(key);
-    if (!rec?.blob) return null;
-    const url = URL.createObjectURL(rec.blob);
-    blobObjectUrlCache.set(key, url);
-    return url;
-  } catch {
-    return null;
-  }
+  if (blobObjectUrlInFlight.has(key)) return blobObjectUrlInFlight.get(key);
+  const pending = (async () => {
+    try {
+      const rec = await getCorkBlob(key);
+      if (!rec?.blob) return null;
+      const verifiedMime = normalizeMimeType(rec.blob.type || rec.mime || '');
+      let safeBlob = rec.blob;
+      if (UNSAFE_MEDIA_MIMES.has(verifiedMime)) {
+        safeBlob = new Blob([rec.blob], { type: 'application/octet-stream' });
+      } else if (verifiedMime === 'application/pdf' && normalizeMimeType(rec.blob.type) !== 'application/pdf') {
+        safeBlob = new Blob([rec.blob], { type: 'application/pdf' });
+      }
+      const url = URL.createObjectURL(safeBlob);
+      blobObjectUrlCache.set(key, url);
+      return url;
+    } catch {
+      return null;
+    } finally {
+      blobObjectUrlInFlight.delete(key);
+    }
+  })();
+  blobObjectUrlInFlight.set(key, pending);
+  return pending;
 }
 
 function openCorkBlobDb() {

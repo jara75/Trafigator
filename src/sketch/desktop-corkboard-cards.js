@@ -14,6 +14,7 @@ import { renderStatsPillChartsGrid } from './ot-en-proceso-charts.js';
 import {
   formatTimerClock,
   getFileTypeTag,
+  normalizeSafeWebUrl,
 } from './desktop-corkboard-store.js';
 
 export function buildSnapshotSummary(chartMeta) {
@@ -196,12 +197,9 @@ export function renderCorkPinCard(pin, idx, {
   }
 
   if (pin.type === 'link') {
-    let domain = '';
-    try {
-      domain = new URL(pin.url).hostname.replace(/^www\./i, '');
-    } catch {
-      domain = pin.url || '';
-    }
+    const parsedUrl = pin.url ? normalizeSafeWebUrl(pin.url) : null;
+    const safeUrl = parsedUrl?.ok ? parsedUrl.url : '';
+    const domain = parsedUrl?.ok ? parsedUrl.domain : (pin.url || '');
     return `
       <article ${dragAttr} data-cork-pin-id="${escapeHtml(pin.id)}" data-cork-card-idx="${idx}" data-cork-open-preview="${escapeHtml(pin.id)}" role="button" tabindex="0"
         title="Abrir Vista Previa y apuntes"
@@ -210,13 +208,13 @@ export function renderCorkPinCard(pin, idx, {
           <div class="flex items-center justify-between gap-1.5">
             <span class="font-mono text-[8.5px] uppercase tracking-wider text-sky-400/90 font-semibold">WEB</span>
             <div class="flex items-center gap-0.5 shrink-0">
-              ${pin.url ? `<a href="${escapeHtml(pin.url)}" target="_blank" rel="noopener noreferrer" title="Abrir enlace en nueva pestaña" aria-label="Abrir ${escapeHtml(pin.title || domain)} en nueva pestaña"
+              ${safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" title="Abrir enlace en nueva pestaña" aria-label="Abrir ${escapeHtml(pin.title || domain)} en nueva pestaña"
                 class="w-5 h-5 rounded text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated flex items-center justify-center font-mono text-[10px] transition-colors">↗</a>` : ''}
               ${unpinBtn}
             </div>
           </div>
           <h4 class="text-[11px] font-medium text-[#D4D4D4] leading-snug line-clamp-2" title="${escapeHtml(pin.title || domain)}">${escapeHtml(pin.title || domain || 'Enlace web')}</h4>
-          <div class="text-[9.5px] font-mono text-[#737373] truncate" title="${escapeHtml(pin.url)}">${escapeHtml(domain)}</div>
+          <div class="text-[9.5px] font-mono text-[#737373] truncate" title="${escapeHtml(safeUrl || pin.url)}">${escapeHtml(domain)}</div>
         </div>
         <div class="flex items-center justify-between text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50">
           <span>ENLACE</span>
@@ -262,8 +260,8 @@ export function renderCorkPinCard(pin, idx, {
         <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug truncate" title="${escapeHtml(pin.title)}">${escapeHtml(pin.title || 'Archivo')}</h4>
       </div>
       <div class="flex items-center justify-between text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50">
-        <span>${escapeHtml(sizeLabel || (pin.demoPackId ? 'DEMO' : 'LOCAL'))}</span>
-        <span>${notesCount ? `${notesCount} ap.` : (blobId ? 'IDB' : 'REF')}</span>
+        <span>${escapeHtml(sizeLabel || (pin.demoPackId ? 'DEMO' : 'Archivo local'))}</span>
+        <span>${notesCount ? `${notesCount} ap.` : (blobId ? 'En este equipo' : 'Referencia')}</span>
       </div>
     </article>
   `;

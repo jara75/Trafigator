@@ -18,11 +18,15 @@ import {
   appendCorkInternalMessage,
   canShareCorkHighlight,
   getAssignableOrdersForShare,
+  getCorkBlob,
   getCorkBlobObjectUrl,
+  getCorkPinById,
   getCorkStorageKey,
   getCorkboardPermissions,
   getFileTypeTag,
+  isSafeMediaSrc,
   markCorkPinHighlightShared,
+  normalizeSafeWebUrl,
   removeCorkPinHighlight,
   setActiveCorkPinId,
   updateCorkPinMeta,
@@ -112,7 +116,7 @@ function renderNoteViewer(pin, { canEdit }) {
       <div class="flex items-center justify-between gap-2 shrink-0">
         <span class="font-mono text-[9px] uppercase tracking-wider text-[#8C8C8C]">Editor de nota</span>
         <div class="inline-flex items-center gap-2">
-          <span data-cork-save-status="1" class="font-mono text-[8.5px] text-[#5A5A5A]">Guardado local</span>
+          <span data-cork-save-status="1" class="font-mono text-[8.5px] text-[#5A5A5A]">Guardado</span>
           <button type="button" data-cork-capture-selection="1"
             class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated cursor-pointer transition-colors">Resaltar selección</button>
         </div>
@@ -127,27 +131,24 @@ function renderNoteViewer(pin, { canEdit }) {
 }
 
 function renderLinkViewer(pin, { canEdit }) {
-  let domain = '';
-  try {
-    domain = new URL(pin.url).hostname.replace(/^www\./i, '');
-  } catch {
-    domain = pin.url || '';
-  }
+  const parsedUrl = pin.url ? normalizeSafeWebUrl(pin.url) : null;
+  const safeUrl = parsedUrl?.ok ? parsedUrl.url : '';
+  const domain = parsedUrl?.ok ? parsedUrl.domain : (pin.url || '');
 
   return `
     <div class="flex-1 min-h-0 flex flex-col gap-2.5 overflow-y-auto pr-0.5">
       <div class="p-3 rounded-lg bg-[#202020] border border-obsidian-border space-y-2 shrink-0">
         <div class="flex items-center justify-between gap-2">
           <span class="font-mono text-[9px] uppercase tracking-wider text-sky-400 font-semibold">${escapeHtml(domain || 'ENLACE WEB')}</span>
-          ${pin.url ? `
-            <a href="${escapeHtml(pin.url)}" target="_blank" rel="noopener noreferrer"
+          ${safeUrl ? `
+            <a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer"
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border font-mono text-[9px] text-[#D4D4D4] hover:text-obsidian-amber transition-colors shrink-0">
               <span>Abrir</span>
               <span aria-hidden="true">↗</span>
             </a>
           ` : ''}
         </div>
-        <div class="font-mono text-[9.5px] text-[#8C8C8C] break-all select-all bg-[#191919] border border-obsidian-border/70 rounded px-2 py-1.5">${escapeHtml(pin.url || 'Sin URL')}</div>
+        <div class="font-mono text-[9.5px] text-[#8C8C8C] break-all select-all bg-[#191919] border border-obsidian-border/70 rounded px-2 py-1.5">${escapeHtml(safeUrl || pin.url || 'Sin URL')}</div>
       </div>
 
       <div class="flex-1 min-h-0 flex flex-col gap-1.5">
@@ -155,7 +156,7 @@ function renderLinkViewer(pin, { canEdit }) {
           <label for="cork-preview-link-excerpt" class="font-mono text-[9px] uppercase tracking-wider text-[#8C8C8C]">Extracto o cita manual</label>
           ${canEdit ? `
             <div class="inline-flex items-center gap-2">
-              <span data-cork-save-status="1" class="font-mono text-[8.5px] text-[#5A5A5A]">Guardado local</span>
+              <span data-cork-save-status="1" class="font-mono text-[8.5px] text-[#5A5A5A]">Guardado</span>
               <button type="button" data-cork-capture-link-excerpt="1"
                 class="px-1.5 py-0.5 rounded text-[9px] font-mono text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated cursor-pointer transition-colors">Usar como resaltado</button>
             </div>
@@ -209,6 +210,8 @@ function renderFileViewer(pin, { trafficOrders = [] }) {
   const shortOt = pin.otId ? String(pin.otId).replace(/^OT-/i, '') : '';
 
   let stageHtml = '';
+  const normMime = String(mime || '').trim().toLowerCase().split(';')[0].trim();
+  const isVerifiedPdfData = normMime === 'application/pdf' || /^data:application\/pdf(?:;[^,]*)?,/i.test(otDataUrl);
   if (blobId) {
     stageHtml = `
       <div data-cork-preview-blob-id="${escapeHtml(blobId)}"
@@ -216,17 +219,17 @@ function renderFileViewer(pin, { trafficOrders = [] }) {
            data-cork-preview-file-name="${escapeHtml(pin.title || 'Archivo')}"
            data-cork-preview-file-size="${escapeHtml(sizeLabel)}"
            class="w-full h-full flex items-center justify-center">
-        <span class="font-mono text-[9.5px] text-[#737373]">Cargando recurso local...</span>
+        <span class="font-mono text-[9.5px] text-[#737373]">Cargando archivo...</span>
       </div>
     `;
   } else if (otDataUrl) {
-    if (tag === 'IMG') {
+    if (tag === 'IMG' && isSafeMediaSrc(otDataUrl, 'img')) {
       stageHtml = `<img src="${escapeHtml(otDataUrl)}" alt="${escapeHtml(pin.title || 'Imagen')}" class="max-h-full max-w-full object-contain rounded" />`;
-    } else if (tag === 'VID') {
+    } else if (tag === 'VID' && isSafeMediaSrc(otDataUrl, 'vid')) {
       stageHtml = `<video src="${escapeHtml(otDataUrl)}" controls class="max-h-full max-w-full rounded"></video>`;
-    } else if (tag === 'PDF') {
+    } else if (tag === 'PDF' && isVerifiedPdfData && isSafeMediaSrc(otDataUrl, 'pdf')) {
       stageHtml = `<iframe src="${escapeHtml(otDataUrl)}" title="${escapeHtml(pin.title || 'PDF')}" class="w-full h-full min-h-[180px] rounded bg-[#141414] border-0"></iframe>`;
-    } else {
+    } else if (isSafeMediaSrc(otDataUrl, 'any')) {
       stageHtml = `
         <div class="flex flex-col items-center justify-center gap-2 text-center px-4">
           <div class="w-11 h-11 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold ${tagColorCls}">${escapeHtml(tag)}</div>
@@ -235,6 +238,15 @@ function renderFileViewer(pin, { trafficOrders = [] }) {
             class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[10px] font-mono text-[#D4D4D4] transition-colors">Descargar archivo</a>
         </div>
       `;
+    } else {
+      stageHtml = renderFileFallbackCard({
+        tag,
+        tagColorCls,
+        title: pin.title || liveMedia?.name || 'Archivo',
+        sizeLabel,
+        otId: pin.otId,
+        isDemo: Boolean(pin.demoPackId),
+      });
     }
   } else {
     stageHtml = renderFileFallbackCard({
@@ -254,26 +266,37 @@ function renderFileViewer(pin, { trafficOrders = [] }) {
       </div>
       <div class="flex items-center justify-between gap-2 text-[9px] font-mono text-[#737373] shrink-0 min-w-0">
         <span class="truncate" title="${escapeHtml(pin.title || '')}">${escapeHtml(pin.title || 'Archivo')}${sizeLabel ? ` · ${escapeHtml(sizeLabel)}` : ''}</span>
-        <span class="shrink-0">${blobId ? 'IndexedDB local' : (shortOt ? `Ref. OT ${escapeHtml(shortOt)}` : 'Referencia')}</span>
+        <span class="shrink-0">${blobId ? 'En este equipo' : (shortOt ? `Ref. OT ${escapeHtml(shortOt)}` : 'Referencia')}</span>
       </div>
     </div>
   `;
 }
 
 function buildShareTargets({ pin = null, roleCaps = null, userProfile = null, trafficOrders = [] } = {}) {
+  const perms = getCorkboardPermissions({ isPersonalScope: true, roleCaps, userProfile });
   const allowedOrders = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
   const memberSet = new Set();
-  (studioTeamList || []).forEach((m) => {
-    if (m?.name && m.status !== 'Inactivo') memberSet.add(String(m.name));
-  });
-  (trafficMembers || []).forEach((name) => {
-    if (name) memberSet.add(String(name));
-  });
+  if (perms.isOwnerOrAdmin) {
+    (studioTeamList || []).forEach((m) => {
+      if (m?.name && m.status !== 'Inactivo') memberSet.add(String(m.name));
+    });
+    (trafficMembers || []).forEach((name) => {
+      if (name) memberSet.add(String(name));
+    });
+  } else {
+    allowedOrders.forEach((o) => {
+      if (o?.responsible) memberSet.add(String(o.responsible));
+      (o?.subtasks || []).forEach((st) => {
+        const resp = st?.responsible || o?.responsible;
+        if (resp) memberSet.add(String(resp));
+      });
+    });
+  }
   const members = Array.from(memberSet);
 
   const clientSet = new Set();
   if (pin?.otId) {
-    const liveOt = (trafficOrders || []).find((o) => o.id === pin.otId);
+    const liveOt = allowedOrders.find((o) => o.id === pin.otId);
     if (liveOt?.client) clientSet.add(String(liveOt.client));
   } else {
     allowedOrders.forEach((o) => {
@@ -478,21 +501,26 @@ function hydrateCorkPreviewMedia(root) {
   const slot = root.querySelector('[data-cork-preview-blob-id]');
   if (!slot) return;
   const blobId = slot.dataset.corkPreviewBlobId;
-  const tag = slot.dataset.corkPreviewFileTag || 'ARCHIVO';
+  const fallbackTag = slot.dataset.corkPreviewFileTag || 'ARCHIVO';
   const fileName = slot.dataset.corkPreviewFileName || 'Archivo';
   const fileSize = slot.dataset.corkPreviewFileSize || '';
   if (!blobId) return;
-  getCorkBlobObjectUrl(blobId).then((objUrl) => {
+  Promise.all([
+    getCorkBlob(blobId).catch(() => null),
+    getCorkBlobObjectUrl(blobId),
+  ]).then(([rec, objUrl]) => {
     if (!slot.isConnected) return;
     if (!objUrl) {
-      slot.innerHTML = `<span class="font-mono text-[9.5px] text-[#737373]">Recurso local no disponible en IndexedDB.</span>`;
+      slot.innerHTML = `<span class="font-mono text-[9.5px] text-[#737373]">Recurso no disponible en este equipo.</span>`;
       return;
     }
-    if (tag === 'IMG') {
+    const verifiedMime = String(rec?.blob?.type || rec?.mime || '').trim().toLowerCase().split(';')[0].trim();
+    const verifiedTag = verifiedMime ? getFileTypeTag(verifiedMime, fileName) : fallbackTag;
+    if (verifiedTag === 'IMG' && isSafeMediaSrc(objUrl, 'img')) {
       slot.innerHTML = `<img src="${escapeHtml(objUrl)}" alt="${escapeHtml(fileName)}" class="max-h-full max-w-full object-contain rounded" />`;
-    } else if (tag === 'VID') {
+    } else if (verifiedTag === 'VID' && isSafeMediaSrc(objUrl, 'vid')) {
       slot.innerHTML = `<video src="${escapeHtml(objUrl)}" controls class="max-h-full max-w-full rounded"></video>`;
-    } else if (tag === 'PDF') {
+    } else if (verifiedTag === 'PDF' && verifiedMime === 'application/pdf' && isSafeMediaSrc(objUrl, 'pdf')) {
       slot.innerHTML = `
         <div class="w-full h-full flex flex-col gap-1.5 min-h-[180px]">
           <iframe src="${escapeHtml(objUrl)}" title="${escapeHtml(fileName)}" class="w-full flex-1 min-h-[160px] rounded bg-[#141414] border-0"></iframe>
@@ -505,11 +533,11 @@ function hydrateCorkPreviewMedia(root) {
     } else {
       slot.innerHTML = `
         <div class="flex flex-col items-center justify-center gap-2 text-center px-4">
-          <div class="w-11 h-11 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold text-[#8C8C8C]">${escapeHtml(tag)}</div>
+          <div class="w-11 h-11 rounded-lg bg-[#202020] border border-obsidian-border flex items-center justify-center font-mono text-[11px] font-semibold text-[#8C8C8C]">${escapeHtml(verifiedTag)}</div>
           <div class="text-[11px] font-medium text-[#D4D4D4] break-all">${escapeHtml(fileName)}</div>
           ${fileSize ? `<div class="font-mono text-[9px] text-[#737373]">${escapeHtml(fileSize)}</div>` : ''}
-          <a href="${escapeHtml(objUrl)}" download="${escapeHtml(fileName)}"
-            class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[10px] font-mono text-[#D4D4D4] transition-colors">Descargar archivo</a>
+          ${isSafeMediaSrc(objUrl, 'any') ? `<a href="${escapeHtml(objUrl)}" download="${escapeHtml(fileName)}"
+            class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[10px] font-mono text-[#D4D4D4] transition-colors">Descargar archivo</a>` : ''}
         </div>
       `;
     }
@@ -536,15 +564,7 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
   const storageKey = getCorkStorageKey(storeOpts);
 
-  const loadCurrentPin = () => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? (parsed.find((p) => p.id === pinId) || null) : null;
-    } catch {
-      return null;
-    }
-  };
+  const loadCurrentPin = () => getCorkPinById(storageKey, pinId);
 
   let activeShareHlId = null;
   let shareStatusTimer = null;
@@ -643,7 +663,8 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
         const recipientDisplay = recipientType === 'client' ? `Cliente · ${recipientName}` : recipientName;
         const optionalOtId = String(form.querySelector('[data-cork-share-ot="1"]')?.value || '').trim() || null;
         const targetOtId = currentPin.otId || optionalOtId || null;
-        const actorName = String(userProfile?.shortName || 'Andrés');
+        const allowedOrders = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
+        const actorName = String(userProfile?.shortName || 'Equipo');
         const msgText = formatSharedHighlightMessage({
           pin: currentPin,
           highlight: hl,
@@ -653,19 +674,18 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
         const nowIso = new Date().toISOString();
 
         if (targetOtId) {
-          const targetOt = (trafficOrders || []).find((o) => o.id === targetOtId);
-          if (targetOt) {
-            ensureOtData(targetOt);
-            appendOtMessage(targetOt, {
-              text: msgText,
-              channel: recipientType === 'client' ? 'Cliente' : 'App',
-              actor: actorName,
-              priority: null,
-              pinned: false,
-            });
-            const lastMsg = targetOt.messages?.[targetOt.messages.length - 1];
-            if (lastMsg) lastMsg.createdAt = nowIso;
-          }
+          const targetOt = allowedOrders.find((o) => o.id === targetOtId);
+          if (!targetOt) return;
+          ensureOtData(targetOt);
+          appendOtMessage(targetOt, {
+            text: msgText,
+            channel: recipientType === 'client' ? 'Cliente' : 'App',
+            actor: actorName,
+            priority: null,
+            pinned: false,
+          });
+          const lastMsg = targetOt.messages?.[targetOt.messages.length - 1];
+          if (lastMsg) lastMsg.createdAt = nowIso;
         } else {
           appendCorkInternalMessage({
             text: msgText,
@@ -679,13 +699,17 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
           }, { studioSettings });
         }
 
-        const marked = markCorkPinHighlightShared(storageKey, pinId, hlId, {
-          sharedTo: recipientDisplay,
-          sharedAt: nowIso,
-          sharedOtId: targetOtId,
-        });
+        let updatedPin = currentPin;
+        if (perms.canEdit) {
+          const marked = markCorkPinHighlightShared(storageKey, pinId, hlId, {
+            sharedTo: recipientDisplay,
+            sharedAt: nowIso,
+            sharedOtId: targetOtId,
+          });
+          updatedPin = marked.pin || currentPin;
+        }
         activeShareHlId = null;
-        refreshHighlightsUi(marked.pin || currentPin);
+        refreshHighlightsUi(updatedPin);
         showShareStatus(`Enviado a ${recipientDisplay}`);
         onHighlightShared?.({
           otId: targetOtId,
@@ -734,7 +758,7 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
     let saveTimer = null;
     const persist = () => {
       updateCorkPinMeta(storageKey, pinId, { content: el.value });
-      if (saveStatusEl) saveStatusEl.textContent = 'Guardado local';
+      if (saveStatusEl) saveStatusEl.textContent = 'Guardado';
     };
     el.addEventListener('input', () => {
       if (saveStatusEl) saveStatusEl.textContent = 'Guardando...';
