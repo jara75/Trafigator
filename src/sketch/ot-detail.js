@@ -20,6 +20,7 @@ import {
   recordOtActivity,
   relDate,
   renderOtActivityHtml,
+  resolveOtTarget,
   sketchState,
   sortTrafficItemsByEntryDate,
   studioSettings,
@@ -523,7 +524,6 @@ export function renderMyOts() {
   listEl.classList.toggle('hidden', !isTableMode);
   kanbanEl.classList.toggle('hidden', sketchState.myOtsMode !== 'kanban');
   if (schedEl) schedEl.classList.toggle('hidden', !isSchedMode);
-  leftEnvTree?.classList.toggle('hidden', sketchState.myOtsMode !== 'cards' || !mine.length);
   const leftTrafficTree = document.getElementById('left-traffic-tree');
   if (leftTrafficTree && !document.getElementById('view-my-ots')?.classList.contains('hidden')) {
     const showFilters = sketchState.myOtsMode !== 'cards';
@@ -540,10 +540,20 @@ export function renderMyOts() {
 
   let activeOt = null;
   let activeTask = null;
+  const hasExplicitOtId = Boolean(String(sketchState.activeMyOtId ?? '').trim());
 
-  if (isMyTasksScope) {
+  if (sketchState.myOtsMode === 'cards' && hasExplicitOtId) {
+    const resolved = resolveOtTarget(sketchState.activeMyOtId, sketchState.activeTaskIndex);
+    if (resolved) {
+      activeOt = resolved.ot;
+      sketchState.activeMyOtId = resolved.otId;
+      sketchState.activeTaskIndex = resolved.taskIndex;
+    }
+  } else if (isMyTasksScope) {
     const activeEntry = myTasks.length
-      ? (myTasks.find((t) => t.otId === sketchState.activeMyOtId && t.taskIndex === sketchState.activeTaskIndex) || myTasks[0])
+      ? (hasExplicitOtId
+        ? (myTasks.find((t) => t.otId === sketchState.activeMyOtId && t.taskIndex === sketchState.activeTaskIndex) || null)
+        : myTasks[0])
       : null;
     if (activeEntry) {
       activeOt = activeEntry.ot;
@@ -551,8 +561,14 @@ export function renderMyOts() {
       if (sketchState.activeTaskIndex === null) sketchState.activeTaskIndex = activeEntry.taskIndex;
     }
   } else {
-    activeOt = mine.length ? (mine.find((o) => o.id === sketchState.activeMyOtId) || mine[0]) : null;
+    activeOt = mine.length
+      ? (hasExplicitOtId
+        ? (mine.find((o) => o.id === sketchState.activeMyOtId) || null)
+        : mine[0])
+      : null;
   }
+
+  leftEnvTree?.classList.toggle('hidden', sketchState.myOtsMode !== 'cards' || !activeOt);
 
   if (activeOt) {
     sketchState.activeMyOtId = activeOt.id;
@@ -670,7 +686,7 @@ export function renderMyOts() {
 
   if (sketchState.myOtsMode === 'cards') {
     if (!activeOt) {
-      cardsEl.innerHTML = `<div class="p-8 text-center text-[11px] text-[#8C8C8C] border border-obsidian-border rounded-xl bg-[#202020]">No tienes OTs asignadas.</div>`;
+      cardsEl.innerHTML = `<div class="p-8 text-center text-[11px] text-[#8C8C8C] border border-obsidian-border rounded-xl bg-[#202020]">${hasExplicitOtId ? 'No se encontró la OT o tarea solicitada.' : 'No tienes OTs asignadas.'}</div>`;
       return;
     }
 
