@@ -19,6 +19,8 @@ import {
   isOtTerminal
 } from './core-state.js';
 
+import { icon as lucideIcon } from './icons.js';
+
 import {
   getOrders,
   saveOrders,
@@ -111,40 +113,46 @@ let mediaPoolViewMode = 'grid'; // 'grid' | 'list'
 // 1. MODAL SOBRE OT (ENVELOPE-MODAL)
 // ============================================================================
 
-export function openEnvelopeModal(otId) {
-  state.activeOtId = otId;
-  const orders = getOrders();
-  const ot = orders.find(o => o.id === otId);
-  if (!ot) return;
+function getEnvelopeRootOt(ot) {
+  if (!ot) return null;
+  if (ot.parentOtId) {
+    return getOrderById(ot.parentOtId) || ot;
+  }
+  const subMatch = typeof ot.id === 'string' && ot.id.match(/^(OT-\d{2}-\d+)-\d+$/);
+  if (subMatch) {
+    return getOrderById(subMatch[1]) || ot;
+  }
+  return ot;
+}
 
-  if (typeof document === 'undefined') return;
-
+function populateEnvelopeRootHeader(rootOt) {
+  if (!rootOt || typeof document === 'undefined') return;
   if (document.getElementById('modal-ot-id-display')) {
-    document.getElementById('modal-ot-id-display').value = ot.id;
+    document.getElementById('modal-ot-id-display').value = rootOt.id;
   }
   if (document.getElementById('modal-ot-id')) {
-    document.getElementById('modal-ot-id').innerText = ot.id;
+    document.getElementById('modal-ot-id').innerText = rootOt.id;
   }
   if (document.getElementById('modal-ot-title-header')) {
-    document.getElementById('modal-ot-title-header').innerText = ot.title || ot.description || '';
+    document.getElementById('modal-ot-title-header').innerText = rootOt.title || rootOt.description || '';
   }
   if (document.getElementById('modal-ot-client')) {
-    document.getElementById('modal-ot-client').value = ot.client || '';
+    document.getElementById('modal-ot-client').value = rootOt.client || '';
   }
   if (document.getElementById('modal-ot-brand')) {
-    document.getElementById('modal-ot-brand').value = ot.brand || ot.product || '';
+    document.getElementById('modal-ot-brand').value = rootOt.brand || rootOt.product || '';
   }
   if (document.getElementById('modal-ot-product')) {
-    document.getElementById('modal-ot-product').value = ot.product || '';
+    document.getElementById('modal-ot-product').value = rootOt.product || '';
   }
   if (document.getElementById('modal-ot-media')) {
-    document.getElementById('modal-ot-media').value = ot.media || '';
+    document.getElementById('modal-ot-media').value = rootOt.media || '';
   }
   if (document.getElementById('modal-ot-ref')) {
-    document.getElementById('modal-ot-ref').value = ot.ref || '';
+    document.getElementById('modal-ot-ref').value = rootOt.ref || '';
   }
   if (document.getElementById('modal-ot-description')) {
-    document.getElementById('modal-ot-description').value = ot.title || ot.description || '';
+    document.getElementById('modal-ot-description').value = rootOt.title || rootOt.description || '';
   }
 
   renderStatusSelects();
@@ -152,22 +160,50 @@ export function openEnvelopeModal(otId) {
 
   const modalStatusEl = document.getElementById('modal-ot-status');
   if (modalStatusEl) {
-    const currentStatus = ot.status || 'Tráfico';
+    const currentStatus = rootOt.responsibleDept || 'Tráfico';
     modalStatusEl.innerHTML = getStatusOptionsHtml(currentStatus);
     modalStatusEl.value = currentStatus;
   }
-  if (document.getElementById('modal-ot-responsible')) {
-    document.getElementById('modal-ot-responsible').value = ot.responsible || getActiveUserShortName() || 'Usuario';
+  const respEl = document.getElementById('modal-ot-responsible');
+  if (respEl) {
+    const respVal = rootOt.sign || getActiveUserShortName() || 'Usuario';
+    respEl.innerHTML = `<option value="${escapeHtml(respVal)}" selected>${escapeHtml(respVal)}</option>`;
+    respEl.value = respVal;
   }
+  const entryEl = document.getElementById('modal-ot-entry-date');
+  if (entryEl) {
+    const rootEntry = rootOt.entryDate || rootOt.createdAt || rootOt.routes?.[0]?.entryDate || '';
+    entryEl.value = toIsoDateTime(rootEntry);
+  }
+  const deliveryEl = document.getElementById('modal-ot-delivery-date');
+  if (deliveryEl) {
+    const rootDelivery = rootOt.deliveryDate || rootOt.routes?.[0]?.deliveryDate || '';
+    deliveryEl.value = toIsoDateTime(rootDelivery);
+  }
+  const urgentEl = document.getElementById('modal-ot-urgent');
+  if (urgentEl) urgentEl.checked = !!rootOt.urgent;
+}
+
+export function openEnvelopeModal(otId) {
+  const orders = getOrders();
+  const ot = orders.find(o => o.id === otId);
+  if (!ot) return;
+
+  const rootOt = getEnvelopeRootOt(ot) || ot;
+  state.activeEnvelopeRootId = rootOt.id;
+  state.activeEnvelopeTaskId = ot.id;
+  state.activeOtId = ot.id;
+  state.selectedMediaIndex = 0;
+
+  if (typeof document === 'undefined') return;
+
+  populateEnvelopeRootHeader(rootOt);
 
   const briefEl = document.getElementById('modal-ot-brief');
   if (briefEl) briefEl.value = ot.brief || '';
 
   const legalEl = document.getElementById('modal-ot-legal');
   if (legalEl) legalEl.value = ot.legalText || '';
-
-  const urgentEl = document.getElementById('modal-ot-urgent');
-  if (urgentEl) urgentEl.checked = !!ot.urgent;
 
   // Botón "← Volver al Stripboard" si se abrió desde Stripboard
   const backBtn = document.getElementById('modal-btn-back-stripboard');
@@ -191,12 +227,20 @@ export function openEnvelopeModal(otId) {
   // Contador del badge de archivos
   const tabBadge = document.getElementById('tab-badge-files');
   if (tabBadge) {
-    tabBadge.innerText = (ot.mediaFiles ? ot.mediaFiles.length : 0);
+    tabBadge.innerText = getEnvelopeVisibleMediaEntries().length;
   }
 
+  renderEnvelopeTaskTree();
+  applyEnvelopeTreeSidebarState();
+  applyEnvelopeInspectorSidebarState();
+  initEnvelopeResizers();
+  expandedEnvelopeSubRouteGroups.clear();
+  activeInspectorRow = { otId: ot.id, index: Math.max(0, (ot.routes || []).length - 1) };
+  updateBitacoraTaskHeader(ot);
   renderRouteSheetRows(ot.routes || []);
-  renderMediaPool(ot.mediaFiles || []);
-  renderInlineEnvelopeMedia(ot.mediaFiles || []);
+  renderEnvelopeInspector();
+  renderMediaPool();
+  renderInlineEnvelopeMedia();
   applyEnvelopeSectionCollapseState();
 
   // Guardas RBAC y modo solo lectura para Archivada
@@ -208,10 +252,10 @@ export function openEnvelopeModal(otId) {
 
   const clientInput = document.getElementById('modal-ot-client');
   if (clientInput) {
-    clientInput.disabled = state.memberRole === 'client' || ot.status === 'Archivada';
+    clientInput.disabled = state.memberRole === 'client' || ot.otStatus === 'Archivada';
   }
 
-  const isArchived = ot.status === 'Archivada';
+  const isArchived = ot.otStatus === 'Archivada';
   const reopenBtn = document.getElementById('btn-reopen-archived-ot');
   if (reopenBtn) {
     if (isArchived && state.memberRole === 'owner') reopenBtn.classList.remove('hidden');
@@ -233,6 +277,9 @@ export function openEnvelopeModal(otId) {
   switchOtTab('hoja-ruta');
   const modal = document.getElementById('envelope-modal');
   if (modal) modal.classList.remove('hidden');
+  if (typeof window !== 'undefined' && typeof window.updateMainHeaderNav === 'function') {
+    window.updateMainHeaderNav('ot');
+  }
 }
 
 export function reopenArchivedOt() {
@@ -245,7 +292,8 @@ export function reopenArchivedOt() {
   const orders = getOrders();
   const ot = orders.find(o => o.id === state.activeOtId);
   if (!ot) return;
-  ot.status = 'Tráfico';
+  ot.otStatus = 'Abierta';
+  ot.responsibleDept = 'Tráfico';
   ot.reopenReason = reason.trim();
   saveOrders(orders);
   openEnvelopeModal(ot.id);
@@ -261,9 +309,9 @@ export function applyEnvelopeSectionCollapseState() {
   sections.forEach(({ key, bodyId, iconId }) => {
     const collapsed = localStorage.getItem(`trafikeitor_env_collapse_${key}`) === '1';
     const body = document.getElementById(bodyId);
-    const icon = document.getElementById(iconId);
+    const iconEl = document.getElementById(iconId);
     if (body) body.classList.toggle('hidden', collapsed);
-    if (icon) icon.classList.toggle('-rotate-90', collapsed);
+    if (iconEl) iconEl.innerHTML = lucideIcon(collapsed ? 'expand-diagonal' : 'collapse-diagonal', 'w-[15px] h-[15px]');
   });
 }
 
@@ -280,6 +328,10 @@ export function closeEnvelopeModal() {
   const modal = document.getElementById('envelope-modal');
   if (modal) modal.classList.add('hidden');
   state.activeOtId = null;
+
+  if (typeof window !== 'undefined' && typeof window.updateMainHeaderNav === 'function') {
+    window.updateMainHeaderNav(state.currentMainView === 'stripboard' ? 'stripboard' : 'desk');
+  }
 
   renderTrafficDesk();
   if (state.currentMainView === 'stripboard') {
@@ -328,6 +380,450 @@ export function updateActiveOtField(field, value) {
   refreshAllViews();
 }
 
+export function updateRootOtField(field, value) {
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  if (!rootId) return;
+  const orders = getOrders();
+  const rootOt = orders.find(o => o.id === rootId);
+  if (!rootOt) return;
+
+  rootOt[field] = value;
+  if (field === 'title') {
+    rootOt.description = value;
+    const headerTitle = typeof document !== 'undefined' ? document.getElementById('modal-ot-title-header') : null;
+    if (headerTitle) headerTitle.innerText = value;
+  }
+  if (field === 'description') rootOt.title = value;
+  if (field === 'brand' && !rootOt.product) rootOt.product = value;
+
+  saveOrders(orders);
+  renderEnvelopeTaskTree();
+  refreshAllViews();
+}
+
+export function updateRootOtDateField(field, isoValue) {
+  const displayVal = fromIsoToDisplay(isoValue);
+  updateRootOtField(field, displayVal);
+}
+
+export function handleRootStatusChange(val) {
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  if (!rootId) return;
+  if (typeof window !== 'undefined' && typeof window.handleGlobalStatusChange === 'function') {
+    window.handleGlobalStatusChange(val, rootId, 'modal-ot-status');
+  }
+  renderEnvelopeTaskTree();
+}
+
+export function handleRootResponsibleChange(val) {
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  if (!rootId) return;
+  if (typeof window !== 'undefined' && typeof window.handleGlobalResponsibleChange === 'function') {
+    window.handleGlobalResponsibleChange(val, rootId, 'modal-ot-responsible');
+  }
+  renderEnvelopeTaskTree();
+}
+
+let isEnvelopeTreeCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_env_tree_collapsed') === 'true');
+let isEnvelopeInspectorCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_env_inspector_collapsed') === 'true');
+let activeInspectorRow = { otId: null, index: 0 };
+let activeInspectorTab = 'task';
+
+export function setEnvelopeInspectorTab(tab) {
+  if (!['task', 'schedule', 'review'].includes(tab)) return;
+  activeInspectorTab = tab;
+  renderEnvelopeInspector();
+}
+
+export function applyEnvelopeInspectorSidebarState() {
+  if (typeof document === 'undefined') return;
+  const sidebar = document.getElementById('envelope-inspector-sidebar');
+  const resizer = document.getElementById('envelope-inspector-resizer');
+  const label = document.getElementById('envelope-inspector-header-label');
+  const body = document.getElementById('envelope-inspector-body');
+  const btn = document.getElementById('toggle-envelope-inspector-btn');
+  if (!sidebar) return;
+
+  if (isEnvelopeInspectorCollapsed) {
+    sidebar.classList.remove('w-[210px]');
+    sidebar.style.width = '32px';
+    if (resizer) resizer.classList.add('hidden');
+    if (label) label.classList.add('hidden');
+    if (body) body.classList.add('hidden');
+    if (btn) btn.innerHTML = '&lt;';
+  } else {
+    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_inspector_width') || '', 10) : NaN;
+    sidebar.style.width = (!Number.isNaN(savedW) && savedW >= 180 && savedW <= 480) ? `${savedW}px` : '210px';
+    if (resizer) resizer.classList.remove('hidden');
+    if (label) label.classList.remove('hidden');
+    if (body) body.classList.remove('hidden');
+    if (btn) btn.innerHTML = '&gt;';
+  }
+}
+
+export function toggleEnvelopeInspectorSidebar() {
+  isEnvelopeInspectorCollapsed = !isEnvelopeInspectorCollapsed;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('trafikeitor_env_inspector_collapsed', String(isEnvelopeInspectorCollapsed));
+    }
+  } catch {}
+  applyEnvelopeInspectorSidebarState();
+}
+
+export function applyEnvelopeTreeSidebarState() {
+  if (typeof document === 'undefined') return;
+  const sidebar = document.getElementById('envelope-task-tree-sidebar');
+  const resizer = document.getElementById('envelope-tree-resizer');
+  const label = document.getElementById('envelope-tree-header-label');
+  const list = document.getElementById('envelope-task-tree-list');
+  const footer = document.getElementById('envelope-tree-footer');
+  const btn = document.getElementById('toggle-envelope-tree-btn');
+  if (!sidebar) return;
+
+  if (isEnvelopeTreeCollapsed) {
+    sidebar.classList.remove('w-[210px]');
+    sidebar.style.width = '32px';
+    if (resizer) resizer.classList.add('hidden');
+    if (label) label.classList.add('hidden');
+    if (list) list.classList.add('hidden');
+    if (footer) footer.classList.add('hidden');
+    if (btn) btn.innerHTML = '&gt;';
+  } else {
+    sidebar.classList.remove('w-8');
+    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_tree_width') || '', 10) : NaN;
+    sidebar.style.width = (!Number.isNaN(savedW) && savedW >= 150 && savedW <= 420) ? `${savedW}px` : '210px';
+    if (resizer) resizer.classList.remove('hidden');
+    if (label) label.classList.remove('hidden');
+    if (list) list.classList.remove('hidden');
+    if (footer) footer.classList.remove('hidden');
+    if (btn) btn.innerHTML = '&lt;';
+  }
+}
+
+export function toggleEnvelopeTaskTreeSidebar() {
+  isEnvelopeTreeCollapsed = !isEnvelopeTreeCollapsed;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('trafikeitor_env_tree_collapsed', String(isEnvelopeTreeCollapsed));
+    }
+  } catch {}
+  applyEnvelopeTreeSidebarState();
+}
+
+function bindEnvelopeResizer(resizerId, axis, getInitialSize, onResize, storageKey, minSize, maxSize, invert = false) {
+  if (typeof document === 'undefined') return;
+  const resizer = document.getElementById(resizerId);
+  if (!resizer || resizer.dataset.bound === '1') return;
+  resizer.dataset.bound = '1';
+
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const startPos = axis === 'x' ? e.clientX : e.clientY;
+    const startSize = getInitialSize();
+    let latestSize = startSize;
+
+    resizer.classList.add('bg-sky-400');
+    document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev) => {
+      const rawDelta = (axis === 'x' ? ev.clientX : ev.clientY) - startPos;
+      const delta = invert ? -rawDelta : rawDelta;
+      latestSize = Math.max(minSize, Math.min(maxSize, startSize + delta));
+      onResize(latestSize);
+    };
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      resizer.classList.remove('bg-sky-400');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try {
+        if (storageKey && typeof localStorage !== 'undefined') {
+          localStorage.setItem(storageKey, String(Math.round(latestSize)));
+        }
+      } catch {}
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+}
+
+export function initEnvelopeResizers() {
+  if (typeof document === 'undefined') return;
+
+  const treeSidebar = document.getElementById('envelope-task-tree-sidebar');
+  if (treeSidebar) {
+    bindEnvelopeResizer(
+      'envelope-tree-resizer',
+      'x',
+      () => treeSidebar.getBoundingClientRect().width,
+      (w) => { treeSidebar.style.width = `${w}px`; },
+      'trafikeitor_env_tree_width',
+      150,
+      420
+    );
+  }
+
+  const inspectorSidebar = document.getElementById('envelope-inspector-sidebar');
+  if (inspectorSidebar) {
+    bindEnvelopeResizer(
+      'envelope-inspector-resizer',
+      'x',
+      () => inspectorSidebar.getBoundingClientRect().width,
+      (w) => { inspectorSidebar.style.width = `${w}px`; },
+      'trafikeitor_env_inspector_width',
+      180,
+      480,
+      true
+    );
+  }
+
+  const bitacoraBody = document.getElementById('envelope-bitacora-body');
+  if (bitacoraBody) {
+    bitacoraBody.style.overflowY = 'auto';
+    const savedH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_bitacora_height') || '', 10) : NaN;
+    if (!Number.isNaN(savedH) && savedH >= 110 && savedH <= 480) {
+      bitacoraBody.style.maxHeight = `${savedH}px`;
+    }
+    bindEnvelopeResizer(
+      'envelope-bitacora-resizer',
+      'y',
+      () => bitacoraBody.getBoundingClientRect().height,
+      (h) => { bitacoraBody.style.maxHeight = `${h}px`; },
+      'trafikeitor_env_bitacora_height',
+      110,
+      480
+    );
+  }
+
+  const mpLeft = document.getElementById('envelope-mediapool-left');
+  const mpViewer = document.getElementById('envelope-inline-viewer');
+  if (mpLeft) {
+    const savedMpW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_mediapool_left_width') || '', 10) : NaN;
+    if (!Number.isNaN(savedMpW) && savedMpW >= 220 && savedMpW <= 680) {
+      mpLeft.style.width = `${savedMpW}px`;
+    }
+    bindEnvelopeResizer(
+      'envelope-mediapool-resizer',
+      'x',
+      () => mpLeft.getBoundingClientRect().width,
+      (w) => { mpLeft.style.width = `${w}px`; },
+      'trafikeitor_env_mediapool_left_width',
+      220,
+      680
+    );
+
+    const savedMpH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_mediapool_height') || '', 10) : NaN;
+    if (!Number.isNaN(savedMpH) && savedMpH >= 220 && savedMpH <= 680) {
+      mpLeft.style.height = `${savedMpH}px`;
+      if (mpViewer) mpViewer.style.height = `${savedMpH}px`;
+    }
+    bindEnvelopeResizer(
+      'envelope-mediapool-height-resizer',
+      'y',
+      () => mpLeft.getBoundingClientRect().height,
+      (h) => {
+        mpLeft.style.height = `${h}px`;
+        if (mpViewer) mpViewer.style.height = `${h}px`;
+      },
+      'trafikeitor_env_mediapool_height',
+      220,
+      680
+    );
+  }
+}
+
+export function renderEnvelopeTaskTree() {
+  if (typeof document === 'undefined') return;
+  const container = document.getElementById('envelope-task-tree-list');
+  if (!container) return;
+
+  const orders = getOrders();
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  const rootOt = orders.find(o => o.id === rootId);
+  if (!rootOt) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const activeTaskId = state.activeEnvelopeTaskId || rootOt.id;
+  const subOts = orders
+    .filter(o => o.parentOtId === rootOt.id || (typeof o.id === 'string' && o.id.startsWith(rootOt.id + '-')))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+
+  const rootSelected = activeTaskId === rootOt.id;
+  const hasSubs = subOts.length > 0;
+
+  let html = `
+    <div class="space-y-0.5 select-none">
+      <div
+        onclick="selectEnvelopeTreeTask('${escapeHtml(rootOt.id)}')"
+        title="${escapeHtml(rootOt.id)} — ${escapeHtml(rootOt.title || rootOt.description || 'OT Madre')} (${escapeHtml(rootOt.responsibleDept || 'Tráfico')})"
+        class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${rootSelected ? 'bin-active bg-white/[0.08] text-sky-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
+      >
+        <div class="flex items-center gap-1.5 min-w-0 flex-1">
+          ${hasSubs ? lucideIcon('collapse-diagonal', 'w-3 h-3', 'text-sky-400') : `<span class="w-3 shrink-0"></span>`}
+          ${lucideIcon('module-ot', 'w-[15px] h-[15px]', 'text-sky-400')}
+          <span class="font-mono font-bold truncate ${rootSelected ? 'text-sky-300' : 'text-zinc-200'}">${escapeHtml(rootOt.id)}</span>
+        </div>
+        <span class="text-[9px] text-zinc-400 shrink-0 truncate max-w-[68px]">${escapeHtml(rootOt.responsibleDept || 'Tráfico')}</span>
+      </div>
+  `;
+
+  if (hasSubs) {
+    html += `<div class="pl-3.5 ml-2.5 border-l border-resolve-border/60 space-y-0.5 mt-0.5">`;
+    html += subOts.map(sub => {
+      const subSel = activeTaskId === sub.id;
+      const subLabel = sub.taskTitle || sub.title || sub.medium || sub.media || 'Subtarea';
+      const subSuffix = typeof sub.id === 'string' && sub.id.startsWith(rootOt.id + '-')
+        ? sub.id.slice(rootOt.id.length)
+        : sub.id;
+      return `
+        <div
+          onclick="selectEnvelopeTreeTask('${escapeHtml(sub.id)}')"
+          title="${escapeHtml(sub.id)} • ${escapeHtml(subLabel)} (${escapeHtml(sub.responsibleDept || 'Tráfico')})"
+          class="flex items-center justify-between gap-1.5 px-1.5 py-1 rounded-md cursor-pointer group transition-colors text-[11px] ${subSel ? 'bin-active bg-white/[0.08] text-sky-300' : 'text-resolve-dimText hover:bg-white/[0.05] hover:text-zinc-200'}"
+        >
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            ${lucideIcon('file-text', 'w-3 h-3', subSel ? 'text-sky-400' : 'text-zinc-500 group-hover:text-sky-400')}
+            <span class="font-mono text-[10px] shrink-0 ${subSel ? 'text-sky-300 font-bold' : 'text-zinc-400'}">${escapeHtml(subSuffix)}</span>
+            <span class="truncate text-[11px] ${subSel ? 'text-white font-semibold' : 'text-zinc-300 group-hover:text-white'}">${escapeHtml(subLabel)}</span>
+          </div>
+          <span class="text-[9px] text-zinc-500 shrink-0 truncate max-w-[56px]">${escapeHtml(sub.responsibleDept || 'Tráfico')}</span>
+        </div>
+      `;
+    }).join('');
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
+function updateBitacoraTaskHeader(taskOt) {
+  if (typeof document === 'undefined' || !taskOt) return;
+  const badgeEl = document.getElementById('envelope-bitacora-task-id-badge');
+  const titleInput = document.getElementById('envelope-bitacora-task-title-input');
+  const subEl = document.getElementById('envelope-bitacora-task-subtitle');
+  const taskTitle = (taskOt.taskTitle !== undefined && taskOt.taskTitle !== null)
+    ? taskOt.taskTitle
+    : (taskOt.title || '');
+  if (badgeEl) {
+    badgeEl.innerText = taskOt.id || '';
+  }
+  if (titleInput) {
+    titleInput.value = taskTitle;
+  }
+  if (subEl) {
+    subEl.innerText = `Bitácora de Relevos y Movimientos • ${taskOt.media || taskOt.medium || 'General'}`;
+  }
+}
+
+export function updateActiveTaskTitle(newTitle) {
+  const targetId = state.activeEnvelopeTaskId || state.activeOtId;
+  if (!targetId) return;
+  const orders = getOrders();
+  const taskOt = orders.find(o => o.id === targetId);
+  if (!taskOt) return;
+
+  const clean = (newTitle || '').trim();
+  taskOt.taskTitle = clean;
+  if (taskOt.parentOtId || (state.activeEnvelopeRootId && taskOt.id !== state.activeEnvelopeRootId)) {
+    taskOt.title = clean;
+  }
+  saveOrders(orders);
+  renderEnvelopeTaskTree();
+  renderRouteSheetRows(taskOt.routes || []);
+  refreshAllViews();
+}
+
+export function updateRouteTaskTitle(newTitle, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const orders = getOrders();
+  const taskOt = orders.find(o => o.id === otId);
+  if (!taskOt) return;
+
+  const clean = (newTitle || '').trim();
+  taskOt.taskTitle = clean;
+  if (taskOt.parentOtId || (state.activeEnvelopeRootId && taskOt.id !== state.activeEnvelopeRootId)) {
+    taskOt.title = clean;
+  }
+  saveOrders(orders);
+  if ((state.activeEnvelopeTaskId || state.activeOtId) === taskOt.id) {
+    updateBitacoraTaskHeader(taskOt);
+  }
+  renderEnvelopeTaskTree();
+  renderRouteSheetRows(taskOt.routes || []);
+  refreshAllViews();
+}
+
+export function selectEnvelopeTreeTask(targetOtId) {
+  if (!targetOtId) return;
+  const orders = getOrders();
+  const taskOt = orders.find(o => o.id === targetOtId);
+  if (!taskOt) return;
+
+  state.activeEnvelopeTaskId = taskOt.id;
+  state.activeOtId = taskOt.id;
+  state.selectedMediaIndex = 0;
+  activeInspectorRow = { otId: taskOt.id, index: Math.max(0, (taskOt.routes || []).length - 1) };
+
+  if (typeof document !== 'undefined') {
+    const briefEl = document.getElementById('modal-ot-brief');
+    if (briefEl) briefEl.value = taskOt.brief || '';
+    const legalEl = document.getElementById('modal-ot-legal');
+    if (legalEl) legalEl.value = taskOt.legalText || '';
+    const tabBadge = document.getElementById('tab-badge-files');
+    if (tabBadge) tabBadge.innerText = getEnvelopeVisibleMediaEntries().length;
+  }
+
+  updateBitacoraTaskHeader(taskOt);
+  renderEnvelopeTaskTree();
+  renderModalStripboardWitness(taskOt.id);
+  renderRouteSheetRows(taskOt.routes || []);
+  renderEnvelopeInspector();
+  renderMediaPool();
+  renderInlineEnvelopeMedia();
+}
+
+export async function createEnvelopeSubTask() {
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  if (!rootId) return;
+  const rootOt = getOrderById(rootId);
+  if (!rootOt) return;
+
+  try {
+    const subTitle = typeof window !== 'undefined'
+      ? window.prompt(`Descripción de la Sub-tarea para ${rootOt.id}:`, `Entregable de ${rootOt.title || rootOt.id}`)
+      : `Entregable de ${rootOt.id}`;
+    if (subTitle === null) return;
+
+    const created = await createOt({
+      parentOtId: rootOt.id,
+      client: rootOt.client || 'Interno',
+      brand: rootOt.brand || '',
+      product: rootOt.product || '',
+      ref: rootOt.ref || '',
+      title: subTitle.trim() || `Sub-OT de ${rootOt.id}`,
+      discipline: rootOt.discipline || 'advertising',
+      media: rootOt.media || 'Digital'
+    });
+    if (created) {
+      refreshAllViews();
+      selectEnvelopeTreeTask(created.id);
+    }
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      window.alert(err?.message || 'Error al crear la Sub-tarea.');
+    }
+  }
+}
+
 export function deleteActiveOt() {
   if (state.memberRole !== 'owner') return;
   if (!state.activeOtId) return;
@@ -354,8 +850,8 @@ export function renderModalStripboardWitness(otId) {
 
   container.innerHTML = scheduledDays.map(d => {
     return d.matched.map(m => {
-      let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-amber-400/50';
-      if (m.strip.shiftStatus === 'En Mesa') pillColor = 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+      let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-sky-400/50';
+      if (m.strip.shiftStatus === 'En Mesa') pillColor = 'bg-sky-500/10 text-sky-300 border-sky-500/25';
       else if (m.strip.shiftStatus === 'Entregado') pillColor = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
       else if (m.strip.shiftStatus === 'Detenido') pillColor = 'bg-rose-500/10 text-rose-300 border-rose-500/25';
 
@@ -396,6 +892,7 @@ export function removeStripFromModalWitness(dateStr, stripIdx) {
   removeStrip(stripIdx, dateStr);
   if (state.activeOtId) {
     renderModalStripboardWitness(state.activeOtId);
+    renderEnvelopeInspector();
   }
 }
 
@@ -412,6 +909,192 @@ export function scheduleActiveOtFromModal() {
 // 2. HOJA DE RUTA (7 COLUMNAS) Y FIRMAS DE TINTA RETRO
 // ============================================================================
 
+const collapsedEnvelopeRouteGroups = new Set();
+const expandedEnvelopeSubRouteGroups = new Set();
+
+function getSubOtsForRoot(rootId) {
+  if (!rootId) return [];
+  return getOrders()
+    .filter(o => o.parentOtId === rootId || (typeof o.id === 'string' && o.id.startsWith(rootId + '-')))
+    .sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
+}
+
+export function toggleEnvelopeRouteGroup(otId) {
+  if (!otId) return;
+  if (otId === state.activeEnvelopeRootId) {
+    if (collapsedEnvelopeRouteGroups.has(otId)) collapsedEnvelopeRouteGroups.delete(otId);
+    else collapsedEnvelopeRouteGroups.add(otId);
+  } else {
+    if (expandedEnvelopeSubRouteGroups.has(otId)) expandedEnvelopeSubRouteGroups.delete(otId);
+    else expandedEnvelopeSubRouteGroups.add(otId);
+  }
+  const ot = state.activeOtId ? getOrderById(state.activeOtId) : null;
+  renderRouteSheetRows(ot?.routes || []);
+}
+
+function isCurrentUserRouteCreator(row) {
+  if (!row) return false;
+  const currentUserId = state.currentUser?.id || null;
+  if (row.createdByUserId) {
+    return Boolean(currentUserId && row.createdByUserId === currentUserId);
+  }
+  const currentShort = (getActiveUserShortName() || '').trim().toLowerCase();
+  const rowSign = (row.sign || '').trim().toLowerCase();
+  return Boolean(currentShort && rowSign && rowSign === currentShort);
+}
+
+function getRouteRowLockState(taskOt, row, index) {
+  const routes = Array.isArray(taskOt?.routes) ? taskOt.routes : [];
+  const isLastEntry = index === routes.length - 1;
+  if (!isLastEntry) {
+    return {
+      isLocked: true,
+      canToggle: false,
+      title: 'Bloqueada permanentemente por entrada posterior',
+    };
+  }
+  const isCreator = isCurrentUserRouteCreator(row);
+  if (!isCreator) {
+    return {
+      isLocked: true,
+      canToggle: false,
+      title: 'Bloqueada (solo el creador de esta entrada puede abrir o cerrar el candado)',
+    };
+  }
+  const isLocked = Boolean(row?.locked);
+  return {
+    isLocked,
+    canToggle: true,
+    title: isLocked ? 'Fila bloqueada (clic para desbloquear)' : 'Fila activa (clic para bloquear)',
+  };
+}
+
+function getRouteSignOptionsHtml(selectedSign, isRowLocked) {
+  const cleanSelected = String(selectedSign || '').trim();
+  if (isRowLocked) {
+    return `<option value="${escapeHtml(cleanSelected)}" selected>${escapeHtml(cleanSelected || 'Sin firmar')}</option>`;
+  }
+  const activeShort = (getActiveUserShortName() || 'Usuario').trim();
+  return `
+    <option value="" ${cleanSelected === '' ? 'selected' : ''}>Sin firmar...</option>
+    <option value="${escapeHtml(activeShort)}" ${cleanSelected === activeShort ? 'selected' : ''}>${escapeHtml(activeShort)}</option>
+  `;
+}
+
+function renderSingleRouteRowHtml(row, index, taskOt) {
+  if (!String(row?.sign || '').trim() && !isCurrentUserRouteCreator(row)) {
+    return '';
+  }
+  const otIdArg = taskOt?.id ? `'${escapeHtml(taskOt.id)}'` : 'null';
+  const lockState = getRouteRowLockState(taskOt, row, index);
+  const isRowLocked = lockState.isLocked;
+  const lockAttr = isRowLocked ? 'disabled' : '';
+  const isOdd = (index % 2 === 1);
+  const zebraClass = isOdd ? 'bg-white/[0.055]' : 'bg-black/25';
+  const isInspected = Boolean(taskOt?.id && activeInspectorRow.otId === taskOt.id && activeInspectorRow.index === index);
+  const inspectedClass = isInspected ? 'ring-1 ring-inset ring-sky-400/60 bg-sky-500/[0.08]' : '';
+  const rowSign = String(row.sign || '').trim();
+  const respColors = rowSign ? getResponsibleColorClasses(rowSign) : { text: 'text-zinc-400', border: 'border-resolve-border' };
+
+  return `
+      <tr onclick="selectBitacoraInspectorRow(${otIdArg}, ${index})" class="${zebraClass} ${inspectedClass} hover:bg-white/[0.08] transition-colors font-mono text-[11px]">
+        <!-- 1. FECHA: -->
+        <td class="p-2 border-r border-resolve-border align-middle">
+          <div class="flex items-center gap-1">
+            <input 
+              type="datetime-local" 
+              ${lockAttr}
+              value="${toIsoDateTime(row.entryDate)}" 
+              onchange="updateRouteDateCell(${index}, 'entryDate', this.value, ${otIdArg})" 
+              onclick="if(!this.disabled) try { this.showPicker(); } catch(e) {}"
+              style="color-scheme: dark;"
+              class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-sky-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:bg-black/60 hover:border-sky-400/50 cursor-pointer'}"
+            />
+            <button 
+              type="button" 
+              ${lockAttr}
+              title="Poner fecha y hora actual" 
+              onclick="stampCurrentTime(${index}, 'entryDate', ${otIdArg})" 
+              class="p-0.5 text-zinc-400 rounded transition-colors shrink-0 ${isRowLocked ? 'hidden' : 'hover:text-white hover:bg-white/[0.08] cursor-pointer'}"
+            >
+              ${lucideIcon('clock', 'w-[15px] h-[15px]')}
+            </button>
+          </div>
+        </td>
+
+        <!-- 2. DE: -->
+        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
+          <select 
+            ${lockAttr}
+            onchange="handleRouteDeptChange(${index}, 'from', this.value, ${otIdArg})" 
+            class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-300 focus:border-sky-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-sky-400/50 cursor-pointer'}"
+          >
+            ${getDepartmentOptionsHtml(row.from || 'Tráfico')}
+          </select>
+        </td>
+
+        <!-- 3. PARA: -->
+        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
+          <select 
+            ${lockAttr}
+            onchange="handleRouteDeptChange(${index}, 'to', this.value, ${otIdArg})" 
+            class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-300 focus:border-sky-500/60 focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-sky-400/50 cursor-pointer'}"
+          >
+            ${getDepartmentOptionsHtml(row.to || 'Creativos')}
+          </select>
+        </td>
+
+        <!-- 4. DESCRIPCIÓN -->
+        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
+          <input 
+            type="text" 
+            ${lockAttr}
+            data-route-cell="${escapeHtml(taskOt?.id || '')}:${index}:task"
+            value="${escapeHtml(row.task || '')}" 
+            onfocus="selectBitacoraInspectorRow(${otIdArg}, ${index})"
+            oninput="updateRouteCell(${index}, 'task', this.value, ${otIdArg})"
+            onchange="updateRouteCell(${index}, 'task', this.value, ${otIdArg})" 
+            placeholder="Instrucción del relevo..." 
+            class="w-full bg-transparent border-0 border-b border-transparent focus:border-sky-500 focus:ring-0 text-[11px] font-sans text-zinc-100 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
+          />
+        </td>
+
+        <!-- 5. FIRMA -->
+        <td class="p-2 border-r border-resolve-border align-middle">
+          <select 
+            ${lockAttr}
+            onchange="handleRouteSignChange(${index}, this.value, ${otIdArg})" 
+            class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] font-semibold ${respColors.text} focus:border-current focus:outline-none ${isRowLocked ? 'cursor-not-allowed' : `hover:${respColors.border} cursor-pointer`}"
+          >
+            ${getRouteSignOptionsHtml(rowSign, isRowLocked)}
+          </select>
+        </td>
+
+        <!-- 6. NOTAS -->
+        <td class="p-2 border-r border-resolve-border align-middle">
+          <input 
+            type="text" 
+            ${lockAttr}
+            data-route-cell="${escapeHtml(taskOt?.id || '')}:${index}:notes"
+            value="${escapeHtml(row.notes || '')}" 
+            onfocus="selectBitacoraInspectorRow(${otIdArg}, ${index})"
+            oninput="updateRouteCell(${index}, 'notes', this.value, ${otIdArg})"
+            onchange="updateRouteCell(${index}, 'notes', this.value, ${otIdArg})" 
+            placeholder="Notas..." 
+            class="w-full bg-transparent border-0 border-b border-transparent focus:border-sky-500 focus:ring-0 text-[11px] font-sans text-zinc-300 px-1 py-0.5 leading-tight ${isRowLocked ? 'cursor-not-allowed' : 'hover:border-resolve-border'}"
+          />
+        </td>
+
+        <!-- 7. CANDADO -->
+        <td class="p-2 align-middle text-center">
+          <button type="button" ${lockState.canToggle ? `onclick="event.stopPropagation(); toggleRouteRowLock(${index}, ${otIdArg})"` : 'disabled'} title="${escapeHtml(lockState.title)}" class="w-7 h-7 inline-flex items-center justify-center rounded transition-colors ${!lockState.canToggle ? 'bg-black/40 text-zinc-400 border border-white/[0.06] cursor-not-allowed' : (isRowLocked ? 'bg-sky-500/15 text-sky-300 border border-sky-500/40 hover:bg-sky-500/25 cursor-pointer' : 'bg-white/[0.04] text-emerald-400 border border-resolve-border hover:text-sky-300 hover:border-sky-500/40 cursor-pointer')}">
+            ${lucideIcon(isRowLocked ? 'lock' : 'lock-open', 'w-[15px] h-[15px]')}
+          </button>
+        </td>
+      </tr>
+  `;
+}
+
 export function renderRouteSheetRows(routes) {
   if (typeof document === 'undefined') return;
   const tbody = document.getElementById('route-sheet-rows');
@@ -420,158 +1103,16 @@ export function renderRouteSheetRows(routes) {
   if (!routes || routes.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="p-8 text-center text-zinc-400 italic font-medium">
-          Sin relevos asentados. Pulsa "+ AGREGAR MOVIMIENTO" para registrar un pase.
+        <td colspan="7" class="p-8 text-center text-zinc-400 italic font-medium">
+          Sin relevos asentados. Pulsa "+" para registrar un paso.
         </td>
       </tr>
     `;
     return;
   }
 
-  tbody.innerHTML = routes.map((row, index) => {
-    let stampHtml = '';
-    if (row.stamp) {
-      let stampColor = 'border-red-500 text-red-400';
-      if (row.stamp === 'ENTREGADO') stampColor = 'border-blue-500 text-blue-400';
-      else if (row.stamp === 'APROBADO') stampColor = 'border-emerald-500 text-emerald-400';
-      else if (row.stamp === 'AJUSTES') stampColor = 'border-amber-500 text-amber-400';
-
-      stampHtml = `
-        <span onclick="openStampModal(${index})" class="ink-stamp-box px-2.5 py-0.5 text-[11px] font-bold cursor-pointer inline-block ${stampColor} hover:scale-105 transition-transform">
-          [ ${escapeHtml(row.stamp)} ]
-        </span>
-      `;
-    } else {
-      stampHtml = `
-        <button onclick="openStampModal(${index})" class="text-[10px] text-zinc-400 hover:text-white font-medium underline cursor-pointer">
-          + Firma
-        </button>
-      `;
-    }
-
-    const isOdd = (index % 2 === 1);
-    const zebraClass = isOdd ? 'bg-white/[0.025]' : 'bg-transparent';
-
-    return `
-      <tr class="${zebraClass} hover:bg-white/[0.08] transition-colors text-[11px] ${row.completed ? 'opacity-70 bg-black/20' : ''}">
-        <!-- 1. DE: -->
-        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
-          <select 
-            onchange="handleRouteDeptChange(${index}, 'from', this.value)" 
-            class="w-full bg-black/50 border border-resolve-border hover:border-amber-400/50 rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-300 focus:border-amber-500/60 focus:outline-none cursor-pointer"
-          >
-            ${getDepartmentOptionsHtml(row.from || 'Tráfico')}
-          </select>
-        </td>
-
-        <!-- 2. PARA: -->
-        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
-          <select 
-            onchange="handleRouteDeptChange(${index}, 'to', this.value)" 
-            class="w-full bg-black/50 border border-resolve-border hover:border-sky-400/50 rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-300 focus:border-sky-500/60 focus:outline-none cursor-pointer"
-          >
-            ${getDepartmentOptionsHtml(row.to || 'Creativos')}
-          </select>
-        </td>
-
-        <!-- 3. DESCRIPCIÓN -->
-        <td class="p-2 border-r border-resolve-border align-middle text-[11px]">
-          <input 
-            type="text" 
-            value="${escapeHtml(row.task || '')}" 
-            onchange="updateRouteCell(${index}, 'task', this.value)" 
-            placeholder="Instrucción del relevo..." 
-            class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-amber-500 focus:ring-0 text-[11px] text-zinc-100 px-1 py-0.5 leading-tight"
-          />
-        </td>
-
-        <!-- 4. ENTRADA -->
-        <td class="p-2 border-r border-resolve-border align-middle">
-          <div class="flex items-center gap-1">
-            <input 
-              type="datetime-local" 
-              value="${toIsoDateTime(row.entryDate)}" 
-              onchange="updateRouteDateCell(${index}, 'entryDate', this.value)" 
-              onclick="try { this.showPicker(); } catch(e) {}"
-              style="color-scheme: dark;"
-              class="w-full bg-black/40 hover:bg-black/60 border border-resolve-border hover:border-amber-400/50 rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none cursor-pointer"
-            />
-            <button 
-              type="button" 
-              title="Poner fecha y hora actual" 
-              onclick="stampCurrentTime(${index}, 'entryDate')" 
-              class="p-0.5 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded transition-colors shrink-0"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </button>
-          </div>
-        </td>
-
-        <!-- 5. ENTREGA -->
-        <td class="p-2 border-r border-resolve-border align-middle">
-          ${(() => {
-            const isLocked = state.memberRole !== 'owner' && Boolean(row.deliveryDate && String(row.deliveryDate).trim());
-            return `
-              <div class="flex items-center gap-1">
-                <input 
-                  type="datetime-local" 
-                  value="${toIsoDateTime(row.deliveryDate)}" 
-                  ${isLocked ? 'disabled title="Solo el Dueño puede modificar una fecha límite comprometida"' : `onchange="updateRouteDateCell(${index}, 'deliveryDate', this.value)" onclick="try { this.showPicker(); } catch(e) {}"`}
-                  style="color-scheme: dark;"
-                  class="w-full bg-black/40 border border-resolve-border rounded px-1.5 py-0.5 text-[11px] text-zinc-200 font-mono focus:border-amber-500/60 focus:outline-none ${isLocked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-black/60 hover:border-amber-400/50 cursor-pointer'}"
-                />
-                <button 
-                  type="button" 
-                  ${isLocked ? 'disabled title="Solo el Dueño puede modificar una fecha límite comprometida"' : `title="Poner fecha y hora actual" onclick="stampCurrentTime(${index}, 'deliveryDate')"`}
-                  class="p-0.5 text-zinc-400 rounded transition-colors shrink-0 ${isLocked ? 'opacity-40 cursor-not-allowed' : 'hover:text-white hover:bg-white/[0.08]'}"
-                >
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </button>
-              </div>
-            `;
-          })()}
-        </td>
-
-        <!-- 6. FIRMA -->
-        <td class="p-2 border-r border-resolve-border align-middle">
-          <div class="flex items-center gap-1.5">
-            <select 
-              onchange="handleRouteSignChange(${index}, this.value)" 
-              class="w-full bg-black/50 border border-resolve-border hover:${getResponsibleColorClasses(row.sign || row.from || getActiveUserShortName() || 'Usuario').border} rounded px-1.5 py-0.5 text-[11px] font-semibold ${getResponsibleColorClasses(row.sign || row.from || getActiveUserShortName() || 'Usuario').text} focus:border-current focus:outline-none cursor-pointer"
-            >
-              ${getResponsibleOptionsHtml(row.sign || row.from || getActiveUserShortName() || 'Usuario')}
-            </select>
-            <div class="shrink-0">
-              ${stampHtml}
-            </div>
-          </div>
-        </td>
-
-        <!-- 7. NOTAS -->
-        <td class="p-2 border-r border-resolve-border align-middle">
-          <input 
-            type="text" 
-            value="${escapeHtml(row.notes || '')}" 
-            onchange="updateRouteCell(${index}, 'notes', this.value)" 
-            placeholder="Notas..." 
-            class="w-full bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-amber-500 focus:ring-0 text-[11px] text-zinc-300 px-1 py-0.5 leading-tight"
-          />
-        </td>
-
-        <!-- ACCIONES -->
-        <td class="p-2 align-middle text-center">
-          <div class="flex items-center justify-center gap-1">
-            <button onclick="toggleRouteDone(${index})" title="${row.completed ? 'Marcar pendiente' : 'Completado'}" class="p-0.5 ${row.completed ? 'text-emerald-400' : 'text-resolve-dimText hover:text-white'}">
-              ✓
-            </button>
-            <button onclick="deleteRouteRow(${index})" title="Eliminar fila" class="p-0.5 text-resolve-dimText hover:text-red-400">
-              ✕
-            </button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  const activeTaskOt = state.activeOtId ? getOrderById(state.activeOtId) : null;
+  tbody.innerHTML = routes.map((row, index) => renderSingleRouteRowHtml(row, index, activeTaskOt)).join('');
 }
 
 export function addNewRouteRow() {
@@ -594,37 +1135,567 @@ export function addNewRouteRow() {
     defaultTo = last.from || "Creativos";
   }
 
+  ot.routes.forEach((r) => {
+    r.locked = true;
+  });
+
   ot.routes.push({
     from: defaultFrom,
     to: defaultTo,
     task: "",
+    status: ot.responsibleDept || "Tráfico",
     entryDate: getNowFormatted(),
     deliveryDate: "",
-    sign: activeUserShort || ot.responsible || "Usuario",
+    sign: "",
     notes: "",
     stamp: null,
-    completed: false
+    locked: false,
+    createdByUserId: state.currentUser?.id || null
   });
 
   saveOrders(orders);
+  activeInspectorRow = { otId: ot.id, index: ot.routes.length - 1 };
   renderRouteSheetRows(ot.routes);
+  renderEnvelopeInspector();
   refreshAllViews();
 }
 
-export function updateRouteCell(index, field, value) {
-  if (!state.activeOtId) return;
+function resolveInspectorTarget() {
+  const activeTaskId = state.activeEnvelopeTaskId || state.activeOtId;
+  if (!activeTaskId) return null;
+
+  if (activeInspectorRow.otId) {
+    const candidate = getOrderById(activeInspectorRow.otId);
+    if (candidate && Array.isArray(candidate.routes) && candidate.routes[activeInspectorRow.index]) {
+      return { ot: candidate, index: activeInspectorRow.index, row: candidate.routes[activeInspectorRow.index] };
+    }
+  }
+
+  const fallbackOt = getOrderById(activeTaskId);
+  if (!fallbackOt || !Array.isArray(fallbackOt.routes) || fallbackOt.routes.length === 0) return null;
+  const idx = fallbackOt.routes.length - 1;
+  activeInspectorRow = { otId: fallbackOt.id, index: idx };
+  return { ot: fallbackOt, index: idx, row: fallbackOt.routes[idx] };
+}
+
+export function selectBitacoraInspectorRow(otId, index) {
+  if (!otId) return;
+  if (activeInspectorRow.otId === otId && activeInspectorRow.index === index) return;
+  activeInspectorRow = { otId, index };
+  const activeOt = state.activeOtId ? getOrderById(state.activeOtId) : null;
+  renderRouteSheetRows(activeOt?.routes || []);
+  renderEnvelopeInspector();
+}
+
+export function updateRouteCellFromInspector(index, field, value, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
   const orders = getOrders();
-  const ot = orders.find(o => o.id === state.activeOtId);
+  const ot = orders.find(o => o.id === otId);
   if (!ot || !ot.routes[index]) return;
 
   ot.routes[index][field] = value;
   saveOrders(orders);
+  if (typeof document !== 'undefined') {
+    const cellInput = document.querySelector(`[data-route-cell="${otId}:${index}:${field}"]`);
+    if (cellInput && cellInput.value !== value) {
+      cellInput.value = value;
+    }
+  }
   refreshAllViews();
 }
 
-export function updateRouteDateCell(index, field, isoValue) {
+export function stepEnvelopeTask(delta) {
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  if (!rootId) return;
+  const rootOt = getOrderById(rootId);
+  if (!rootOt) return;
+  const nodes = [rootOt, ...getSubOtsForRoot(rootId)];
+  if (nodes.length <= 1) return;
+
+  const currentId = state.activeEnvelopeTaskId || state.activeOtId || rootId;
+  const currentIdx = Math.max(0, nodes.findIndex(n => n.id === currentId));
+  const nextIdx = (currentIdx + delta + nodes.length) % nodes.length;
+  selectEnvelopeTreeTask(nodes[nextIdx].id);
+}
+
+export function syncInspectorTaskToStripboard(targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId || typeof document === 'undefined') return;
+  const dateEl = document.getElementById('inspector-sched-date');
+  const slotEl = document.getElementById('inspector-sched-timeslot');
+  const respEl = document.getElementById('inspector-sched-assignee');
+
+  const targetDate = (dateEl && dateEl.value) ? dateEl.value : (state.currentStripboardDate || new Date().toISOString().split('T')[0]);
+  const timeSlot = (slotEl && slotEl.value.trim()) ? slotEl.value.trim() : '09:00 - 11:00';
+  const assignee = (respEl && respEl.value) ? respEl.value : (getOrderById(otId)?.sign || getActiveUserShortName() || 'Creativos');
+
+  const strips = getDayStrips(targetDate);
+  const existing = strips.find(s => s.otId === otId);
+  if (existing) {
+    existing.timeSlot = timeSlot;
+    existing.assignee = assignee;
+    saveDayStrips(targetDate, strips);
+  } else {
+    insertOtStripOnDate(otId, targetDate, strips.length);
+    const updatedStrips = getDayStrips(targetDate);
+    const inserted = updatedStrips[updatedStrips.length - 1];
+    if (inserted && inserted.otId === otId) {
+      inserted.timeSlot = timeSlot;
+      inserted.assignee = assignee;
+      saveDayStrips(targetDate, updatedStrips);
+    }
+  }
+
+  renderModalStripboardWitness(otId);
+  renderEnvelopeInspector();
+  refreshAllViews();
+}
+
+export function closeInspectorTaskAsDone(targetOtId = state.activeOtId, routeIndex = null) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const statuses = getStatuses();
+  const doneStatus = statuses.find(s => /entreg|termin|finaliz/i.test(s.name))?.name || 'Entregado';
+  syncOtStatusAndRoute(otId, doneStatus, { syncLatestRouteStatus: true });
+
+  const orders = getOrders();
+  const ot = orders.find(o => o.id === otId);
+  if (ot && Array.isArray(ot.routes) && routeIndex !== null && ot.routes[routeIndex]) {
+    ot.routes[routeIndex].status = doneStatus;
+    ot.routes[routeIndex].locked = true;
+    saveOrders(orders);
+  }
+  if (otId === state.activeEnvelopeRootId) syncHeaderStatusSelect(doneStatus);
+  renderEnvelopeTaskTree();
+  renderRouteSheetRows(ot?.routes || []);
+  renderEnvelopeInspector();
+  refreshAllViews();
+}
+
+export function cancelInspectorTask(targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  if (typeof window !== 'undefined' && !window.confirm(`¿Marcar la tarea ${otId} como cancelada / detenida?`)) return;
+  const statuses = getStatuses();
+  const cancelStatus = statuses.find(s => /cancel|deten/i.test(s.name))?.name || 'Detenido';
+  syncOtStatusAndRoute(otId, cancelStatus, { syncLatestRouteStatus: true });
+  if (otId === state.activeEnvelopeRootId) syncHeaderStatusSelect(cancelStatus);
+
+  const ot = getOrderById(otId);
+  renderEnvelopeTaskTree();
+  renderRouteSheetRows(ot?.routes || []);
+  renderEnvelopeInspector();
+  refreshAllViews();
+}
+
+export async function duplicateInspectorTask(targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const src = getOrderById(otId);
+  if (!src) return;
+
+  const baseTitle = (src.taskTitle !== undefined && src.taskTitle !== null) ? src.taskTitle : (src.title || src.description || 'Tarea');
+  const copyTitle = `${baseTitle} (Copia)`;
+  const created = await createOt({
+    parentOtId: src.parentOtId || null,
+    client: src.client || '',
+    brand: src.brand || '',
+    product: src.product || '',
+    media: src.media || src.medium || '',
+    medium: src.medium || src.media || '',
+    reference: src.reference || '',
+    description: src.description || '',
+    taskTitle: copyTitle,
+    title: copyTitle,
+    sign: src.sign || getActiveUserShortName() || 'Usuario',
+    status: 'Tráfico',
+    entryDate: getNowFormatted(),
+    deliveryDate: src.deliveryDate || ''
+  });
+
+  if (created && created.id) {
+    renderEnvelopeTaskTree();
+    selectEnvelopeTreeTask(created.id);
+    refreshAllViews();
+  }
+}
+
+export function deleteInspectorTask(targetOtId = state.activeOtId) {
+  if (state.memberRole !== 'owner') return;
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const ot = getOrderById(otId);
+  if (!ot) return;
+  if (typeof window !== 'undefined' && !window.confirm(`¿Eliminar permanentemente ${otId}?`)) return;
+
+  const parentId = ot.parentOtId || (otId !== state.activeEnvelopeRootId ? state.activeEnvelopeRootId : null);
+  deleteOt(otId);
+  if (parentId && getOrderById(parentId)) {
+    selectEnvelopeTreeTask(parentId);
+    refreshAllViews();
+  } else {
+    closeEnvelopeModal();
+  }
+}
+
+export function deleteInspectorRowOrTask(targetOtId = state.activeOtId, routeIndex = null) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const orders = getOrders();
+  const ot = orders.find(o => o.id === otId);
+  if (!ot) return;
+
+  if (routeIndex !== null && Array.isArray(ot.routes) && ot.routes[routeIndex]) {
+    const lockState = getRouteRowLockState(ot, ot.routes[routeIndex], routeIndex);
+    if (lockState.isLocked) {
+      if (typeof window !== 'undefined') window.alert(lockState.title);
+      return;
+    }
+    if (ot.routes.length > 1) {
+      if (typeof window !== 'undefined' && !window.confirm('¿Eliminar esta tarea de la bitácora?')) return;
+      ot.routes.splice(routeIndex, 1);
+      saveOrders(orders);
+      if (activeInspectorRow.otId === otId && activeInspectorRow.index >= ot.routes.length) {
+        activeInspectorRow.index = Math.max(0, ot.routes.length - 1);
+      }
+      renderRouteSheetRows(ot.routes);
+      renderEnvelopeInspector();
+      refreshAllViews();
+      return;
+    }
+    if (ot.parentOtId || (state.activeEnvelopeRootId && ot.id !== state.activeEnvelopeRootId)) {
+      if (typeof window !== 'undefined' && !window.confirm(`¿Eliminar permanentemente la tarea ${ot.id}?`)) return;
+      const parentId = ot.parentOtId || state.activeEnvelopeRootId;
+      deleteOt(ot.id);
+      if (parentId && getOrderById(parentId)) selectEnvelopeTreeTask(parentId);
+      refreshAllViews();
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm('¿Eliminar esta fila de la bitácora?')) return;
+    ot.routes.splice(routeIndex, 1);
+    saveOrders(orders);
+    activeInspectorRow.index = 0;
+    renderRouteSheetRows(ot.routes);
+    renderEnvelopeInspector();
+    refreshAllViews();
+    return;
+  }
+
+  deleteInspectorTask(otId);
+}
+
+export function renderEnvelopeInspector() {
+  if (typeof document === 'undefined') return;
+  const body = document.getElementById('envelope-inspector-body');
+  if (!body) return;
+
+  const rootId = state.activeEnvelopeRootId || state.activeOtId;
+  const rootOt = rootId ? getOrderById(rootId) : null;
+  const navNodes = rootOt ? [rootOt, ...getSubOtsForRoot(rootOt.id)] : [];
+  const activeTaskId = state.activeEnvelopeTaskId || state.activeOtId || rootId;
+  const activeOt = activeTaskId ? getOrderById(activeTaskId) : null;
+
+  const target = resolveInspectorTarget();
+  const ot = target?.ot || activeOt;
+  if (!ot) {
+    body.innerHTML = `<div class="p-3 text-[11px] text-zinc-400">Sin tarea activa.</div>`;
+    return;
+  }
+
+  const index = target ? target.index : null;
+  const row = target ? target.row : null;
+  const otIdArg = `'${escapeHtml(ot.id)}'`;
+  const isLocked = index !== null ? getRouteRowLockState(ot, row, index).isLocked : false;
+  const lockAttr = isLocked ? 'disabled' : '';
+  const isDeliveryLocked = isLocked || (state.memberRole !== 'owner' && Boolean((row?.deliveryDate || ot.deliveryDate) && String(row?.deliveryDate || ot.deliveryDate).trim()));
+  const taskTitle = (ot.taskTitle !== undefined && ot.taskTitle !== null) ? ot.taskTitle : (ot.title || '');
+  const taskStatus = row?.status || ot.responsibleDept || 'Tráfico';
+  const statusBadgeCls = getStatusBadgeClass(taskStatus);
+
+  // 1. Navegador rápido
+  const navIdx = Math.max(0, navNodes.findIndex(n => n.id === ot.id));
+  const navHtml = navNodes.length > 1 ? `
+    <div class="flex items-center justify-between gap-1">
+      <button type="button" onclick="stepEnvelopeTask(-1)" class="flex-1 py-1 px-1.5 rounded bg-white/[0.05] hover:bg-white/[0.12] border border-resolve-border text-[10px] font-semibold text-zinc-200 hover:text-white cursor-pointer transition-colors" title="Tarea anterior">↑ Anterior</button>
+      <span class="px-1.5 font-mono text-[9px] text-zinc-400 shrink-0">${navIdx + 1}/${navNodes.length}</span>
+      <button type="button" onclick="stepEnvelopeTask(1)" class="flex-1 py-1 px-1.5 rounded bg-white/[0.05] hover:bg-white/[0.12] border border-resolve-border text-[10px] font-semibold text-zinc-200 hover:text-white cursor-pointer transition-colors" title="Tarea siguiente">↓ Siguiente</button>
+    </div>
+  ` : '';
+
+  // 5. Datos Stripboard
+  const scheduledDays = getOtScheduledDays(ot.id);
+  const firstMatch = scheduledDays[0]?.matched?.[0];
+  const defaultSchedDate = scheduledDays[0]?.dateStr || state.currentStripboardDate || new Date().toISOString().split('T')[0];
+  const defaultSlot = firstMatch?.strip?.timeSlot || '09:00 - 11:00';
+  const defaultAssignee = firstMatch?.strip?.assignee || ot.sign || getActiveUserShortName() || 'Creativos';
+  const schedPillsHtml = scheduledDays.length > 0
+    ? `<div class="flex flex-wrap gap-1 pt-1">${scheduledDays.map(d => d.matched.map(m => `
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-[9px] text-sky-300 font-mono">
+          <button type="button" onclick="jumpFromModalToStripboardDate('${d.dateStr}')" title="Ir al Stripboard" class="hover:underline cursor-pointer">${d.shortLabel} • ${escapeHtml(m.strip.timeSlot || '')}</button>
+          <button type="button" onclick="removeStripFromModalWitness('${d.dateStr}', ${m.idx})" title="Quitar turno" class="text-zinc-400 hover:text-red-400 inline-flex items-center justify-center cursor-pointer">${lucideIcon('x', 'w-3 h-3')}</button>
+        </span>
+      `).join('')).join('')}</div>`
+    : `<div class="text-[10px] text-zinc-500 italic">Sin bloques en Stripboard</div>`;
+
+  // 7. Revisor Colaborativo y Mensajes
+  const mediaList = ot.mediaFiles || [];
+  const reviewedMedia = mediaList.map((f, idx) => ({ f, idx })).filter(x => x.f.reviewStatus || x.f.lastReviewComment || x.f.latestComment || x.f.reviewCommentCount);
+  const targetMedia = reviewedMedia[reviewedMedia.length - 1] || (mediaList.length > 0 ? { f: mediaList[mediaList.length - 1], idx: mediaList.length - 1 } : null);
+  const lastMsg = targetMedia?.f?.lastReviewComment || targetMedia?.f?.latestComment || targetMedia?.f?.reviewNote || '';
+  const reviewHtml = targetMedia ? `
+    <div class="space-y-1.5">
+      <div class="flex items-center justify-between gap-1 text-[10px]">
+        <span class="text-zinc-300 font-medium truncate" title="${escapeHtml(targetMedia.f.name)}">${escapeHtml(targetMedia.f.name)}</span>
+        ${getReviewStatusBadgeHtml(targetMedia.f.reviewStatus) || '<span class="text-[9px] text-zinc-500">Sin revisión</span>'}
+      </div>
+      ${lastMsg ? `<div class="p-1.5 rounded bg-black/40 border border-resolve-border text-[10px] text-zinc-300 italic leading-snug">"${escapeHtml(lastMsg)}"</div>` : `<div class="text-[10px] text-zinc-500 italic">Sin mensajes recientes del revisor.</div>`}
+      <div class="flex items-center gap-1">
+        <button type="button" onclick="openMediaReview(${targetMedia.idx}, ${otIdArg})" class="flex-1 py-1 px-2 rounded bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 border border-[#0BA2AC]/40 text-[#0BA2AC] text-[10px] font-semibold cursor-pointer transition-colors">Abrir Revisor</button>
+        <button type="button" onclick="shareMediaItem(${targetMedia.idx}, ${otIdArg})" class="py-1 px-2 rounded bg-white/[0.05] hover:bg-white/[0.12] border border-resolve-border text-zinc-200 text-[10px] font-semibold cursor-pointer transition-colors">Compartir</button>
+      </div>
+    </div>
+  ` : `<div class="text-[10px] text-zinc-500 italic">Esta tarea aún no tiene archivos para revisión.</div>`;
+
+  const entryIso = toIsoDateTime(row?.entryDate || ot.entryDate || '');
+  const deliveryIso = toIsoDateTime(row?.deliveryDate || ot.deliveryDate || '');
+  const isOwner = state.memberRole === 'owner';
+
+  const navIconsHtml = navNodes.length > 1 ? `
+    <div class="flex items-center gap-0.5 shrink-0">
+      <button type="button" onclick="stepEnvelopeTask(-1)" title="Tarea anterior" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.05] hover:bg-white/[0.12] border border-resolve-border text-zinc-300 hover:text-white cursor-pointer">
+        ${lucideIcon('arrow-up', 'w-3 h-3')}
+      </button>
+      <button type="button" onclick="stepEnvelopeTask(1)" title="Tarea siguiente" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.05] hover:bg-white/[0.12] border border-resolve-border text-zinc-300 hover:text-white cursor-pointer">
+        ${lucideIcon('arrow-down', 'w-3 h-3')}
+      </button>
+    </div>
+  ` : '';
+
+  const topToolbarHtml = `
+    <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-white/[0.06]">
+      ${navIconsHtml || '<span></span>'}
+      <div class="flex items-center gap-0.5 shrink-0">
+        ${row ? `
+        <button type="button" onclick="toggleRouteRowLock(${index}, ${otIdArg})" title="${isLocked ? 'Desbloquear fila' : 'Bloquear fila'}" class="w-5 h-5 flex items-center justify-center rounded border cursor-pointer transition-colors ${isLocked ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-white/[0.04] hover:bg-white/[0.12] border-resolve-border text-zinc-300 hover:text-white'}">
+          ${lucideIcon(isLocked ? 'lock' : 'lock-open', 'w-3 h-3')}
+        </button>` : ''}
+        <button type="button" onclick="closeInspectorTaskAsDone(${otIdArg}, ${row ? index : 'null'})" title="Cerrar tarea (Terminada / Entregada)" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-emerald-500/20 border border-resolve-border hover:border-emerald-500/40 text-emerald-300 cursor-pointer transition-colors">
+          ${lucideIcon('check', 'w-3 h-3')}
+        </button>
+        <button type="button" onclick="cancelInspectorTask(${otIdArg})" title="Cancelar / Detener tarea" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-sky-500/20 border border-resolve-border hover:border-sky-500/40 text-sky-300 cursor-pointer transition-colors">
+          ${lucideIcon('ban', 'w-3 h-3')}
+        </button>
+        <button type="button" onclick="duplicateInspectorTask(${otIdArg})" title="Duplicar tarea" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-white/[0.12] border border-resolve-border text-zinc-300 hover:text-white cursor-pointer transition-colors">
+          ${lucideIcon('copy', 'w-3 h-3')}
+        </button>
+        <button type="button" onclick="deleteInspectorRowOrTask(${otIdArg}, ${row ? index : 'null'})" title="Eliminar tarea / fila" class="w-5 h-5 flex items-center justify-center rounded bg-white/[0.04] hover:bg-rose-900/60 border border-resolve-border hover:border-rose-700/60 text-rose-400 cursor-pointer transition-colors">
+          ${lucideIcon('trash-2', 'w-3 h-3')}
+        </button>
+      </div>
+    </div>
+  `;
+
+  const tabBtn = (id, label, tip) => {
+    const active = activeInspectorTab === id;
+    return `<button type="button" onclick="setEnvelopeInspectorTab('${id}')" title="${tip}" class="flex-1 py-1 text-[10px] font-semibold uppercase tracking-wider border-b-2 cursor-pointer transition-colors ${active ? 'border-sky-400 text-sky-300 bg-white/[0.05]' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]'}">${label}</button>`;
+  };
+
+  const subTasksForOt = rootOt ? getSubOtsForRoot(rootOt.id) : [];
+  const subTasksListHtml = `
+    <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
+      <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
+        <span>Tareas (${subTasksForOt.length})</span>
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); createEnvelopeSubTask()" title="Nueva Sub-tarea" class="w-4 h-4 flex items-center justify-center rounded bg-white/[0.06] hover:bg-sky-500/20 border border-resolve-border text-sky-300 text-[10px] font-bold cursor-pointer">+</button>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+        </div>
+      </summary>
+      <div class="p-1.5 space-y-1 max-h-40 overflow-y-auto">
+        ${subTasksForOt.length === 0
+          ? `<div class="text-[10px] text-zinc-500 italic px-1 py-1">Sin tareas creadas en esta OT.</div>`
+          : subTasksForOt.map(sub => {
+              const isSelected = (state.activeEnvelopeTaskId || state.activeOtId) === sub.id;
+              const subTitle = sub.taskTitle || sub.title || sub.medium || sub.media || 'Subtarea';
+              const subSuffix = (typeof sub.id === 'string' && rootOt && sub.id.startsWith(rootOt.id + '-')) ? sub.id.slice(rootOt.id.length) : sub.id;
+              const stCls = getStatusBadgeClass(sub.responsibleDept || 'Tráfico');
+              return `
+                <button type="button" onclick="selectEnvelopeTreeTask('${escapeHtml(sub.id)}')" class="w-full text-left px-2 py-1 rounded border flex items-center justify-between gap-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-sky-500/10 border-sky-500/40 text-white' : 'bg-black/25 hover:bg-white/[0.05] border-resolve-border text-zinc-300'}">
+                  <span class="flex items-center gap-1.5 min-w-0">
+                    <span class="font-mono text-[9px] text-sky-300 shrink-0">${escapeHtml(subSuffix)}</span>
+                    <span class="text-[11px] truncate font-medium">${escapeHtml(subTitle)}</span>
+                  </span>
+                  <span class="px-1 py-0.2 rounded border text-[8px] font-semibold shrink-0 ${stCls}">${escapeHtml(sub.responsibleDept || 'Tráfico')}</span>
+                </button>
+              `;
+            }).join('')}
+      </div>
+    </details>
+  `;
+
+  let tabBodyHtml = '';
+  if (activeInspectorTab === 'task') {
+    tabBodyHtml = `
+      ${subTasksListHtml}
+      <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
+        <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
+          <span>Estado</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+        </summary>
+        <div class="p-2 space-y-1.5">
+          ${rootOt ? `
+          <div>
+            <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">OT Master (${escapeHtml(rootOt.id)})</label>
+            <select onchange="handleRootStatusChange(this.value)" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-sky-300 font-medium focus:border-sky-500 focus:outline-none cursor-pointer">
+              ${getStatusOptionsHtml(rootOt.responsibleDept || 'Tráfico')}
+            </select>
+          </div>` : ''}
+          <div>
+            <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Esta Tarea (${escapeHtml(ot.id)})</label>
+            <select ${lockAttr} onchange="${row ? `handleRouteStatusChange(${index}, this.value, ${otIdArg})` : `syncOtStatusAndRoute(${otIdArg}, this.value, { syncLatestRouteStatus: true }); renderEnvelopeTaskTree(); renderEnvelopeInspector(); refreshAllViews();`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-sky-300 font-medium focus:border-sky-500 focus:outline-none ${isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}">
+              ${getStatusOptionsHtml(taskStatus)}
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
+        <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
+          <span>Fechas</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+        </summary>
+        <div class="p-2 space-y-1.5">
+          <div>
+            <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Entrada</label>
+            <input type="datetime-local" ${lockAttr} value="${entryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'entryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('entryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-sky-500 focus:outline-none ${isLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
+          </div>
+          <div>
+            <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Entrega</label>
+            <input type="datetime-local" ${isDeliveryLocked ? 'disabled' : ''} value="${deliveryIso}" onchange="${row ? `updateRouteDateCell(${index}, 'deliveryDate', this.value, ${otIdArg})` : `updateActiveOtDateField('deliveryDate', this.value)`}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-sky-300 focus:border-sky-500 focus:outline-none ${isDeliveryLocked ? 'opacity-60 cursor-not-allowed' : ''}" />
+          </div>
+        </div>
+      </details>
+
+      <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
+        <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
+          <span>Descripción</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+        </summary>
+        <div class="p-2">
+          ${row ? `
+          <textarea
+            id="inspector-route-task"
+            rows="6"
+            ${lockAttr}
+            oninput="updateRouteCellFromInspector(${index}, 'task', this.value, ${otIdArg})"
+            onchange="updateRouteCellFromInspector(${index}, 'task', this.value, ${otIdArg})"
+            placeholder="Escribe la descripción o instrucción completa..."
+            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-100 leading-relaxed focus:border-sky-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
+          >${escapeHtml(row.task || '')}</textarea>
+          ` : `<button type="button" onclick="addNewRouteRow()" title="Agregar movimiento" class="w-full py-1 px-2 rounded bg-white/[0.05] hover:bg-sky-500/20 border border-resolve-border text-sky-300 text-[10px] font-semibold cursor-pointer">+ Movimiento</button>`}
+        </div>
+      </details>
+
+      <details open class="group rounded-lg border border-resolve-border bg-resolve-panel/40 overflow-hidden">
+        <summary class="px-2.5 py-1 bg-white/[0.06] border-b border-resolve-border text-[10px] uppercase tracking-wider font-bold text-zinc-200 cursor-pointer select-none flex items-center justify-between list-none">
+          <span>Notas</span>
+          <span class="text-sky-400 text-[9px] transition-transform group-open:rotate-90">▶</span>
+        </summary>
+        <div class="p-2">
+          ${row ? `
+          <textarea
+            id="inspector-route-notes"
+            rows="6"
+            ${lockAttr}
+            oninput="updateRouteCellFromInspector(${index}, 'notes', this.value, ${otIdArg})"
+            onchange="updateRouteCellFromInspector(${index}, 'notes', this.value, ${otIdArg})"
+            placeholder="Escribe notas completas, observaciones o acuerdos..."
+            class="w-full bg-black/40 border border-resolve-border rounded-md p-2 text-[11px] font-sans text-zinc-200 leading-relaxed focus:border-sky-500 focus:outline-none resize-y ${isLocked ? 'opacity-65 cursor-not-allowed' : ''}"
+          >${escapeHtml(row.notes || '')}</textarea>
+          ` : `<div class="text-[10px] text-zinc-500 italic">Agrega un movimiento para registrar notas.</div>`}
+        </div>
+      </details>
+    `;
+  } else if (activeInspectorTab === 'schedule') {
+    tabBodyHtml = `
+      <div class="rounded-lg border border-resolve-border bg-resolve-panel/40 p-2.5 space-y-2">
+        <div>
+          <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Fecha Programación</label>
+          <input type="date" id="inspector-sched-date" value="${escapeHtml(defaultSchedDate)}" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-zinc-200 focus:border-sky-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Bloque de horas</label>
+          <input type="text" id="inspector-sched-timeslot" value="${escapeHtml(defaultSlot)}" placeholder="09:00 - 11:00" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[10px] font-mono text-sky-300 focus:border-sky-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-[9px] uppercase text-zinc-400 font-semibold mb-0.5">Responsable</label>
+          <select id="inspector-sched-assignee" class="w-full bg-black/50 border border-resolve-border rounded px-1.5 py-1 text-[11px] text-zinc-200 focus:border-sky-500 focus:outline-none cursor-pointer">
+            ${getResponsibleOptionsHtml(defaultAssignee)}
+          </select>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-[10px] text-zinc-400">Sincronizar Agenda</span>
+          <button type="button" onclick="syncInspectorTaskToStripboard(${otIdArg})" title="Sincronizar con Agenda" class="w-6 h-6 flex items-center justify-center rounded bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 cursor-pointer transition-colors">
+            ${lucideIcon('refresh-cw', 'w-[15px] h-[15px]')}
+          </button>
+        </div>
+        ${schedPillsHtml}
+      </div>
+    `;
+  } else {
+    tabBodyHtml = `
+      <div class="rounded-lg border border-resolve-border bg-resolve-panel/40 p-2.5 space-y-2">
+        ${reviewHtml}
+      </div>
+    `;
+  }
+
+  body.innerHTML = `
+    <div class="p-2 rounded-lg bg-resolve-panel/80 border border-resolve-border space-y-1.5">
+      ${topToolbarHtml}
+      <div class="flex items-center justify-between gap-1.5">
+        <span class="font-mono font-bold text-[10px] text-sky-300 truncate">${escapeHtml(ot.id)}</span>
+        <span class="font-mono text-[9px] text-zinc-400 shrink-0">${navNodes.length > 1 ? `${navIdx + 1}/${navNodes.length}` : ''}${row ? ` • #${index + 1}` : ''}</span>
+      </div>
+      ${taskTitle ? `<div class="text-[13px] font-semibold text-white truncate" title="${escapeHtml(taskTitle)}">${escapeHtml(taskTitle)}</div>` : ''}
+    </div>
+
+    <div class="flex border border-resolve-border rounded-lg overflow-hidden bg-black/30">
+      ${tabBtn('task', 'Tareas', 'Tareas de la OT, Estado, Fechas, Descripción y Notas')}
+      ${tabBtn('schedule', 'Agenda', 'Programación en Stripboard')}
+      ${tabBtn('review', 'Revisor', 'Revisor Colaborativo y Mensajes')}
+    </div>
+
+    <div class="space-y-2">
+      ${tabBodyHtml}
+    </div>
+  `;
+}
+
+export function updateRouteCell(index, field, value, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+  const orders = getOrders();
+  const ot = orders.find(o => o.id === otId);
+  if (!ot || !ot.routes[index]) return;
+
+  ot.routes[index][field] = value;
+  saveOrders(orders);
+  if (typeof document !== 'undefined' && activeInspectorRow.otId === otId && activeInspectorRow.index === index) {
+    if (field === 'task') {
+      const inspTask = document.getElementById('inspector-route-task');
+      if (inspTask && inspTask.value !== value) inspTask.value = value;
+    } else if (field === 'notes') {
+      const inspNotes = document.getElementById('inspector-route-notes');
+      if (inspNotes && inspNotes.value !== value) inspNotes.value = value;
+    }
+  }
+  refreshAllViews();
+}
+
+export function updateRouteDateCell(index, field, isoValue, targetOtId = state.activeOtId) {
   const displayVal = fromIsoToDisplay(isoValue);
-  updateRouteCell(index, field, displayVal);
+  updateRouteCell(index, field, displayVal, targetOtId);
 }
 
 function isActiveOrLatestRoute(ot, index) {
@@ -642,103 +1713,166 @@ function syncHeaderStatusSelect(statusName) {
   }
 }
 
-export function handleRouteDeptChange(index, field, val) {
-  if (!state.activeOtId) return;
+export function handleRouteDeptChange(index, field, val, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
 
   if (val === '__NEW_DEPT__') {
     const newName = typeof window !== 'undefined' ? window.prompt("Nombre del nuevo departamento / área:") : null;
     if (newName && newName.trim()) {
       const clean = addDepartment(newName.trim());
       updateDeptOptionsDatalist();
-      updateRouteCell(index, field, clean);
-      const ot = getOrders().find(o => o.id === state.activeOtId);
-      if (ot && field === 'to' && isActiveOrLatestRoute(ot, index)) {
-        syncOtStatusAndRoute(state.activeOtId, clean, { syncLatestRouteTo: true });
-        syncHeaderStatusSelect(clean);
-        refreshAllViews();
-      }
+      updateRouteCell(index, field, clean, otId);
+      const ot = getOrders().find(o => o.id === otId);
       if (ot) renderRouteSheetRows(ot.routes);
     } else {
-      const ot = getOrders().find(o => o.id === state.activeOtId);
+      const ot = getOrders().find(o => o.id === otId);
       if (ot) renderRouteSheetRows(ot.routes);
     }
     return;
   }
 
-  updateRouteCell(index, field, val);
-  if (field === 'to') {
-    const ot = getOrders().find(o => o.id === state.activeOtId);
-    if (ot && isActiveOrLatestRoute(ot, index)) {
-      syncOtStatusAndRoute(state.activeOtId, val, { syncLatestRouteTo: true });
-      syncHeaderStatusSelect(val);
-      refreshAllViews();
-    }
-  }
+  updateRouteCell(index, field, val, otId);
 }
 
-export function handleRouteSignChange(index, val) {
-  if (!state.activeOtId) return;
+export function handleRouteStatusChange(index, val, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
 
-  let resolvedVal = val;
-  if (val === '__NEW_RESPONSIBLE__') {
-    const newName = typeof window !== 'undefined' ? window.prompt("Nombre propio del responsable que firma / entrega:") : null;
+  let resolvedStatus = val;
+  if (val === '__NEW__') {
+    const newName = typeof window !== 'undefined' ? window.prompt("Nombre del nuevo estado personalizado:") : null;
     if (newName && newName.trim()) {
-      resolvedVal = addResponsible(newName.trim());
-      updateRouteCell(index, 'sign', resolvedVal);
+      const clean = newName.trim();
+      const statuses = getStatuses();
+      let existing = statuses.find(s => s.name.toLowerCase() === clean.toLowerCase());
+      if (!existing) {
+        existing = { id: 'st-' + Date.now(), name: clean, color: 'stone' };
+        statuses.push(existing);
+        saveStatuses(statuses);
+      }
+      resolvedStatus = existing.name;
     } else {
-      const ot = getOrders().find(o => o.id === state.activeOtId);
+      const ot = getOrders().find(o => o.id === otId);
       if (ot) renderRouteSheetRows(ot.routes);
       return;
     }
-  } else {
-    updateRouteCell(index, 'sign', resolvedVal);
   }
 
-  const orders = getOrders();
-  const ot = orders.find(o => o.id === state.activeOtId);
+  updateRouteCell(index, 'status', resolvedStatus, otId);
+  const ot = getOrders().find(o => o.id === otId);
   if (ot && isActiveOrLatestRoute(ot, index)) {
-    ot.responsible = resolvedVal;
-    saveOrders(orders);
-    if (typeof document !== 'undefined') {
-      const respSel = document.getElementById('modal-ot-responsible');
-      if (respSel) {
-        respSel.innerHTML = getResponsibleOptionsHtml(resolvedVal);
-        respSel.value = resolvedVal;
-      }
+    syncOtStatusAndRoute(otId, resolvedStatus, { syncLatestRouteStatus: true });
+    if (ot.id === state.activeEnvelopeRootId) {
+      syncHeaderStatusSelect(resolvedStatus);
     }
+    renderEnvelopeTaskTree();
+    renderRouteSheetRows(ot.routes || []);
     refreshAllViews();
+    return;
   }
-  if (val === '__NEW_RESPONSIBLE__' && ot) {
+  if (val === '__NEW__' && ot) {
     renderRouteSheetRows(ot.routes);
   }
 }
 
-export function stampCurrentTime(index, field) {
-  updateRouteCell(index, field, getNowFormatted());
-  const ot = getOrders().find(o => o.id === state.activeOtId);
+export function handleRouteSignChange(index, val, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
+
+  const activeShort = (getActiveUserShortName() || 'Usuario').trim();
+  const resolvedVal = String(val || '').trim();
+  if (resolvedVal && resolvedVal !== activeShort) {
+    const ot = getOrders().find(o => o.id === otId);
+    if (ot) renderRouteSheetRows(ot.routes);
+    return;
+  }
+
+  const orders = getOrders();
+  const ot = orders.find(o => o.id === otId);
+  if (!ot || !ot.routes?.[index]) return;
+
+  ot.routes[index].sign = resolvedVal;
+  if (resolvedVal) {
+    ot.routes[index].locked = true;
+    if (isActiveOrLatestRoute(ot, index)) {
+      ot.sign = resolvedVal;
+      if (typeof document !== 'undefined' && ot.id === state.activeEnvelopeRootId) {
+        const respSel = document.getElementById('modal-ot-responsible');
+        if (respSel) {
+          respSel.innerHTML = getResponsibleOptionsHtml(resolvedVal);
+          respSel.value = resolvedVal;
+        }
+      }
+    }
+  } else {
+    ot.routes[index].locked = false;
+  }
+
+  saveOrders(orders);
+  renderEnvelopeTaskTree();
+  renderRouteSheetRows(ot.routes || []);
+  renderEnvelopeInspector();
+  refreshAllViews();
+}
+
+export function stampCurrentTime(index, field, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  updateRouteCell(index, field, getNowFormatted(), otId);
+  const ot = getOrders().find(o => o.id === otId);
   if (ot) renderRouteSheetRows(ot.routes);
 }
 
-export function toggleRouteDone(index) {
-  if (!state.activeOtId) return;
+export function toggleRouteRowLock(index, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
   const orders = getOrders();
-  const ot = orders.find(o => o.id === state.activeOtId);
+  const ot = orders.find(o => o.id === otId);
   if (!ot || !ot.routes[index]) return;
 
-  ot.routes[index].completed = !ot.routes[index].completed;
+  const lockState = getRouteRowLockState(ot, ot.routes[index], index);
+  if (!lockState.canToggle) return;
+
+  if (ot.routes[index].locked) {
+    ot.routes[index].locked = false;
+    ot.routes[index].sign = '';
+  } else {
+    if (!String(ot.routes[index].sign || '').trim()) {
+      if (typeof window !== 'undefined') window.alert('Selecciona tu firma en la columna Firma para cerrar el candado.');
+      return;
+    }
+    ot.routes[index].locked = true;
+  }
   saveOrders(orders);
   renderRouteSheetRows(ot.routes);
+  renderEnvelopeInspector();
+  refreshAllViews();
 }
 
-export function deleteRouteRow(index) {
-  if (!state.activeOtId) return;
+export function toggleRouteDone(index, targetOtId = state.activeOtId) {
+  toggleRouteRowLock(index, targetOtId);
+}
+
+export function removeRouteRow(index, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
   const orders = getOrders();
-  const ot = orders.find(o => o.id === state.activeOtId);
+  const ot = orders.find(o => o.id === otId);
   if (!ot || !ot.routes[index]) return;
+  if (getRouteRowLockState(ot, ot.routes[index], index).isLocked) return;
 
   ot.routes.splice(index, 1);
   saveOrders(orders);
+  if (activeInspectorRow.otId === otId && activeInspectorRow.index >= ot.routes.length) {
+    activeInspectorRow.index = Math.max(0, ot.routes.length - 1);
+  }
   renderRouteSheetRows(ot.routes);
+  renderEnvelopeInspector();
+  refreshAllViews();
+}
+
+export function deleteRouteRow(index, targetOtId = state.activeOtId) {
+  removeRouteRow(index, targetOtId);
 }
 
 // Control del Modal de Firmas de Tinta Retro
@@ -831,6 +1965,37 @@ export function setMediaPoolView(mode) {
   if (ot) renderMediaPool(ot.mediaFiles || []);
 }
 
+let inlineEnvelopeViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_inline_media_view') === 'grid') ? 'grid' : 'list';
+
+function updateInlineViewToggleButtons() {
+  if (typeof document === 'undefined') return;
+  const btnGrid = document.getElementById('btn-inline-view-grid');
+  const btnList = document.getElementById('btn-inline-view-list');
+  const isGrid = inlineEnvelopeViewMode === 'grid';
+  if (btnGrid) {
+    btnGrid.classList.toggle('bg-resolve-panel', isGrid);
+    btnGrid.classList.toggle('text-white', isGrid);
+    btnGrid.classList.toggle('text-resolve-dimText', !isGrid);
+  }
+  if (btnList) {
+    btnList.classList.toggle('bg-resolve-panel', !isGrid);
+    btnList.classList.toggle('text-white', !isGrid);
+    btnList.classList.toggle('text-resolve-dimText', isGrid);
+  }
+}
+
+export function setInlineEnvelopeMediaView(mode) {
+  inlineEnvelopeViewMode = mode === 'grid' ? 'grid' : 'list';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('trafikeitor_inline_media_view', inlineEnvelopeViewMode);
+    }
+  } catch {}
+  updateInlineViewToggleButtons();
+  const ot = getOrders().find(o => o.id === state.activeOtId);
+  if (ot) renderInlineEnvelopeMedia(ot.mediaFiles || []);
+}
+
 export function badgeStyle(color) {
   return 'background-color:' + color + '22;color:' + color + ';border:1px solid ' + color + '66;';
 }
@@ -866,17 +2031,17 @@ export function formatMarkdown(raw) {
   let s = String(raw).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   s = s.replace(/```([a-zA-Z0-9_-]*)\r?\n([\s\S]*?)```/g, (m, lang, code) =>
     '<pre class="my-2 p-2.5 bg-black/80 border border-resolve-border rounded font-mono text-[11px] text-emerald-400 overflow-x-auto"><code>' + code.trim() + '</code></pre>');
-  s = s.replace(/^### (.*$)/gim, '<h3 class="text-xs font-bold text-amber-400 uppercase mt-3 mb-1">$1</h3>');
+  s = s.replace(/^### (.*$)/gim, '<h3 class="text-xs font-bold text-sky-400 uppercase mt-3 mb-1">$1</h3>');
   s = s.replace(/^## (.*$)/gim, '<h2 class="text-sm font-bold text-white mt-4 mb-2 border-b border-resolve-border pb-1">$1</h2>');
-  s = s.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-amber-400 mt-4 mb-2 border-b border-amber-500/40 pb-1">$1</h1>');
+  s = s.replace(/^# (.*$)/gim, '<h1 class="text-base font-bold text-sky-400 mt-4 mb-2 border-b border-sky-500/40 pb-1">$1</h1>');
   s = s.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
-  s = s.replace(/\*(.*?)\*/g, '<em class="text-amber-200/90">$1</em>');
-  s = s.replace(/`([^`]+)`/g, '<code class="bg-resolve-card text-amber-300 px-1 rounded text-[10px] font-mono">$1</code>');
-  s = s.replace(/^&gt; (.*$)/gim, '<blockquote class="border-l-2 border-amber-500 pl-3 my-2 text-stone-300 italic">$1</blockquote>');
+  s = s.replace(/\*(.*?)\*/g, '<em class="text-sky-200/90">$1</em>');
+  s = s.replace(/`([^`]+)`/g, '<code class="bg-resolve-card text-sky-300 px-1 rounded text-[10px] font-mono">$1</code>');
+  s = s.replace(/^&gt; (.*$)/gim, '<blockquote class="border-l-2 border-sky-500 pl-3 my-2 text-stone-300 italic">$1</blockquote>');
   s = s.replace(/^---$/gim, '<hr class="border-resolve-border my-3">');
   s = s.replace(/^\s*[-*]\s+(.*$)/gim, '<li class="ml-4 list-disc text-stone-300">$1</li>');
   s = s.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="ml-4 list-decimal text-stone-300">$1</li>');
-  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:underline">$1</a>');
+  s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:underline">$1</a>');
   s = s.replace(/\n{2,}/g, '</p><p class="my-2 text-stone-300 text-xs leading-relaxed">');
   return '<p class="my-2 text-stone-300 text-xs leading-relaxed">' + s + '</p>';
 }
@@ -914,7 +2079,7 @@ function getReviewStatusBadgeHtml(status) {
     return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-[#0BA2AC]/40 bg-[#0BA2AC]/15 text-[#0BA2AC]">En Revisión</span>';
   }
   if (status === 'changes_requested') {
-    return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300">Ajustes</span>';
+    return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-sky-500/40 bg-sky-500/15 text-sky-300">Ajustes</span>';
   }
   if (status === 'approved') {
     return '<span class="shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300">Aprobado</span>';
@@ -922,31 +2087,76 @@ function getReviewStatusBadgeHtml(status) {
   return '';
 }
 
-export function renderMediaPool(files) {
+function isEnvelopeMasterViewActive() {
+  const activeTaskId = state.activeEnvelopeTaskId || state.activeOtId;
+  const rootId = state.activeEnvelopeRootId;
+  return Boolean(rootId && activeTaskId === rootId && getSubOtsForRoot(rootId).length > 0);
+}
+
+function getEnvelopeVisibleMediaEntries() {
+  const activeTaskId = state.activeEnvelopeTaskId || state.activeOtId;
+  if (!activeTaskId) return [];
+  if (isEnvelopeMasterViewActive()) {
+    const rootOt = getOrderById(state.activeEnvelopeRootId);
+    const nodes = [rootOt, ...getSubOtsForRoot(state.activeEnvelopeRootId)].filter(Boolean);
+    const entries = [];
+    nodes.forEach((node, nodeIdx) => {
+      const files = node.mediaFiles || [];
+      files.forEach((file, ownerIndex) => {
+        entries.push({
+          file,
+          ownerOt: node,
+          ownerOtId: node.id,
+          ownerIndex,
+          isSubOt: nodeIdx > 0
+        });
+      });
+    });
+    return entries;
+  }
+  const ot = getOrderById(activeTaskId);
+  if (!ot || !ot.mediaFiles) return [];
+  return ot.mediaFiles.map((file, ownerIndex) => ({
+    file,
+    ownerOt: ot,
+    ownerOtId: ot.id,
+    ownerIndex,
+    isSubOt: Boolean(ot.parentOtId)
+  }));
+}
+
+export function renderMediaPool() {
   if (typeof document === 'undefined') return;
   const container = document.getElementById('media-pool-container');
+  const entries = getEnvelopeVisibleMediaEntries();
+  const isMaster = isEnvelopeMasterViewActive();
   const badge = document.getElementById('tab-badge-files');
-  if (badge) badge.innerText = files ? files.length : 0;
+  if (badge) badge.innerText = entries.length;
   if (!container) return;
 
-  if (!files || files.length === 0) {
+  if (entries.length === 0) {
     container.innerHTML = '<div class="p-8 text-center border border-resolve-border rounded-xl bg-white/[0.02] text-xs text-resolve-dimText font-medium">El Media Pool de esta OT está vacío. Arrastra archivos arriba para cargarlos.</div>';
     return;
   }
 
   if (mediaPoolViewMode === 'grid') {
-    container.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">' + files.map((file, idx) => {
+    container.innerHTML = '<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">' + entries.map((entry) => {
+      const { file, ownerOtId, ownerIndex, isSubOt } = entry;
+      const otArg = `'${escapeHtml(ownerOtId)}'`;
       const meta = getMediaMeta(file);
       const nextVersion = (file.versionNumber || 1) + 1;
       const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
+      const ownerBadge = isMaster
+        ? `<span class="shrink-0 font-mono text-[8px] px-1 py-0.2 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
+        : '';
       const thumb = (meta.type === 'image' && file.url && file.url !== '#')
         ? `<img src="${file.url}" alt="${escapeHtml(file.name)}" class="w-full h-full object-cover">`
         : `<div class="flex flex-col items-center text-center p-2"><span class="px-2 py-0.5 rounded-lg font-semibold text-xs" style="${meta.badgeStyle}">${meta.badge}</span><span class="text-[9px] text-resolve-dimText mt-1.5 uppercase font-semibold">${escapeHtml(meta.subLabel)}</span></div>`;
       return `
-        <div class="bg-white/[0.03] hover:bg-white/[0.06] border border-resolve-border hover:border-amber-400/50 rounded-xl p-2.5 flex flex-col justify-between group transition-all">
+        <div class="bg-white/[0.03] hover:bg-white/[0.06] border border-resolve-border hover:border-sky-400/50 rounded-xl p-2.5 flex flex-col justify-between group transition-all">
           <div class="h-24 bg-black/40 rounded-lg border border-resolve-border/60 flex items-center justify-center overflow-hidden mb-2 relative">
             ${thumb}
-            <button onclick="removeMediaItem(${idx})" title="Eliminar del Media Pool" class="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-900 text-white rounded text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            <button onclick="removeMediaItem(${ownerIndex}, ${otArg})" title="Eliminar del Media Pool" class="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-900 text-white rounded inline-flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">${lucideIcon('x', 'w-3 h-3')}</button>
           </div>
           <div class="text-[11px]">
             <div class="font-semibold text-white truncate flex items-center gap-1.5" title="${escapeHtml(file.name)}">
@@ -954,13 +2164,14 @@ export function renderMediaPool(files) {
               ${file.versionNumber ? `<span class="shrink-0 font-mono text-[9px] px-1 py-0.2 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber}</span>` : ''}
             </div>
             <div class="text-resolve-dimText text-[10px] flex justify-between items-center mt-1 gap-1">
-              <span>${file.size || 'Web'}</span>
+              <span class="flex items-center gap-1 min-w-0">${ownerBadge}<span>${file.size || 'Web'}</span></span>
               ${reviewBadge || `<span>${file.date ? file.date.split(' ')[0] : ''}</span>`}
             </div>
             <div class="mt-2 flex items-center gap-1">
-              ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="flex-1 text-center py-1 bg-white/[0.05] hover:bg-white/[0.10] text-amber-300 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all">Descargar</a>` : ''}
-              <button type="button" onclick="shareMediaItem(${idx})" title="Compartir para Revisar" class="px-2 py-1 bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 text-[#0BA2AC] font-semibold text-[10px] rounded-lg border border-[#0BA2AC]/40 transition-all cursor-pointer">Revisar</button>
-              <button type="button" onclick="promptUploadMediaVersion(${idx})" title="Subir nueva versión (v${nextVersion})" class="px-1.5 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-mono font-semibold text-[10px] rounded-lg border border-resolve-border transition-all cursor-pointer">v${nextVersion}</button>
+              ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="flex-1 text-center py-1 bg-white/[0.05] hover:bg-white/[0.10] text-sky-300 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all">Descargar</a>` : ''}
+              <button type="button" onclick="openMediaReview(${ownerIndex}, ${otArg})" title="Abrir visor de revisión colaborativa" class="px-2 py-1 bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 text-[#0BA2AC] font-semibold text-[10px] rounded-lg border border-[#0BA2AC]/40 transition-all cursor-pointer">Revisar</button>
+              <button type="button" onclick="shareMediaItem(${ownerIndex}, ${otArg})" title="Compartir enlace de revisión" class="px-2 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-semibold text-[10px] rounded-lg border border-resolve-border transition-all cursor-pointer">Compartir</button>
+              <button type="button" onclick="promptUploadMediaVersion(${ownerIndex}, ${otArg})" title="Subir nueva versión (v${nextVersion})" class="px-1.5 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-mono font-semibold text-[10px] rounded-lg border border-resolve-border transition-all cursor-pointer">v${nextVersion}</button>
             </div>
           </div>
         </div>`;
@@ -973,22 +2184,28 @@ export function renderMediaPool(files) {
             <th class="p-2">NOMBRE DEL ARCHIVO</th><th class="p-2 w-32">TIPO</th><th class="p-2 w-24">TAMAÑO</th><th class="p-2 w-36">FECHA SUBIDA</th><th class="p-2 w-36 text-center">ACCIONES</th>
           </tr></thead>
           <tbody class="divide-y divide-resolve-border bg-resolve-bg text-stone-200">
-            ${files.map((file, idx) => {
+            ${entries.map((entry, idx) => {
+              const { file, ownerOtId, ownerIndex, isSubOt } = entry;
+              const otArg = `'${escapeHtml(ownerOtId)}'`;
               const meta = getMediaMeta(file);
               const nextVersion = (file.versionNumber || 1) + 1;
               const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
+              const ownerBadge = isMaster
+                ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
+                : '';
               const isOdd = (idx % 2 === 1);
               const zebraClass = isOdd ? 'bg-white/[0.025]' : 'bg-transparent';
               return `<tr class="${zebraClass} hover:bg-white/[0.08] transition-colors">
-                <td class="p-2 font-bold text-white flex items-center gap-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="${meta.badgeStyle}">${meta.badge}</span><span class="truncate">${escapeHtml(file.name)}</span>${file.versionNumber ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber}</span>` : ''}${reviewBadge}</td>
+                <td class="p-2 font-bold text-white flex items-center gap-2"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="${meta.badgeStyle}">${meta.badge}</span>${ownerBadge}<span class="truncate">${escapeHtml(file.name)}</span>${file.versionNumber ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber}</span>` : ''}${reviewBadge}</td>
                 <td class="p-2 text-resolve-dimText uppercase text-[10px]">${escapeHtml(meta.subLabel)}</td>
                 <td class="p-2 text-resolve-dimText">${file.size || 'N/A'}</td>
                 <td class="p-2 text-resolve-dimText">${file.date || '--'}</td>
                 <td class="p-2 text-center"><div class="flex items-center justify-center gap-2">
                   ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="text-resolve-accent hover:underline text-[11px]">Abrir</a>` : ''}
-                  <button type="button" onclick="shareMediaItem(${idx})" title="Compartir para Revisar" class="text-[#0BA2AC] hover:underline text-[11px] font-semibold cursor-pointer">Revisar</button>
-                  <button type="button" onclick="promptUploadMediaVersion(${idx})" title="Subir nueva versión (v${nextVersion})" class="text-zinc-300 hover:text-white text-[10px] font-mono cursor-pointer">v${nextVersion}</button>
-                  <button onclick="removeMediaItem(${idx})" class="text-resolve-dimText hover:text-red-400">✕</button>
+                  <button type="button" onclick="openMediaReview(${ownerIndex}, ${otArg})" title="Abrir visor de revisión colaborativa" class="text-[#0BA2AC] hover:underline text-[11px] font-semibold cursor-pointer">Revisar</button>
+                  <button type="button" onclick="shareMediaItem(${ownerIndex}, ${otArg})" title="Compartir enlace de revisión" class="text-zinc-200 hover:underline text-[11px] font-semibold cursor-pointer">Compartir</button>
+                  <button type="button" onclick="promptUploadMediaVersion(${ownerIndex}, ${otArg})" title="Subir nueva versión (v${nextVersion})" class="text-zinc-300 hover:text-white text-[10px] font-mono cursor-pointer">v${nextVersion}</button>
+                  <button onclick="removeMediaItem(${ownerIndex}, ${otArg})" class="text-resolve-dimText hover:text-red-400 inline-flex items-center justify-center">${lucideIcon('x', 'w-3 h-3')}</button>
                 </div></td></tr>`;
             }).join('')}
           </tbody>
@@ -1005,29 +2222,51 @@ export async function handleMediaPoolUpload(e) {
   const ot = getOrderById(state.activeOtId);
   if (ot) {
     if (!ot.mediaFiles) ot.mediaFiles = [];
-    renderMediaPool(ot.mediaFiles);
+    renderMediaPool();
     if (uploaded.length > 0) {
-      state.selectedMediaIndex = Math.max(0, ot.mediaFiles.length - 1);
-      renderInlineEnvelopeMedia(ot.mediaFiles);
+      const entries = getEnvelopeVisibleMediaEntries();
+      state.selectedMediaIndex = Math.max(0, entries.length - 1);
+      renderInlineEnvelopeMedia();
     }
   }
 
   if (e.target && 'value' in e.target) e.target.value = '';
 }
 
-export async function shareMediaItem(idx) {
-  if (!state.activeOtId) return;
-  const ot = getOrderById(state.activeOtId);
+async function resolveReviewUrlForMedia(idx, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return null;
+  const ot = getOrderById(otId);
   const file = ot?.mediaFiles?.[idx];
-  if (!file) return;
+  if (!file) return null;
 
+  const res = await shareMediaForReview(ot.id, file.id);
+  if (!res?.url) return null;
+  const fullUrl = window.location.origin + res.url;
+  renderMediaPool();
+  renderInlineEnvelopeMedia();
+  return { fullUrl, ot, file };
+}
+
+export async function openMediaReview(idx, targetOtId = state.activeOtId) {
   try {
-    const res = await shareMediaForReview(ot.id, file.id);
-    if (!res?.url) return;
-    const fullUrl = window.location.origin + res.url;
-    renderMediaPool(ot.mediaFiles);
-    renderInlineEnvelopeMedia(ot.mediaFiles);
-    openShareReviewPopover(fullUrl, ot, file);
+    const resolved = await resolveReviewUrlForMedia(idx, targetOtId);
+    if (!resolved?.fullUrl) return;
+    if (typeof window !== 'undefined') {
+      window.open(resolved.fullUrl, '_blank', 'noopener');
+    }
+  } catch (err) {
+    if (typeof window !== 'undefined') {
+      window.alert(err?.message || 'Error abriendo visor de revisión.');
+    }
+  }
+}
+
+export async function shareMediaItem(idx, targetOtId = state.activeOtId) {
+  try {
+    const resolved = await resolveReviewUrlForMedia(idx, targetOtId);
+    if (!resolved?.fullUrl) return;
+    openShareReviewPopover(resolved.fullUrl, resolved.ot, resolved.file);
   } catch (err) {
     if (typeof window !== 'undefined') {
       window.alert(err?.message || 'Error generando enlace de revisión.');
@@ -1116,9 +2355,10 @@ export function closeShareReviewPopover() {
   }
 }
 
-export function promptUploadMediaVersion(idx) {
-  if (!state.activeOtId || typeof document === 'undefined') return;
-  const ot = getOrderById(state.activeOtId);
+export function promptUploadMediaVersion(idx, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId || typeof document === 'undefined') return;
+  const ot = getOrderById(otId);
   const parent = ot?.mediaFiles?.[idx];
   if (!parent) return;
 
@@ -1129,12 +2369,10 @@ export function promptUploadMediaVersion(idx) {
     if (!file) return;
     try {
       await uploadMediaVersion(ot.id, parent.id, file);
-      const refreshed = getOrderById(state.activeOtId);
-      if (refreshed) {
-        renderMediaPool(refreshed.mediaFiles || []);
-        state.selectedMediaIndex = Math.max(0, (refreshed.mediaFiles || []).length - 1);
-        renderInlineEnvelopeMedia(refreshed.mediaFiles || []);
-      }
+      const entries = getEnvelopeVisibleMediaEntries();
+      renderMediaPool();
+      state.selectedMediaIndex = Math.max(0, entries.length - 1);
+      renderInlineEnvelopeMedia();
     } catch (err) {
       if (typeof window !== 'undefined') {
         window.alert(err?.message || 'Error subiendo nueva versión.');
@@ -1164,31 +2402,40 @@ export function promptAddMediaLink() {
   if (!ot.mediaFiles) ot.mediaFiles = [];
   ot.mediaFiles.push({ id: 'm-' + Date.now(), name: title.trim(), type, ext, size: 'Enlace', date: getNowFormatted(), url: url.trim() });
   saveOrders(orders);
-  renderMediaPool(ot.mediaFiles);
-  state.selectedMediaIndex = ot.mediaFiles.length - 1;
-  renderInlineEnvelopeMedia(ot.mediaFiles);
+  const entries = getEnvelopeVisibleMediaEntries();
+  renderMediaPool();
+  state.selectedMediaIndex = Math.max(0, entries.length - 1);
+  renderInlineEnvelopeMedia();
 }
 
-export function removeMediaItem(index) {
-  if (!state.activeOtId) return;
+export function removeMediaItem(index, targetOtId = state.activeOtId) {
+  const otId = targetOtId || state.activeOtId;
+  if (!otId) return;
   const orders = getOrders();
-  const ot = orders.find(o => o.id === state.activeOtId);
+  const ot = orders.find(o => o.id === otId);
   if (!ot || !ot.mediaFiles) return;
   ot.mediaFiles.splice(index, 1);
   saveOrders(orders);
-  renderMediaPool(ot.mediaFiles);
-  if (state.selectedMediaIndex >= ot.mediaFiles.length) state.selectedMediaIndex = Math.max(0, ot.mediaFiles.length - 1);
-  renderInlineEnvelopeMedia(ot.mediaFiles);
+  const entries = getEnvelopeVisibleMediaEntries();
+  renderMediaPool();
+  if (state.selectedMediaIndex >= entries.length) state.selectedMediaIndex = Math.max(0, entries.length - 1);
+  renderInlineEnvelopeMedia();
 }
 
-export function renderInlineEnvelopeMedia(files) {
+export function renderInlineEnvelopeMedia() {
   if (typeof document === 'undefined') return;
   const listContainer = document.getElementById('envelope-inline-files-list');
   const countEl = document.getElementById('inline-envelope-files-count');
   if (!listContainer) return;
-  if (countEl) countEl.innerText = `${files ? files.length : 0} pieza${(files && files.length === 1) ? '' : 's'}`;
+  updateInlineViewToggleButtons();
+  const entries = getEnvelopeVisibleMediaEntries();
+  const isMaster = isEnvelopeMasterViewActive();
+  if (countEl) countEl.innerText = `${entries.length} pieza${entries.length === 1 ? '' : 's'}`;
 
-  if (!files || files.length === 0) {
+  const isGrid = inlineEnvelopeViewMode === 'grid';
+
+  if (entries.length === 0) {
+    listContainer.className = 'flex-1 bg-black/20 border border-resolve-border rounded-xl p-2 overflow-y-auto space-y-1.5';
     listContainer.innerHTML = `
       <div class="p-6 text-center text-resolve-dimText text-xs border border-dashed border-resolve-border rounded-xl font-medium">
         <span class="font-semibold text-zinc-300">Sobre sin archivos adjuntos</span>
@@ -1197,22 +2444,61 @@ export function renderInlineEnvelopeMedia(files) {
     renderInlineViewer();
     return;
   }
-  if (state.selectedMediaIndex >= files.length) state.selectedMediaIndex = Math.max(0, files.length - 1);
+  if (state.selectedMediaIndex >= entries.length) state.selectedMediaIndex = Math.max(0, entries.length - 1);
 
-  listContainer.innerHTML = files.map((file, idx) => {
+  listContainer.className = isGrid
+    ? 'flex-1 bg-black/20 border border-resolve-border rounded-xl p-2 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 gap-1.5 content-start'
+    : 'flex-1 bg-black/20 border border-resolve-border rounded-xl p-2 overflow-y-auto space-y-1.5';
+
+  listContainer.innerHTML = entries.map((entry, idx) => {
+    const { file, ownerOtId, ownerIndex, isSubOt } = entry;
+    const otArg = `'${escapeHtml(ownerOtId)}'`;
     const sel = idx === state.selectedMediaIndex;
     const meta = getMediaMeta(file);
     const nextVersion = (file.versionNumber || 1) + 1;
     const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
+    const ownerBadge = isMaster
+      ? `<span class="shrink-0 font-mono text-[8px] px-1 rounded ${isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(ownerOtId)}</span>`
+      : '';
+
+    if (isGrid) {
+      const thumbHtml = (meta.type === 'image' && file.url && file.url !== '#')
+        ? `<img src="${file.url}" alt="${escapeHtml(file.name)}" class="w-full h-full object-cover">`
+        : `<div class="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider" style="${meta.badgeStyle}">${meta.badge}</div>`;
+
+      return `
+        <div onclick="selectInlinePreviewMedia(${idx})" title="${escapeHtml(file.name)} (v${file.versionNumber || 1})" class="group rounded-md border overflow-hidden transition-all cursor-pointer flex flex-col ${sel ? 'bg-resolve-card border-sky-500 ring-1 ring-sky-500/50 text-white' : 'bg-resolve-panel border-resolve-border hover:border-white/25 text-stone-300'}">
+          <div class="relative aspect-square bg-black/60 flex items-center justify-center overflow-hidden">
+            ${thumbHtml}
+            <span class="absolute bottom-1 left-1 font-mono text-[8px] px-1 rounded bg-black/75 border border-white/10 text-zinc-200 leading-tight">v${file.versionNumber || 1}</span>
+            ${isMaster ? `<span class="absolute top-1 left-1 font-mono text-[7px] px-1 rounded bg-black/80 border border-white/10 ${isSubOt ? 'text-sky-300' : 'text-sky-300'}">${escapeHtml(ownerOtId)}</span>` : ''}
+            <div class="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button type="button" onclick="event.stopPropagation(); openMediaReview(${ownerIndex}, ${otArg})" title="Revisar" class="p-0.5 rounded bg-black/80 hover:bg-black text-[#0BA2AC] cursor-pointer">
+                ${lucideIcon('eye', 'w-3 h-3')}
+              </button>
+              <button type="button" onclick="event.stopPropagation(); shareMediaItem(${ownerIndex}, ${otArg})" title="Compartir" class="p-0.5 rounded bg-black/80 hover:bg-black text-zinc-200 hover:text-white cursor-pointer">
+                ${lucideIcon('share-2', 'w-3 h-3')}
+              </button>
+              <button type="button" onclick="event.stopPropagation(); openMediaPreviewModal(${idx})" title="Ampliar" class="p-0.5 rounded bg-black/80 hover:bg-black text-zinc-300 hover:text-white cursor-pointer">
+                ${lucideIcon('maximize-2', 'w-3 h-3')}
+              </button>
+              <button type="button" onclick="event.stopPropagation(); removeMediaItem(${ownerIndex}, ${otArg})" title="Quitar del sobre" class="p-0.5 rounded bg-black/80 hover:bg-black text-zinc-300 hover:text-red-400 cursor-pointer">${lucideIcon('x', 'w-3 h-3')}</button>
+            </div>
+          </div>
+          <div class="px-1 py-0.5 bg-black/30 truncate text-[9px] font-medium ${sel ? 'text-sky-400' : 'text-zinc-300'}">${escapeHtml(file.name)}</div>
+        </div>`;
+    }
+
     const icon = (meta.type === 'image' && file.url && file.url !== '#')
       ? `<img src="${file.url}" class="w-8 h-8 rounded object-cover border border-resolve-border shrink-0">`
       : `<div class="w-8 h-8 rounded flex items-center justify-center text-[9px] font-bold shrink-0" style="${meta.badgeStyle}">${meta.badge}</div>`;
     return `
-      <div onclick="selectInlinePreviewMedia(${idx})" class="p-2 rounded border transition-all cursor-pointer flex items-center justify-between gap-2 ${sel ? 'bg-resolve-card border-amber-500 text-white' : 'bg-resolve-panel border-resolve-border hover:bg-resolve-card/70 text-stone-300'}">
+      <div onclick="selectInlinePreviewMedia(${idx})" class="p-2 rounded border transition-all cursor-pointer flex items-center justify-between gap-2 ${sel ? 'bg-resolve-card border-sky-500 text-white' : 'bg-resolve-panel border-resolve-border hover:bg-resolve-card/70 text-stone-300'}">
         <div class="flex items-center gap-2.5 min-w-0 flex-1">
           ${icon}
           <div class="min-w-0 flex-1">
-            <div class="font-bold text-[11px] truncate flex items-center gap-1.5 ${sel ? 'text-amber-400' : 'text-white'}" title="${escapeHtml(file.name)}">
+            <div class="font-bold text-[11px] truncate flex items-center gap-1.5 ${sel ? 'text-sky-400' : 'text-white'}" title="${escapeHtml(file.name)}">
+              ${ownerBadge}
               <span class="truncate">${escapeHtml(file.name)}</span>
               <span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber || 1}</span>
             </div>
@@ -1225,12 +2511,13 @@ export function renderInlineEnvelopeMedia(files) {
           </div>
         </div>
         <div class="flex items-center gap-1 shrink-0">
-          <button type="button" onclick="event.stopPropagation(); shareMediaItem(${idx})" title="Compartir para Revisar" class="px-2 py-1 bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 text-[#0BA2AC] font-semibold text-[10px] rounded-md border border-[#0BA2AC]/40 transition-all cursor-pointer">Compartir</button>
-          <button type="button" onclick="event.stopPropagation(); promptUploadMediaVersion(${idx})" title="Subir nueva versión (v${nextVersion})" class="px-1.5 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-mono font-semibold text-[10px] rounded-md border border-resolve-border transition-all cursor-pointer">v${nextVersion}</button>
-          <button type="button" onclick="event.stopPropagation(); openMediaPreviewModal(${idx})" title="Ampliar" class="p-1 hover:bg-resolve-surface rounded text-resolve-dimText hover:text-white cursor-pointer">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+          <button type="button" onclick="event.stopPropagation(); openMediaReview(${ownerIndex}, ${otArg})" title="Abrir visor de revisión colaborativa" class="px-2 py-1 bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 text-[#0BA2AC] font-semibold text-[10px] rounded-md border border-[#0BA2AC]/40 transition-all cursor-pointer">Revisar</button>
+          <button type="button" onclick="event.stopPropagation(); shareMediaItem(${ownerIndex}, ${otArg})" title="Compartir enlace de revisión" class="px-2 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-semibold text-[10px] rounded-md border border-resolve-border transition-all cursor-pointer">Compartir</button>
+          <button type="button" onclick="event.stopPropagation(); promptUploadMediaVersion(${ownerIndex}, ${otArg})" title="Subir nueva versión (v${nextVersion})" class="px-1.5 py-1 bg-white/[0.05] hover:bg-white/[0.12] text-zinc-200 font-mono font-semibold text-[10px] rounded-md border border-resolve-border transition-all cursor-pointer">v${nextVersion}</button>
+          <button type="button" onclick="event.stopPropagation(); openMediaPreviewModal(${idx})" title="Ampliar" class="p-1 hover:bg-resolve-surface rounded text-resolve-dimText hover:text-white cursor-pointer inline-flex items-center justify-center">
+            ${lucideIcon('maximize-2', 'w-[15px] h-[15px]')}
           </button>
-          <button type="button" onclick="event.stopPropagation(); removeMediaItem(${idx})" title="Quitar del sobre" class="p-1 hover:text-red-400 text-resolve-dimText cursor-pointer">✕</button>
+          <button type="button" onclick="event.stopPropagation(); removeMediaItem(${ownerIndex}, ${otArg})" title="Quitar del sobre" class="p-1 hover:text-red-400 text-resolve-dimText cursor-pointer inline-flex items-center justify-center">${lucideIcon('x', 'w-[15px] h-[15px]')}</button>
         </div>
       </div>`;
   }).join('');
@@ -1239,8 +2526,7 @@ export function renderInlineEnvelopeMedia(files) {
 
 export function selectInlinePreviewMedia(index) {
   state.selectedMediaIndex = index;
-  const ot = getOrders().find(o => o.id === state.activeOtId);
-  if (ot && ot.mediaFiles) renderInlineEnvelopeMedia(ot.mediaFiles);
+  renderInlineEnvelopeMedia();
 }
 
 export function setInlineCodeTab(mode) {
@@ -1304,11 +2590,11 @@ export function buildMediaViewerHtml(file) {
     return `<div class="w-full h-full flex flex-col bg-stone-950">
       <div class="h-8 px-3 bg-resolve-panel border-b border-resolve-border flex items-center justify-between shrink-0">
         <span class="text-[10px] text-zinc-400">Si el PDF no se muestra, ábrelo en el visor nativo</span>
-        <a href="${url}" target="_blank" rel="noopener" class="px-2.5 py-0.5 bg-gradient-to-b from-amber-400 to-amber-500 text-stone-950 font-semibold rounded-md text-[10px]">Abrir PDF ↗</a>
+        <a href="${url}" target="_blank" rel="noopener" class="px-2.5 py-0.5 bg-gradient-to-b from-sky-400 to-sky-500 text-stone-950 font-semibold rounded-md text-[10px]">Abrir PDF ↗</a>
       </div>
       <object data="${url}" type="application/pdf" class="w-full flex-1" style="min-height:260px">
         <embed src="${url}" type="application/pdf" class="w-full h-full">
-        <div class="p-6 text-center text-xs text-zinc-300 font-medium">Tu navegador no puede incrustar este PDF. <a href="${url}" target="_blank" class="text-amber-400 underline">Abrir en pestaña nueva</a></div>
+        <div class="p-6 text-center text-xs text-zinc-300 font-medium">Tu navegador no puede incrustar este PDF. <a href="${url}" target="_blank" class="text-sky-400 underline">Abrir en pestaña nueva</a></div>
       </object>
     </div>`;
   }
@@ -1357,8 +2643,8 @@ export function buildMediaViewerHtml(file) {
         <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" style="${meta.badgeStyle}">${meta.badge}</span>
         <div class="flex items-center gap-2">
           <span class="text-[10px] text-resolve-dimText font-medium">Tamaño</span>
-          <input type="range" min="12" max="72" value="${state.inlineFontSize}" oninput="setInlineFontSize(this.value)" class="w-24 accent-amber-500">
-          <span data-font-counter class="text-[10px] text-amber-400 font-mono font-bold w-9 text-right">${state.inlineFontSize}px</span>
+          <input type="range" min="12" max="72" value="${state.inlineFontSize}" oninput="setInlineFontSize(this.value)" class="w-24 accent-sky-500">
+          <span data-font-counter class="text-[10px] text-sky-400 font-mono font-bold w-9 text-right">${state.inlineFontSize}px</span>
         </div>
       </div>
       <div class="h-8 px-3 bg-resolve-surface/70 border-b border-resolve-border flex items-center gap-1.5 overflow-x-auto shrink-0">
@@ -1368,10 +2654,10 @@ export function buildMediaViewerHtml(file) {
         ${preset('0123456789 !?@#$%&*()_+-=[]{};:,.<>/~', '0–9 y símbolos')}
       </div>
       <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        <div data-font-sandbox contenteditable="true" class="specimen-${id} p-3.5 bg-black/60 border border-resolve-border rounded-xl text-white focus:outline-none focus:border-amber-400 leading-snug" style="font-size:${state.inlineFontSize}px">El veloz murciélago hindú comía feliz cardillo y kiwi. 1234567890</div>
+        <div data-font-sandbox contenteditable="true" class="specimen-${id} p-3.5 bg-black/60 border border-resolve-border rounded-xl text-white focus:outline-none focus:border-sky-400 leading-snug" style="font-size:${state.inlineFontSize}px">El veloz murciélago hindú comía feliz cardillo y kiwi. 1234567890</div>
         <div class="border border-resolve-border rounded-xl p-3 bg-resolve-surface/40 space-y-2">
           <div class="specimen-${id} text-2xl text-white truncate">Titular de campaña — 24</div>
-          <div class="specimen-${id} text-lg text-amber-200/90 truncate">Subtitular descriptivo — 18</div>
+          <div class="specimen-${id} text-lg text-sky-200/90 truncate">Subtitular descriptivo — 18</div>
           <div class="specimen-${id} text-sm text-zinc-300">Cuerpo de texto en 14px para evaluar legibilidad en impresos y pantallas.</div>
           <div class="specimen-${id} text-xs text-zinc-500 tracking-wider">ABCDEFGHIJKLMNÑOPQRSTUVWXYZ 0123456789</div>
         </div>
@@ -1391,7 +2677,7 @@ export function buildMediaViewerHtml(file) {
           <div class="flex justify-between text-resolve-dimText"><span>Importado</span><span class="text-zinc-300 font-mono">${file.date || '--'}</span></div>
           <p class="text-[9px] text-zinc-400 pt-1">Formato propietario: el navegador no puede renderizarlo. Ábrelo en su aplicación nativa; la pieza queda adjunta al sobre.</p>
         </div>
-        ${url ? `<a href="${url}" download="${escapeHtml(file.name)}" class="w-full py-2 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Descargar / Abrir en app nativa</a>` : ''}
+        ${url ? `<a href="${url}" download="${escapeHtml(file.name)}" class="w-full py-2 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Descargar / Abrir en app nativa</a>` : ''}
       </div>
     </div>`;
   }
@@ -1399,34 +2685,47 @@ export function buildMediaViewerHtml(file) {
   return `<div class="w-full h-full flex flex-col items-center justify-center p-6 text-center bg-white/[0.02]">
     <div class="font-semibold text-white text-xs mb-1 max-w-xs truncate">${escapeHtml(file.name)}</div>
     <p class="text-[10px] text-resolve-dimText mb-3">Enlace web o archivo vinculado al sobre.</p>
-    ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-amber-300/40 transition-all active:scale-[0.98]">Abrir Recurso ↗</a>` : ''}
+    ${url ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold text-xs rounded-lg shadow-sm border border-sky-300/40 transition-all active:scale-[0.98]">Abrir Recurso ↗</a>` : ''}
   </div>`;
 }
 
 export function renderInlineViewer() {
   if (typeof document === 'undefined') return;
   const viewer = document.getElementById('envelope-inline-viewer');
+  const entries = getEnvelopeVisibleMediaEntries();
+  const entry = entries[state.selectedMediaIndex];
+  const file = entry?.file;
+  const titleEl = document.getElementById('envelope-mediapool-title');
+  if (titleEl) {
+    titleEl.innerHTML = file
+      ? `<span>GALERÍA</span><span class="text-zinc-500">•</span><span class="text-sky-300 normal-case tracking-normal truncate max-w-[360px]" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>`
+      : 'GALERÍA';
+  }
   if (!viewer) return;
-  const ot = getOrders().find(o => o.id === state.activeOtId);
-  const files = (ot && ot.mediaFiles) ? ot.mediaFiles : [];
-  const file = files[state.selectedMediaIndex];
   if (!file) { viewer.innerHTML = buildMediaViewerHtml(null); return; }
 
-  const meta = getMediaMeta(file);
+  const otArg = `'${escapeHtml(entry.ownerOtId)}'`;
+  const ownerIndex = entry.ownerIndex;
+  const isMaster = isEnvelopeMasterViewActive();
   const nextVersion = (file.versionNumber || 1) + 1;
   const reviewBadge = getReviewStatusBadgeHtml(file.reviewStatus);
+  const ownerBadge = isMaster
+    ? `<span class="shrink-0 font-mono text-[9px] px-1 rounded ${entry.isSubOt ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'}">${escapeHtml(entry.ownerOtId)}</span>`
+    : '';
   viewer.innerHTML = `
     <div class="h-9 px-3 bg-resolve-panel/90 border-b border-resolve-border flex items-center justify-between gap-2 shrink-0">
       <div class="flex items-center gap-2 truncate min-w-0">
-        <span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+        <span class="w-2 h-2 rounded-full bg-sky-400 shrink-0"></span>
+        ${ownerBadge}
         <span class="font-semibold text-white text-[11px] truncate">${escapeHtml(file.name)}</span>
         <span class="shrink-0 font-mono text-[9px] px-1 rounded bg-white/[0.08] text-zinc-300">v${file.versionNumber || 1}</span>
         ${reviewBadge}
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
-        <button type="button" onclick="shareMediaItem(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 border border-[#0BA2AC]/40 text-[#0BA2AC] text-[10px] font-semibold cursor-pointer transition-colors" title="Compartir enlace de revisión colaborativa">Compartir</button>
-        <button type="button" onclick="promptUploadMediaVersion(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-200 font-mono text-[10px] font-semibold cursor-pointer transition-colors" title="Subir nueva versión (v${nextVersion})">+ v${nextVersion}</button>
-        <button type="button" onclick="openMediaPreviewModal(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-amber-300 text-[10px] font-semibold cursor-pointer transition-colors" title="Pantalla completa">Ampliar</button>
+        <button type="button" onclick="openMediaReview(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-[#0BA2AC]/15 hover:bg-[#0BA2AC]/25 border border-[#0BA2AC]/40 text-[#0BA2AC] text-[10px] font-semibold cursor-pointer transition-colors" title="Abrir visor de revisión colaborativa">Revisar</button>
+        <button type="button" onclick="shareMediaItem(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-200 text-[10px] font-semibold cursor-pointer transition-colors" title="Compartir enlace de revisión colaborativa">Compartir</button>
+        <button type="button" onclick="promptUploadMediaVersion(${ownerIndex}, ${otArg})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-200 font-mono text-[10px] font-semibold cursor-pointer transition-colors" title="Subir nueva versión (v${nextVersion})">+ v${nextVersion}</button>
+        <button type="button" onclick="openMediaPreviewModal(${state.selectedMediaIndex})" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-sky-300 text-[10px] font-semibold cursor-pointer transition-colors" title="Pantalla completa">Ampliar</button>
         ${file.url && file.url !== '#' ? `<a href="${file.url}" target="_blank" download="${escapeHtml(file.name)}" class="px-2 py-0.5 rounded-md bg-white/[0.05] hover:bg-white/[0.10] border border-resolve-border text-zinc-300 hover:text-white text-[10px] font-semibold transition-colors">Descargar ↓</a>` : ''}
       </div>
     </div>
@@ -1435,9 +2734,9 @@ export function renderInlineViewer() {
 
 export function openMediaPreviewModal(index) {
   if (typeof document === 'undefined') return;
-  const ot = getOrders().find(o => o.id === state.activeOtId);
-  if (!ot || !ot.mediaFiles || ot.mediaFiles.length === 0) return;
-  state.modalPreviewIndex = Math.max(0, Math.min(ot.mediaFiles.length - 1, index || 0));
+  const entries = getEnvelopeVisibleMediaEntries();
+  if (entries.length === 0) return;
+  state.modalPreviewIndex = Math.max(0, Math.min(entries.length - 1, index || 0));
   renderMediaPreviewModalBody();
   const modal = document.getElementById('media-preview-modal');
   if (modal) modal.classList.remove('hidden');
@@ -1452,26 +2751,26 @@ export function closeMediaPreviewModal() {
 }
 
 export function stepSelectedMediaItem(delta) {
-  const ot = getOrders().find(o => o.id === state.activeOtId);
-  if (!ot || !ot.mediaFiles || ot.mediaFiles.length === 0) return;
-  const total = ot.mediaFiles.length;
+  const entries = getEnvelopeVisibleMediaEntries();
+  if (entries.length === 0) return;
+  const total = entries.length;
   state.modalPreviewIndex = (state.modalPreviewIndex + delta + total) % total;
   renderMediaPreviewModalBody();
 }
 
 export function renderMediaPreviewModalBody() {
   if (typeof document === 'undefined') return;
-  const ot = getOrders().find(o => o.id === state.activeOtId);
-  if (!ot || !ot.mediaFiles) return;
-  const file = ot.mediaFiles[state.modalPreviewIndex];
+  const entries = getEnvelopeVisibleMediaEntries();
+  const entry = entries[state.modalPreviewIndex];
+  const file = entry?.file;
   if (!file) return;
   const meta = getMediaMeta(file);
 
   const titleEl = document.getElementById('media-preview-modal-title');
-  if (titleEl) titleEl.innerText = file.name;
+  if (titleEl) titleEl.innerText = isEnvelopeMasterViewActive() ? `[${entry.ownerOtId}] ${file.name}` : file.name;
 
   const metaEl = document.getElementById('media-preview-modal-meta');
-  if (metaEl) metaEl.innerText = `${state.modalPreviewIndex + 1} de ${ot.mediaFiles.length} • ${meta.subLabel} • ${file.size || ''}`;
+  if (metaEl) metaEl.innerText = `${state.modalPreviewIndex + 1} de ${entries.length} • ${meta.subLabel} • ${file.size || ''}`;
 
   const bodyEl = document.getElementById('media-preview-modal-body');
   if (bodyEl) bodyEl.innerHTML = buildMediaViewerHtml(file);
@@ -1620,7 +2919,7 @@ export async function handleCreateOt(e) {
       media,
       urgent,
       status: status !== '__NEW__' ? status : 'Tráfico',
-      responsible: responsible !== '__NEW_RESPONSIBLE__' ? responsible : defaultResp,
+      sign: responsible !== '__NEW_RESPONSIBLE__' ? responsible : defaultResp,
       routes: initialRoutes
     });
     closeNewOtModal();
@@ -1670,7 +2969,7 @@ export function renderClientModalColors() {
         type="button" 
         onclick="selectClientModalColor('${item.name}')" 
         title="${escapeHtml(item.label || item.name)}"
-        class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-amber-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
+        class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-sky-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
       >
         <span class="w-2.5 h-2.5 rounded-full ${item.dot} shrink-0"></span>
         <span class="text-[9px] font-medium truncate ${item.text}">${escapeHtml(item.label || item.name)}</span>
@@ -1969,7 +3268,7 @@ export function renderStatusManagerList() {
   const orders = getOrders();
 
   container.innerHTML = statuses.map(st => {
-    const count = orders.filter(o => (o.status || '').toLowerCase() === st.name.toLowerCase()).length;
+    const count = orders.filter(o => (o.responsibleDept || '').toLowerCase() === st.name.toLowerCase() || (o.otStatus || '').toLowerCase() === st.name.toLowerCase()).length;
     return `
       <div class="flex items-center gap-2 p-1.5 bg-resolve-bg border border-resolve-border rounded">
         <select 
@@ -2035,7 +3334,7 @@ export function handleCreateStatus(e) {
   if (nameInput) nameInput.value = '';
 
   if (state.activeOtId) {
-    updateActiveOtField('status', name);
+    updateActiveOtField('responsibleDept', name);
     const sel = document.getElementById('modal-ot-status');
     if (sel) sel.value = name;
   }
@@ -2058,8 +3357,11 @@ export function renameStatus(id, newName) {
 
   const orders = getOrders();
   orders.forEach(ot => {
-    if ((ot.status || '').toLowerCase() === oldName.toLowerCase()) {
-      ot.status = newName;
+    if ((ot.responsibleDept || '').toLowerCase() === oldName.toLowerCase()) {
+      ot.responsibleDept = newName;
+    }
+    if ((ot.otStatus || '').toLowerCase() === oldName.toLowerCase()) {
+      ot.otStatus = newName;
     }
   });
   saveOrders(orders);
@@ -2093,14 +3395,18 @@ export function deleteStatusAction(id) {
   if (!st) return;
 
   const orders = getOrders();
-  const count = orders.filter(o => (o.status || '').toLowerCase() === st.name.toLowerCase()).length;
+  const count = orders.filter(o => (o.responsibleDept || '').toLowerCase() === st.name.toLowerCase() || (o.otStatus || '').toLowerCase() === st.name.toLowerCase()).length;
   if (count > 0) {
     if (typeof window !== 'undefined' && !window.confirm(`Hay ${count} OTs con el estado "${st.name}". ¿Deseas eliminarlo? Las OTs pasarán al estado "Tráfico".`)) {
       return;
     }
     orders.forEach(o => {
-      if ((o.status || '').toLowerCase() === st.name.toLowerCase()) {
-        o.status = "Tráfico";
+      if ((o.responsibleDept || '').toLowerCase() === st.name.toLowerCase()) {
+        o.responsibleDept = "Tráfico";
+      }
+      if ((o.otStatus || '').toLowerCase() === st.name.toLowerCase()) {
+        o.otStatus = "Abierta";
+        o.responsibleDept = "Tráfico";
       }
     });
     saveOrders(orders);
@@ -2265,7 +3571,7 @@ export function openUserProfileModal() {
   if (roleBadgeEl) {
     if (state.memberRole === 'owner') {
       roleBadgeEl.innerText = 'Dueño';
-      roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300';
+      roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300';
     } else if (state.memberRole === 'client') {
       roleBadgeEl.innerText = 'Cliente';
       roleBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 border border-emerald-500/30 text-emerald-300';
@@ -2337,7 +3643,7 @@ export function renderUserProfileModalUI() {
   const modeIconBtn = document.getElementById('user-avatar-mode-icon');
   const modeImageBtn = document.getElementById('user-avatar-mode-image');
 
-  const activeTabClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-semibold shadow-sm';
+  const activeTabClass = 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold shadow-sm';
   const inactiveTabClass = 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border-white/[0.08]';
 
   if (modeInitialsBtn) {
@@ -2366,7 +3672,7 @@ export function renderUserProfileModalUI() {
             type="button" 
             onclick="selectUserProfileAvatarIcon('${key}')" 
             title="${escapeHtml(iconDef.label)}"
-            class="h-9 rounded-lg flex items-center justify-center p-2 transition-all cursor-pointer border ${isSelected ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-500/10 text-amber-300 scale-105' : 'border-white/[0.08] hover:border-white/30 text-zinc-400 hover:text-zinc-200 bg-black/30'}"
+            class="h-9 rounded-lg flex items-center justify-center p-2 transition-all cursor-pointer border ${isSelected ? 'border-sky-400 ring-2 ring-sky-400/50 bg-sky-500/10 text-sky-300 scale-105' : 'border-white/[0.08] hover:border-white/30 text-zinc-400 hover:text-zinc-200 bg-black/30'}"
           >
             <div class="w-5 h-5 flex items-center justify-center">${iconDef.svg}</div>
           </button>
@@ -2386,9 +3692,9 @@ export function renderUserProfileModalUI() {
           <button 
             type="button" 
             onclick="document.getElementById('user-profile-photo-input').click()" 
-            class="px-3 py-1.5 bg-white/[0.08] hover:bg-amber-500/15 hover:text-amber-300 text-zinc-200 border border-white/[0.12] rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
+            class="px-3 py-1.5 bg-white/[0.08] hover:bg-sky-500/15 hover:text-sky-300 text-zinc-200 border border-white/[0.12] rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
           >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            ${lucideIcon('image', 'w-[15px] h-[15px]')}
             <span>${hasImage ? 'Cambiar Foto' : 'Subir Imagen'}</span>
           </button>
           ${hasImage ? `
@@ -2430,7 +3736,7 @@ export function renderUserProfileModalUI() {
           type="button" 
           onclick="selectUserProfileColor('${item.name}')" 
           title="${escapeHtml(item.label || item.name)}"
-          class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-amber-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
+          class="h-7 rounded-md flex items-center justify-center gap-1.5 px-1.5 transition-all cursor-pointer border ${isSelected ? 'border-white ring-2 ring-sky-400/60 shadow-sm scale-[1.03] ' + item.bg : 'border-white/[0.08] hover:border-white/30 opacity-70 hover:opacity-100 bg-white/[0.02]'}"
         >
           <span class="w-2.5 h-2.5 rounded-full ${item.dot} shrink-0"></span>
           <span class="text-[9px] font-medium truncate ${item.text}">${escapeHtml(item.label || item.name)}</span>
@@ -2502,7 +3808,7 @@ export function renderUserProfileDepartments() {
   if (!isOwner) {
     container.innerHTML = `
       ${selectedDepts.map(dept => `
-        <span class="px-2.5 py-1 rounded-md text-[11px] border bg-amber-500/15 text-amber-300 border-amber-500/40 font-semibold flex items-center gap-1.5 select-none">
+        <span class="px-2.5 py-1 rounded-md text-[11px] border bg-sky-500/15 text-sky-300 border-sky-500/40 font-semibold flex items-center gap-1.5 select-none">
           <span>✓</span>
           <span>${escapeHtml(dept)}</span>
         </span>
@@ -2519,7 +3825,7 @@ export function renderUserProfileDepartments() {
         <button 
           type="button" 
           onclick="toggleUserProfileDepartment('${escapeHtml(dept)}')" 
-          class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer flex items-center gap-1.5 ${isSelected ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-semibold' : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-zinc-200'}"
+          class="px-2.5 py-1 rounded-md text-[11px] border transition-all cursor-pointer flex items-center gap-1.5 ${isSelected ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 font-semibold' : 'bg-white/[0.04] text-zinc-400 border-white/[0.08] hover:text-zinc-200'}"
         >
           <span>${isSelected ? '✓' : '+'}</span>
           <span>${escapeHtml(dept)}</span>
@@ -2529,7 +3835,7 @@ export function renderUserProfileDepartments() {
     <button 
       type="button" 
       onclick="promptAddUserProfileDepartment()" 
-      class="px-2.5 py-1 rounded-md text-[11px] border border-dashed border-white/[0.20] text-zinc-400 hover:text-amber-300 hover:border-amber-400/50 bg-white/[0.02] transition-colors cursor-pointer"
+      class="px-2.5 py-1 rounded-md text-[11px] border border-dashed border-white/[0.20] text-zinc-400 hover:text-sky-300 hover:border-sky-400/50 bg-white/[0.02] transition-colors cursor-pointer"
     >
       + Nuevo Depto.
     </button>
@@ -2670,7 +3976,7 @@ export function switchUserProfileTab(tabKey = 'profile') {
   const profileView = document.getElementById('user-modal-view-profile');
   const teamView = document.getElementById('user-modal-view-team');
 
-  const activeClass = 'flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm';
+  const activeClass = 'flex-1 py-1.5 text-xs rounded-lg font-semibold transition-all cursor-pointer bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm';
   const inactiveClass = 'flex-1 py-1.5 text-xs rounded-lg font-medium transition-all cursor-pointer bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border border-white/[0.08]';
 
   if (tabKey === 'team') {
@@ -2737,7 +4043,7 @@ export async function loadTeamTabUI() {
     if (orgRoleEl) {
       if (isOwner) {
         orgRoleEl.innerText = 'Dueño';
-        orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300';
+        orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 border border-sky-500/30 text-sky-300';
       } else {
         orgRoleEl.innerText = 'Colaborador';
         orgRoleEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/15 border border-cyan-500/30 text-cyan-300';
@@ -2781,7 +4087,7 @@ export async function loadTeamTabUI() {
           const scopeLabel = currentAllowed === '*' ? 'Todo el estudio' : (scopeObj ? scopeObj.name : currentAllowed);
 
           return `
-            <div ${canManage ? `onclick="openTeamMemberDetailModal('${escapeHtml(m.id)}')" role="button" tabindex="0"` : ''} class="p-2.5 rounded-xl bg-black/40 border border-resolve-border/60 ${canManage ? 'cursor-pointer hover:border-amber-500/45 hover:bg-black/55 transition-all' : ''} ${isDeactivated ? 'opacity-65' : ''} space-y-2">
+            <div ${canManage ? `onclick="openTeamMemberDetailModal('${escapeHtml(m.id)}')" role="button" tabindex="0"` : ''} class="p-2.5 rounded-xl bg-black/40 border border-resolve-border/60 ${canManage ? 'cursor-pointer hover:border-sky-500/45 hover:bg-black/55 transition-all' : ''} ${isDeactivated ? 'opacity-65' : ''} space-y-2">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2.5 min-w-0">
                   ${renderUserAvatarHtml('w-8 h-8 text-xs', memberProfile)}
@@ -2800,17 +4106,17 @@ export async function loadTeamTabUI() {
                   </div>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-semibold ${isOwnerMember ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30' : m.role === 'client' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-semibold ${isOwnerMember ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : m.role === 'client' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
                     ${isOwnerMember ? 'Dueño' : m.role === 'client' ? 'Cliente' : 'Colaborador'}
                   </span>
-                  ${canManage ? '<span class="text-[10px] text-amber-400/80 font-medium pl-1">Editar ›</span>' : ''}
+                  ${canManage ? '<span class="text-[10px] text-sky-400/80 font-medium pl-1">Editar ›</span>' : ''}
                 </div>
               </div>
               <div class="pt-1.5 border-t border-resolve-border/30 flex flex-wrap items-center justify-between gap-2 text-[10px]">
                 <span class="text-zinc-400">Alcance: <strong class="text-zinc-200 font-medium">${escapeHtml(scopeLabel)}</strong></span>
                 ${m.role !== 'client' ? `
                   <div class="flex flex-wrap items-center gap-1">
-                    ${memberDepts.map(d => `<span class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-medium">${escapeHtml(d)}</span>`).join('')}
+                    ${memberDepts.map(d => `<span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/25 font-medium">${escapeHtml(d)}</span>`).join('')}
                   </div>
                 ` : ''}
               </div>
@@ -2827,9 +4133,9 @@ export async function loadTeamTabUI() {
         invContainer.classList.remove('hidden');
         invListEl.innerHTML = invitations.map(inv => {
           return `
-            <div class="flex items-center justify-between p-2 rounded-xl bg-amber-500/[0.03] border border-amber-500/20 text-xs">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-sky-500/[0.03] border border-sky-500/20 text-xs">
               <div class="min-w-0 pr-2">
-                <div class="font-medium text-amber-200 truncate">${escapeHtml(inv.email)}</div>
+                <div class="font-medium text-sky-200 truncate">${escapeHtml(inv.email)}</div>
                 <div class="text-[10px] text-zinc-500">Pendiente de registro / aceptación</div>
               </div>
               <div class="flex items-center gap-1.5 shrink-0">
@@ -2846,7 +4152,7 @@ export async function loadTeamTabUI() {
                 <button 
                   type="button" 
                   onclick="handleCopyTeamInviteLink('${inv.id}', this)" 
-                  class="px-2 py-1 bg-white/[0.08] hover:bg-amber-500/20 text-amber-300 border border-white/[0.12] hover:border-amber-500/40 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
+                  class="px-2 py-1 bg-white/[0.08] hover:bg-sky-500/20 text-sky-300 border border-white/[0.12] hover:border-sky-500/40 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
                   title="Copiar enlace de invitación"
                 >
                   Copiar Link
@@ -2942,8 +4248,8 @@ export function openTeamMemberDetailModal(memberId) {
   if (deptsContainer) {
     const allDepts = getDepartments();
     deptsContainer.innerHTML = allDepts.map(d => `
-      <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border border-white/10 bg-black/40 text-zinc-200 cursor-pointer hover:border-amber-500/40">
-        <input type="checkbox" class="team-member-modal-dept-cb accent-amber-400" value="${escapeHtml(d)}" ${memberDepts.includes(d) ? 'checked' : ''} />
+      <label class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] border border-white/10 bg-black/40 text-zinc-200 cursor-pointer hover:border-sky-500/40">
+        <input type="checkbox" class="team-member-modal-dept-cb accent-sky-400" value="${escapeHtml(d)}" ${memberDepts.includes(d) ? 'checked' : ''} />
         <span>${escapeHtml(d)}</span>
       </label>
     `).join('');
@@ -2958,7 +4264,7 @@ export function openTeamMemberDetailModal(memberId) {
     toggleBtn.innerText = isDeactivated ? 'Reactivar' : 'Desactivar';
     toggleBtn.className = isDeactivated
       ? 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
-      : 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-white/[0.06] hover:bg-amber-500/15 text-zinc-300 hover:text-amber-300 border-white/[0.12]';
+      : 'px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer bg-white/[0.06] hover:bg-sky-500/15 text-zinc-300 hover:text-sky-300 border-white/[0.12]';
     toggleBtn.onclick = async () => {
       await handleToggleMemberStatus(member.id, isDeactivated ? 'active' : 'deactivated');
       closeTeamMemberDetailModal();
@@ -3283,14 +4589,11 @@ export function togglePasswordVisibility(inputId, btn) {
   input.type = isPassword ? 'text' : 'password';
   if (btn) {
     btn.innerHTML = isPassword ? `
-      <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
       </svg>
     ` : `
-      <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-      </svg>
+      ${lucideIcon('eye', 'w-[15px] h-[15px]', 'text-zinc-400')}
     `;
   }
 }
@@ -3494,11 +4797,11 @@ export function openSubscriptionPaywallModal(isBlocking = false) {
   } else {
     if (statusBadgeEl) {
       statusBadgeEl.innerText = 'PRUEBA ACTIVA';
-      statusBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-300';
+      statusBadgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 border border-sky-500/25 text-sky-300';
     }
     if (daysTextEl) {
       daysTextEl.innerText = `${trialDaysLeft} ${trialDaysLeft === 1 ? 'día restante' : 'días restantes'}`;
-      daysTextEl.className = 'font-bold text-amber-400 text-xs';
+      daysTextEl.className = 'font-bold text-sky-400 text-xs';
     }
     if (titleEl) titleEl.innerText = 'Trafikeitor Plan Pro';
     if (subtitleEl) subtitleEl.innerText = 'Impulsa el flujo de trabajo creativo de tu agencia con máxima capacidad.';
@@ -3562,7 +4865,7 @@ export async function handleRequestRemoveMember(memberId, memberName, memberShor
   const orders = getOrders();
   const shortClean = (memberShortName || '').trim();
   const activeOrders = shortClean
-    ? orders.filter(o => o.responsible === shortClean && !isOtTerminal(o.status))
+    ? orders.filter(o => o.sign === shortClean && !isOtTerminal(o.otStatus))
     : [];
 
   let activeRoutesCount = 0;
@@ -3570,7 +4873,7 @@ export async function handleRequestRemoveMember(memberId, memberName, memberShor
     orders.forEach(o => {
       if (Array.isArray(o.routes)) {
         o.routes.forEach(r => {
-          if (r.sign === shortClean && !r.completed) activeRoutesCount++;
+          if (r.sign === shortClean && !r.locked) activeRoutesCount++;
         });
       }
     });
@@ -3770,23 +5073,50 @@ if (typeof window !== 'undefined') {
   window.scheduleActiveOtFromModal = scheduleActiveOtFromModal;
   window.renderRouteSheetRows = renderRouteSheetRows;
   window.addNewRouteRow = addNewRouteRow;
+  window.updateRootOtField = updateRootOtField;
+  window.updateRootOtDateField = updateRootOtDateField;
+  window.handleRootStatusChange = handleRootStatusChange;
+  window.handleRootResponsibleChange = handleRootResponsibleChange;
+  window.toggleEnvelopeTaskTreeSidebar = toggleEnvelopeTaskTreeSidebar;
+  window.selectEnvelopeTreeTask = selectEnvelopeTreeTask;
+  window.updateActiveTaskTitle = updateActiveTaskTitle;
+  window.createEnvelopeSubTask = createEnvelopeSubTask;
   window.updateRouteCell = updateRouteCell;
   window.updateRouteDateCell = updateRouteDateCell;
   window.handleRouteDeptChange = handleRouteDeptChange;
+  window.handleRouteStatusChange = handleRouteStatusChange;
   window.handleRouteSignChange = handleRouteSignChange;
   window.stampCurrentTime = stampCurrentTime;
+  window.toggleRouteRowLock = toggleRouteRowLock;
   window.toggleRouteDone = toggleRouteDone;
+  window.removeRouteRow = removeRouteRow;
   window.deleteRouteRow = deleteRouteRow;
   window.openStampModal = openStampModal;
   window.closeStampModal = closeStampModal;
   window.applyStamp = applyStamp;
   window.clearCurrentStamp = clearCurrentStamp;
   window.setMediaPoolView = setMediaPoolView;
+  window.setInlineEnvelopeMediaView = setInlineEnvelopeMediaView;
   window.renderMediaPool = renderMediaPool;
   window.handleMediaPoolUpload = handleMediaPoolUpload;
   window.promptAddMediaLink = promptAddMediaLink;
   window.removeMediaItem = removeMediaItem;
   window.renderInlineEnvelopeMedia = renderInlineEnvelopeMedia;
+  window.toggleEnvelopeRouteGroup = toggleEnvelopeRouteGroup;
+  window.updateRouteTaskTitle = updateRouteTaskTitle;
+  window.toggleEnvelopeInspectorSidebar = toggleEnvelopeInspectorSidebar;
+  window.setEnvelopeInspectorTab = setEnvelopeInspectorTab;
+  window.selectBitacoraInspectorRow = selectBitacoraInspectorRow;
+  window.updateRouteCellFromInspector = updateRouteCellFromInspector;
+  window.stepEnvelopeTask = stepEnvelopeTask;
+  window.syncInspectorTaskToStripboard = syncInspectorTaskToStripboard;
+  window.closeInspectorTaskAsDone = closeInspectorTaskAsDone;
+  window.cancelInspectorTask = cancelInspectorTask;
+  window.duplicateInspectorTask = duplicateInspectorTask;
+  window.deleteInspectorTask = deleteInspectorTask;
+  window.deleteInspectorRowOrTask = deleteInspectorRowOrTask;
+  window.renderEnvelopeInspector = renderEnvelopeInspector;
+  window.syncOtStatusAndRoute = syncOtStatusAndRoute;
   window.selectInlinePreviewMedia = selectInlinePreviewMedia;
   window.setInlineCodeTab = setInlineCodeTab;
   window.setInlineMarkdownTab = setInlineMarkdownTab;
@@ -3830,6 +5160,7 @@ if (typeof window !== 'undefined') {
   window.openSubscriptionPaywallModal = openSubscriptionPaywallModal;
   window.closeSubscriptionPaywallModal = closeSubscriptionPaywallModal;
   window.handleBoldCheckoutClick = handleBoldCheckoutClick;
+  window.openMediaReview = openMediaReview;
   window.shareMediaItem = shareMediaItem;
   window.openShareReviewPopover = openShareReviewPopover;
   window.closeShareReviewPopover = closeShareReviewPopover;

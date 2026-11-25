@@ -1,0 +1,503 @@
+<!DOCTYPE html><html class="h-full bg-[#0e0f12]" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>TRAFIKEITOR - Control de Tráfico &amp; Producción</title>
+<!-- Google Fonts: Inter & JetBrains Mono -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-container-lowest": "#0e0f12",
+            "surface": "#121316",
+            "surface-dim": "#101114",
+            "surface-container-low": "#15171c",
+            "surface-container": "#1a1c22",
+            "surface-container-high": "#22252c",
+            "surface-container-highest": "#2a2d36",
+            "surface-bright": "#333742",
+            "primary": "#d1d5db",
+            "primary-container": "#f59e0b",
+            "primary-fixed-dim": "#d97706",
+            "secondary": "#9ca3af",
+            "secondary-container": "#374151",
+            "outline": "#6b7280",
+            "outline-variant": "#272a33",
+            "on-surface": "#e5e7eb",
+            "on-surface-variant": "#9ca3af",
+            "amber-accent": "#f59e0b",
+            "amber-bright": "#fbbf24",
+            "border-line": "#232730",
+            "border-subtle": "#1c1f26"
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Font Awesome Icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style data-purpose="custom-scrollbars">
+    /* High-precision technical workstation scrollbar (DaVinci / Obsidian) */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0e0f12;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #232730;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #373b45;
+    }
+  </style>
+<style data-purpose="tech-crosshairs-and-brackets">
+    .tech-bracket-container {
+      position: relative;
+    }
+    .tech-bracket-container::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 5px;
+      height: 5px;
+      border-top: 1.5px solid #4b5563;
+      border-left: 1.5px solid #4b5563;
+      pointer-events: none;
+    }
+    .tech-bracket-container::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: -1px;
+      width: 5px;
+      height: 5px;
+      border-bottom: 1.5px solid #4b5563;
+      border-left: 1.5px solid #4b5563;
+      pointer-events: none;
+    }
+    .tech-bracket-amber::before {
+      content: '';
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 5px;
+      height: 5px;
+      border-top: 1.5px solid #f59e0b;
+      border-left: 1.5px solid #f59e0b;
+      pointer-events: none;
+    }
+    .tech-bracket-amber::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: -1px;
+      width: 5px;
+      height: 5px;
+      border-bottom: 1.5px solid #f59e0b;
+      border-left: 1.5px solid #f59e0b;
+      pointer-events: none;
+    }
+    .grid-lines-subtle {
+      background-size: 24px 24px;
+      background-image: 
+        linear-gradient(to right, rgba(42, 47, 58, 0.35) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(42, 47, 58, 0.35) 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="w-full h-screen bg-[#0e0f12] text-on-surface font-sans text-xs antialiased overflow-hidden select-none flex flex-col max-w-[1920px] mx-auto">
+<!-- BEGIN: MainHeader -->
+<header class="h-10 bg-[#121418] border-b border-[#232730] px-3.5 flex items-center justify-between flex-shrink-0 z-30" data-purpose="global-header">
+<!-- Left Section: Logo & Identity -->
+<div class="flex items-center space-x-3">
+<div class="flex items-center gap-2.5 cursor-pointer group">
+<!-- High-tech angular icon mark with neutral studio + amber accent -->
+<div class="w-5 h-5 rounded bg-[#181a20] border border-amber-500/40 flex items-center justify-center text-amber-accent group-hover:border-amber-bright transition-all shadow-[0_0_8px_rgba(245,158,11,0.25)]"><span class="text-[11px] font-bold text-amber-accent leading-none">▲</span></div>
+<span class="font-bold tracking-[0.22em] text-[#e5e7eb] text-[11px] uppercase group-hover:text-amber-bright transition-colors font-mono">TRAFIKEITOR</span>
+<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#181a20] text-[#848a96] border border-[#262a34]">v3.4-PRO</span>
+</div>
+</div>
+<!-- Right Section: Status and User Workspace -->
+<div class="flex items-center space-x-3.5">
+<!-- SQLite Sync Status Indicator -->
+<div class="flex items-center space-x-2 px-2.5 py-1 rounded bg-[#16181e] border border-[#262a34] text-[11px] font-mono">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+</span>
+<span class="text-[#a1a7b5] text-[10.5px]">SQLite Sincronizado</span>
+</div>
+<!-- Studio / Profile Pill -->
+<button class="flex items-center space-x-2 px-2.5 py-1 rounded bg-[#181a20] border border-[#272b35] text-zinc-300 hover:border-amber-500/50 hover:text-white transition-all text-xs shadow-sm group">
+<i class="fa-regular fa-user text-[11px] text-[#9ca3af] group-hover:text-amber-accent transition-colors"></i>
+<span class="text-[11px] font-medium tracking-wide">Estudio</span>
+</button>
+<!-- Utility Action Icons -->
+<div class="flex items-center space-x-1.5 text-[#737a89] border-l border-[#232730] pl-3">
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-[#1c1f26] hover:text-[#e5e7eb] transition-all" title="Ajustes">
+<i class="fa-solid fa-sliders text-xs"></i>
+</button>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-[#1c1f26] hover:text-[#e5e7eb] transition-all relative" title="Notificaciones">
+<i class="fa-regular fa-bell text-xs"></i>
+<span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_6px_#3b82f6]"></span>
+</button>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainApplicationWorkspace -->
+<div class="flex-1 flex overflow-hidden">
+<!-- BEGIN: LeftmostIconBar -->
+<nav class="w-12 bg-[#101115] border-r border-[#232730] flex flex-col items-center justify-between py-3 flex-shrink-0 z-20" data-purpose="app-sidebar-nav">
+<!-- Navigation top tool icons -->
+<div class="flex flex-col items-center space-y-3 w-full">
+<!-- Fullscreen / Frame selector -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-[#737a89] hover:text-white hover:bg-[#181a20] transition-all" title="Marco Completo">
+<i class="fa-regular fa-square text-xs"></i>
+</button>
+<!-- Grid view -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-[#737a89] hover:text-white hover:bg-[#181a20] transition-all" title="Tablero Grid">
+<i class="fa-solid fa-table-cells-large text-xs"></i>
+</button>
+<!-- Active Amber Folder / Projects icon -->
+<button class="w-8 h-8 rounded bg-gradient-to-b from-amber-500 to-amber-600 text-white font-semibold flex items-center justify-center shadow-[0_0_12px_rgba(245,158,11,0.4)] ring-1 ring-amber-300/40" title="Órdenes de Trabajo Activas"><i class="fa-solid fa-folder text-xs"></i></button>
+<!-- Calendar agenda view -->
+<button class="w-8 h-8 rounded flex items-center justify-center text-[#737a89] hover:text-white hover:bg-[#181a20] transition-all" title="Agenda &amp; Fechas">
+<i class="fa-regular fa-calendar-days text-xs"></i>
+</button>
+</div>
+<!-- Bottom System / Master Status -->
+<div class="flex flex-col items-center space-y-2 w-full">
+<div class="flex flex-col items-center space-y-2 w-full"><button class="w-8 h-8 rounded flex items-center justify-center text-[#737a89] hover:text-white hover:bg-[#181a20] transition-all group" title="Ajustes del Sistema"><svg class="w-4 h-4 transition-transform group-hover:rotate-45 duration-300" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg></button><button class="w-8 h-8 rounded flex items-center justify-center text-[#737a89] hover:text-white hover:bg-[#181a20] transition-all group" title="Perfil de Usuario"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" stroke-linecap="round" stroke-linejoin="round"></path></svg></button></div>
+<div class="w-full border-t border-[#232730] pt-2 text-center">
+<span class="text-[8.5px] font-mono font-bold text-[#626875] tracking-widest block scale-90">MASTER</span>
+</div>
+</div>
+</nav>
+<!-- END: LeftmostIconBar -->
+<!-- BEGIN: ProjectTreeSidebar -->
+<aside class="bg-[#14161b] border-r border-[#232730] flex flex-col flex-shrink-0 overflow-y-auto" data-purpose="project-ot-sidebar" style="width: 204px;">
+<!-- Client/Brand Banner with Corner Marks -->
+<div class="p-2.5 border-b border-[#232730]">
+<div class="relative p-2.5 bg-[#181b22] border border-[#272b35] rounded tech-bracket-amber flex items-center justify-between shadow-inner">
+<div class="pl-1.5">
+<h2 class="text-[11px] font-bold tracking-wider text-white uppercase leading-tight font-mono">SHAMBHALA</h2>
+<p class="text-[9.5px] text-[#868d9c] tracking-wider font-mono uppercase mt-0.5">ECOHOTEL BOUTIQUE</p>
+</div>
+<span class="text-[#596070] text-xs pr-1"><i class="fa-solid fa-chevron-right text-[9px]"></i></span>
+</div>
+</div>
+<!-- OT Explorer Navigation List -->
+<div class="p-2 space-y-1 font-mono text-[11px]">
+<!-- Active Tree Item: OT - 26-001 -->
+<div class="mb-2">
+<!-- OT Header with expansion symbol -->
+<div class="flex items-center justify-between py-1.5 px-2 text-amber-accent font-bold cursor-pointer border border-amber-500/50 rounded bg-[#1c1f26] shadow-sm"><div class="flex items-center space-x-2"><i class="fa-solid fa-angle-down text-[10px] text-amber-accent"></i><span class="tracking-wide">OT - 26-001</span></div><span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_#f59e0b]"></span></div>
+<!-- Subtasks Tree list -->
+<div class="ml-3 pl-2.5 border-l border-[#272b36] space-y-1 mt-1 font-sans text-xs">
+<!-- Subtask 1 -->
+<div class="flex items-center py-1.5 px-2.5 text-[#9ca3af] hover:text-white cursor-pointer rounded border border-transparent hover:border-[#272b35] hover:bg-[#181a20] transition-colors"><span class="text-[#5d6473] font-mono text-[10px] mr-2">- 1</span><span class="text-[11.5px]">Redacción de textos</span></div>
+<!-- Subtask 2: Active / Selected -->
+<div class="flex items-center py-1.5 px-2.5 text-[#9ca3af] hover:text-white cursor-pointer rounded border border-transparent hover:border-[#272b35] hover:bg-[#181a20] transition-colors"><span class="text-[#5d6473] font-mono text-[10px] mr-2">- 2</span><span class="text-[11.5px]">Retoque imagen</span></div>
+<!-- Subtask 3 -->
+<div class="flex items-center py-1.5 px-2.5 text-[#9ca3af] hover:text-white cursor-pointer rounded border border-transparent hover:border-[#272b35] hover:bg-[#181a20] transition-colors"><span class="text-[#5d6473] font-mono text-[10px] mr-2">- 3</span><span class="text-[11.5px]">Ilustración iconos</span></div>
+<!-- Subtask 4 -->
+<div class="flex items-center py-1.5 px-2.5 text-[#9ca3af] hover:text-white cursor-pointer rounded border border-transparent hover:border-[#272b35] hover:bg-[#181a20] transition-colors"><span class="text-[#5d6473] font-mono text-[10px] mr-2">- 4</span><span class="text-[11.5px]">Formulario de correo</span></div>
+</div>
+</div>
+<!-- Inactive Collapsed OTs with tech diagonal symbols -->
+<div class="space-y-0.5 pt-1 border-t border-[#232730]">
+<!-- OT - 26-002 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-amber-accent/80 font-mono">&lt;&gt;</span>
+<span class="font-mono text-[#a1a7b5] group-hover:text-amber-bright text-[11px]">OT - 26-002</span>
+</div>
+</div>
+<!-- OT - 26-003 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-[#555b6a] font-mono">··</span>
+<span class="font-mono text-[#777e8e] group-hover:text-amber-bright text-[11px]">OT - 26-003</span>
+</div>
+</div>
+<!-- OT - 26-004 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-amber-accent/80 font-mono">&lt;&gt;</span>
+<span class="font-mono text-[#a1a7b5] group-hover:text-amber-bright text-[11px]">OT - 26-004</span>
+</div>
+</div>
+<!-- OT - 26-005 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-[#555b6a] font-mono">··</span>
+<span class="font-mono text-[#777e8e] group-hover:text-amber-bright text-[11px]">OT - 26-005</span>
+</div>
+</div>
+<!-- OT - 26-006 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-[#555b6a] font-mono">··</span>
+<span class="font-mono text-[#777e8e] group-hover:text-amber-bright text-[11px]">OT - 26-006</span>
+</div>
+</div>
+<!-- OT - 26-007 -->
+<div class="flex items-center justify-between py-1.5 px-2 text-[#8b92a1] hover:text-amber-bright hover:bg-[#1a1c23] cursor-pointer rounded transition-colors group">
+<div class="flex items-center space-x-2">
+<span class="text-[9px] text-amber-accent/80 font-mono">&lt;&gt;</span>
+<span class="font-mono text-[#a1a7b5] group-hover:text-amber-bright text-[11px]">OT - 26-007</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- END: ProjectTreeSidebar -->
+<!-- BEGIN: CentralStageArea -->
+<main class="flex-1 flex flex-col bg-[#0e0f12] min-w-0 overflow-y-auto" data-purpose="central-production-area">
+<!-- BEGIN: ActiveOTMetadataHeader -->
+<section class="p-3 bg-[#13151a] border-b border-[#232730]" data-purpose="ot-title-and-metadata">
+<!-- Title and Big OT Code Row -->
+<div class="flex items-center justify-between mb-2.5"><div class="flex items-center space-x-2.5"><span class="w-5 h-5 rounded bg-[#1c1f26] border border-amber-500/30 flex items-center justify-center text-amber-accent text-xs font-mono shadow-sm">＋</span><div class="flex items-baseline space-x-2"><h1 class="text-sm md:text-base font-bold text-white tracking-wide">Promo Día de todos los santos</h1><span class="text-[11px] text-[#717887] font-mono font-normal">(Título)</span></div></div><div class="font-mono text-lg md:text-xl font-bold tracking-wider text-amber-accent flex items-center gap-1.5"><span>OT</span><span class="text-amber-500/70">-</span><span>26-001</span></div></div>
+<!-- Exactly 8 Technical Data Boxes Grid: CLIENTE, MARCA/PRODUCTO, MEDIO, REFERENCIA, DESCRIPCIÓN, RESPONSABLE, FIRMA, ENTRADA, SALIDA -->
+<div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-1.5" data-purpose="metadata-fields-grid"><!-- 1. CLIENTE -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded tech-bracket-container">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">CLIENTE</span>
+<span class="block text-xs font-medium text-white truncate">Shambhala</span>
+</div>
+<!-- 2. MARCA/PRODUCTO -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">MARCA/PRODUCTO</span>
+<span class="block text-xs font-medium text-white truncate">Ecohotel</span>
+</div>
+<!-- 3. MEDIO -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">MEDIO</span>
+<span class="block text-xs font-medium text-white truncate">Email / RRSS</span>
+</div>
+<!-- 4. REFERENCIA -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">REFERENCIA</span>
+<span class="block text-xs font-mono font-medium text-[#d1d5db] truncate">CAMP-NOV-01</span>
+</div>
+<!-- 5. DESCRIPCIÓN -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">DESCRIPCIÓN</span>
+<span class="block text-xs font-medium text-white truncate">Pack promocional</span>
+</div>
+<!-- 6. RESPONSABLE -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded"><span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">RESPONSABLE</span><span class="block text-xs font-medium text-amber-accent truncate">Diseño</span></div>
+<!-- 7. FIRMA -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">FIRMA</span>
+<span class="block text-xs font-medium text-white truncate">Carolina</span>
+</div>
+<!-- 8. ENTRADA -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded">
+<span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">ENTRADA</span>
+<span class="block text-xs font-mono text-[#b3b9c5] truncate">12/11 09:30</span>
+</div>
+<!-- 9. SALIDA -->
+<div class="bg-[#181a20] border border-[#272a33] px-2.5 py-1.5 rounded"><span class="block text-[8.5px] uppercase tracking-wider text-[#798090] font-mono leading-none mb-1">SALIDA</span><span class="block text-xs font-mono text-amber-accent font-medium truncate">15/11 18:00</span></div></div>
+</section>
+<!-- END: ActiveOTMetadataHeader -->
+<!-- BEGIN: TaskRoutingHistoryTable -->
+<section class="flex-1 min-h-[220px] bg-[#0e0f12] p-3 overflow-x-auto border-b border-[#232730]" data-purpose="routing-history-log">
+<div class="border border-[#232730] rounded bg-[#13151a] overflow-hidden shadow-md">
+<table class="w-full text-left border-collapse text-xs font-sans">
+<!-- Table Header -->
+<thead>
+<tr class="bg-[#181a20] border-b border-[#232730] text-[9.5px] font-mono uppercase text-[#868d9c] tracking-wider">
+<th class="py-2 px-3 font-semibold w-28 border-r border-[#232730]">FECHA:</th>
+<th class="py-2 px-3 font-semibold w-24 border-r border-[#232730]">DE:</th>
+<th class="py-2 px-3 font-semibold w-24 border-r border-[#232730]">PARA:</th>
+<th class="py-2 px-3 font-semibold border-r border-[#232730]">DESCRIPCIÓN:</th>
+<th class="py-2 px-3 font-semibold w-24 border-r border-[#232730]">FIRMA:</th>
+<th class="py-2 px-3 font-semibold border-r border-[#232730]">NOTAS:</th>
+<th class="py-2 px-2.5 font-semibold w-12 text-center">EST</th>
+</tr>
+</thead>
+<!-- Table Body with Data Rows & Empty Grid Cells -->
+<tbody class="divide-y divide-[#20232a] font-mono text-xs"><!-- Row 1 -->
+<tr class="hover:bg-[#1a1c22] transition-colors bg-[#13151a]">
+<td class="py-2 px-3 text-[#a1a7b5] border-r border-[#20232a]">12/11 09:35</td>
+<td class="py-2 px-3 text-white font-sans border-r border-[#20232a]">Cuentas</td>
+<td class="py-2 px-3 text-white font-sans border-r border-[#20232a]">Redacción</td>
+<td class="py-2 px-3 text-[#e5e7eb] font-sans border-r border-[#20232a]">Entrega de brief y tono de campaña</td>
+<td class="py-2 px-3 text-[#d1d5db] font-sans border-r border-[#20232a]">Carolina</td>
+<td class="py-2 px-3 text-amber-bright font-sans border-r border-[#20232a] text-[11px] font-medium">Prioridad alta</td>
+<td class="py-2 px-2.5 text-center">
+<!-- Closed green lock -->
+<i class="fa-solid fa-lock text-emerald-400 text-xs drop-shadow-[0_0_6px_rgba(52,211,153,0.4)]" title="Cerrado/Firmado"></i>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-[#1a1c22] transition-colors bg-[#16181f]">
+<td class="py-2 px-3 text-[#a1a7b5] border-r border-[#20232a]">12/11 14:10</td>
+<td class="py-2 px-3 text-white font-sans border-r border-[#20232a]">Redacción</td>
+<td class="py-2 px-3 text-amber-accent font-sans font-medium border-r border-[#20232a]">Diseño</td>
+<td class="py-2 px-3 text-[#e5e7eb] font-sans border-r border-[#20232a]">Copy aprobado para newsletter y carrusel</td>
+<td class="py-2 px-3 text-[#646b7a] font-sans border-r border-[#20232a]">—</td>
+<td class="py-2 px-3 text-[#fca5a5] font-sans border-r border-[#20232a] text-[11px]">Falta retoque de foto</td>
+<td class="py-2 px-2.5 text-center">
+<!-- Open/Pending red lock -->
+<i class="fa-solid fa-lock-open text-rose-400 text-xs drop-shadow-[0_0_6px_rgba(251,113,133,0.4)]" title="Pendiente de firma"></i>
+</td>
+</tr>
+<!-- Clean Technical Empty Grid Rows -->
+<tr class="h-7 hover:bg-[#16181e]">
+<td class="py-1.5 px-3 border-r border-[#20232a] text-[#434855]">--/-- --:--</td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="text-center text-[#373c47]">•</td>
+</tr>
+<tr class="h-7 hover:bg-[#16181e]">
+<td class="py-1.5 px-3 border-r border-[#20232a] text-[#434855]">--/-- --:--</td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="text-center text-[#373c47]">•</td>
+</tr>
+<tr class="h-7 hover:bg-[#16181e]">
+<td class="py-1.5 px-3 border-r border-[#20232a] text-[#434855]">--/-- --:--</td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="text-center text-[#373c47]">•</td>
+</tr>
+<tr class="h-7 hover:bg-[#16181e]">
+<td class="py-1.5 px-3 border-r border-[#20232a] text-[#434855]">--/-- --:--</td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="py-1.5 px-3 border-r border-[#20232a]"></td>
+<td class="text-center text-[#373c47]">•</td>
+</tr></tbody>
+</table>
+</div>
+</section>
+<!-- END: TaskRoutingHistoryTable -->
+<!-- BEGIN: LowerMediaFilesAndPreviewPanel -->
+<section class="h-72 border-t border-[#232730] bg-[#0e0f12] p-3 flex gap-3 flex-shrink-0" data-purpose="assets-and-preview-module">
+<!-- Left: Asset Matrix Box -->
+<div class="w-1/2 flex flex-col bg-[#14161b] border border-[#232730] rounded p-2.5 shadow-sm" data-purpose="files-grid-container">
+<!-- Box Header -->
+<div class="flex items-center justify-between pb-2 mb-2 border-b border-[#232730]"><div class="flex items-center space-x-2"><span class="text-amber-accent font-mono text-xs">&lt;&gt;</span><h3 class="font-bold text-xs uppercase tracking-wider text-white font-mono">ARCHIVOS</h3></div><button class="px-2.5 py-1 bg-[#1a1c22] border border-[#2c303c] hover:border-amber-500/60 rounded text-[#b3b9c5] hover:text-white flex items-center space-x-1.5 transition-all text-[11px] shadow-sm"><i class="fa-solid fa-plus text-[9px] text-amber-accent"></i><span>Subir</span></button></div>
+<!-- Grid of File Thumbnails / Placeholders -->
+<div class="grid grid-cols-5 gap-2 overflow-y-auto flex-1 p-0.5">
+<!-- Selected File: IMG_01 with active amber ring -->
+<div class="h-11 rounded flex flex-col items-center justify-center cursor-pointer relative group border border-amber-500/40 bg-[#181a20]" style="box-shadow: none !important; filter: none !important;"><span class="text-[10px] font-mono font-bold text-amber-accent tracking-wider">IMG_01</span><span class="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full"></span></div>
+<!-- Empty technical slots replicating wireframe tiles -->
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer flex items-center justify-center text-[#4b5160] text-[10px] font-mono">+</div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+<div class="h-11 bg-[#181a20] border border-[#232730] rounded hover:border-[#373c49] transition-colors cursor-pointer"></div>
+</div>
+</div>
+<!-- Right: Asset Previewer Box -->
+<div class="w-1/2 flex flex-col bg-[#14161b] border border-[#232730] rounded p-2.5 shadow-sm" data-purpose="asset-preview-container"><!-- Preview Header with Meta & Quick Actions -->
+<div class="flex items-center justify-between pb-2 mb-2 border-b border-[#232730]">
+<div class="flex items-center space-x-2">
+<span class="font-mono text-xs text-white font-medium">IMG_01_retoque_v2.jpg</span>
+<span class="px-1.5 py-0.5 bg-[#251e13] text-amber-accent text-[10px] font-mono rounded border border-amber-500/40">v2</span>
+</div>
+<!-- Toolbar buttons: Eye, Expand, Download -->
+<div class="flex items-center space-x-2 text-[#798090]">
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-[#1e2028] hover:text-white transition-colors" title="Ver"><i class="fa-regular fa-eye text-xs"></i></button>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-[#1e2028] hover:text-white transition-colors" title="Pantalla completa"><i class="fa-solid fa-up-right-and-down-left-from-center text-xs"></i></button>
+<button class="w-6 h-6 rounded flex items-center justify-center hover:bg-[#1e2028] hover:text-white transition-colors" title="Descargar"><i class="fa-solid fa-arrow-down-to-bracket text-xs"></i></button>
+</div>
+</div>
+<!-- Preview Stage / Dark Viewport -->
+<div class="flex-1 bg-[#0c0d10] border border-[#20232a] rounded flex items-center justify-center p-2 relative overflow-hidden grid-lines-subtle">
+<!-- Corner brackets on viewport in titanium blue -->
+<div class="absolute top-2 left-2 w-2 h-2 border-t border-l border-blue-500/50"></div>
+<div class="absolute top-2 right-2 w-2 h-2 border-t border-r border-blue-500/50"></div>
+<div class="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-blue-500/50"></div>
+<div class="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-blue-500/50"></div>
+<!-- Simulated Image Asset Placeholder Frame -->
+<div class="w-32 h-40 bg-[#16181e] border border-[#2b303c] rounded flex flex-col items-center justify-center shadow-2xl text-center p-2 group hover:border-blue-400 transition-all">
+<i class="fa-regular fa-image text-2xl text-[#626877] group-hover:text-blue-400 transition-colors mb-2"></i>
+<span class="text-[9px] font-mono tracking-tight text-[#9ca3af] uppercase">PREVIEW 1080×1440</span>
+</div>
+</div></div>
+</section>
+<!-- END: LowerMediaFilesAndPreviewPanel -->
+</main>
+<!-- END: CentralStageArea -->
+<!-- BEGIN: InspectorSidebar -->
+<aside class="w-72 bg-[#14161b] border-l border-[#232730] flex flex-col flex-shrink-0" data-purpose="right-inspector-panel">
+<!-- Title -->
+<div class="h-9 px-3 flex items-center justify-between border-b border-[#232730]">
+<h2 class="text-[10px] font-bold tracking-widest text-[#8b92a1] uppercase font-mono">INSPECTOR</h2>
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_#f59e0b]"></span>
+</div>
+<!-- Navigation Tabs: BRIEF | TAREAS | AGENDA | REVISOR -->
+<div class="grid grid-cols-4 border-b border-[#232730] text-center text-[10px] font-mono uppercase bg-[#101115]" data-purpose="inspector-tabs"><button class="py-2 text-[#737a89] hover:text-[#c4cad4] transition-colors">BRIEF</button><button class="py-2 text-white font-bold border-b-2 border-amber-500 text-amber-accent bg-[#181a20]">TAREAS</button><button class="py-2 text-[#737a89] hover:text-[#c4cad4] transition-colors">AGENDA</button><button class="py-2 text-[#737a89] hover:text-[#c4cad4] transition-colors">REVISOR</button></div>
+<!-- Inspector Content Body -->
+<div class="p-3 space-y-4 overflow-y-auto flex-1 font-sans text-xs"><!-- SUB-TAREA ACTIVA Section -->
+<div class="space-y-1.5" data-purpose="active-subtask-info"><span class="block text-[8.5px] font-mono font-bold tracking-wider text-[#798090] uppercase">SUB-TAREA ACTIVA</span><div class="p-2.5 bg-[#181a20] border border-[#272b35] rounded tech-bracket-amber shadow-sm"><div class="flex items-center justify-between"><span class="font-mono font-bold text-xs text-amber-accent">OT - 26-001-2</span><span class="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-bright text-[9px] font-mono font-bold">EN CURSO</span></div><span class="block font-semibold text-white text-xs mt-1">Retoque imagen</span></div></div>
+<!-- PROPIEDADES Section -->
+<div class="space-y-2" data-purpose="subtask-properties"><span class="block text-[8.5px] font-mono font-bold tracking-wider text-[#798090] uppercase">PROPIEDADES</span><div class="space-y-2 bg-[#181a20] p-2.5 rounded border border-[#252833]"><div class="flex items-center justify-between py-1 border-b border-[#22252e]"><span class="text-[#9ca3af]">Departamento</span><span class="font-medium text-amber-accent">Diseño</span></div><div class="flex items-center justify-between py-1"><span class="text-[#9ca3af]">Entrega</span><span class="font-mono text-white font-medium">15/11 18:00</span></div></div></div>
+<!-- Extra Technical Info / Logs -->
+<div class="pt-2 border-t border-[#232730] space-y-2">
+<div class="flex items-center justify-between text-[11px] font-mono">
+<span class="text-[#798090]">PRIORIDAD:</span>
+<span class="text-amber-bright font-bold px-1.5 py-0.2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px]">ALTA</span>
+</div>
+<div class="flex items-center justify-between text-[11px] font-mono">
+<span class="text-[#798090]">ASIGNADO A:</span>
+<span class="text-[#e5e7eb] text-right">Equipo Retoque #4</span>
+</div>
+<div class="flex items-center justify-between text-[11px] font-mono">
+<span class="text-[#798090]">FORMATO DE SALIDA:</span>
+<span class="text-[#d1d5db] text-right font-medium">JPG 100% / WebP</span>
+</div>
+</div></div>
+<!-- Footer action inside inspector -->
+<div class="p-3 border-t border-[#232730] bg-[#111217]">
+
+</div>
+</aside>
+<!-- END: InspectorSidebar -->
+</div>
+<!-- END: MainApplicationWorkspace -->
+
+
+
+
+
+
+</body></html>

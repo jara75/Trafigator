@@ -15,6 +15,8 @@ import {
   isOtTerminal
 } from './core-state.js';
 
+import { icon } from './icons.js';
+
 import {
   getOrders,
   saveOrders,
@@ -69,7 +71,7 @@ export function setStripboardViewMode(mode) {
       }
       if (btnEl) {
         if (m === mode) {
-          btnEl.className = "h-5 px-2 rounded font-medium transition-all bg-white/[0.12] text-amber-300 shadow-xs border border-white/[0.08] cursor-pointer";
+          btnEl.className = "h-5 px-2 rounded font-medium transition-all bg-white/[0.12] text-sky-300 shadow-xs border border-white/[0.08] cursor-pointer";
         } else {
           btnEl.className = "h-5 px-2 rounded font-medium transition-all text-resolve-dimText hover:text-white cursor-pointer";
         }
@@ -177,7 +179,7 @@ export function setStripboardPoolFilter(filterMode) {
       const btn = document.getElementById(`pool-filter-btn-${m}`);
       if (!btn) return;
       if (m === filterMode) {
-        btn.className = "py-1 rounded font-bold bg-resolve-panel text-amber-400 transition-colors cursor-pointer";
+        btn.className = "py-1 rounded font-bold bg-resolve-panel text-sky-400 transition-colors cursor-pointer";
       } else {
         btn.className = "py-1 rounded text-resolve-dimText hover:text-white transition-colors cursor-pointer";
       }
@@ -245,7 +247,7 @@ function isOrderInUserTray(ot) {
   const activeRoute = getActiveRoute(ot);
   const toDept = (activeRoute?.to || '').trim().toLowerCase();
   const fromDept = (activeRoute?.from || '').trim().toLowerCase();
-  const respLower = (ot.responsible || '').trim().toLowerCase();
+  const respLower = (ot.sign || '').trim().toLowerCase();
 
   if (toDept && userDepts.includes(toDept)) return true;
   if (fromDept && userDepts.includes(fromDept)) return true;
@@ -270,7 +272,7 @@ export function renderStripboardPendingPool() {
   if (!container) return;
 
   // OTs activas no cerradas ni canceladas, filtradas por bandeja/departamento/cuenta del usuario
-  const activeOrders = orders.filter(o => !isOtTerminal(o.status) && isOrderInUserTray(o));
+  const activeOrders = orders.filter(o => !isOtTerminal(o.otStatus) && isOrderInUserTray(o));
   if (badge) badge.innerText = activeOrders.length;
 
   // Filtrado por texto y por estado de agendamiento
@@ -304,12 +306,12 @@ export function renderStripboardPendingPool() {
 
     const witnessPillsHtml = scheduledDays.length > 0
       ? scheduledDays.map(d => {
-          let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-amber-400/50';
-          if (d.dominantStatus === 'En Mesa') pillColor = 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+          let pillColor = 'bg-white/[0.04] text-zinc-300 border-white/[0.08] hover:border-sky-400/50';
+          if (d.dominantStatus === 'En Mesa') pillColor = 'bg-sky-500/10 text-sky-300 border-sky-500/25';
           else if (d.dominantStatus === 'Entregado') pillColor = 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
           else if (d.dominantStatus === 'Detenido') pillColor = 'bg-rose-500/10 text-rose-300 border-rose-500/25';
 
-          const activeRing = d.isCurrentDay ? 'ring-1 ring-amber-400 font-bold' : '';
+          const activeRing = d.isCurrentDay ? 'ring-1 ring-sky-400 font-bold' : '';
           return `
             <button
               type="button"
@@ -337,7 +339,7 @@ export function renderStripboardPendingPool() {
         <button 
           onclick="event.stopPropagation(); addOtToStripboard('${ot.id}')" 
           title="Agregar esta OT al plan del día seleccionado"
-          class="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold rounded-lg text-[10px] transition-all cursor-pointer"
+          class="px-2 py-0.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold rounded-lg text-[10px] transition-all cursor-pointer"
         >
           + Al Día
         </button>
@@ -349,31 +351,29 @@ export function renderStripboardPendingPool() {
         ondragstart="handlePoolOtDragStart(event, '${ot.id}')"
         ondragend="handlePoolOtDragEnd(event)"
         title="Arrastra esta OT hacia el Stripboard o haz clic en su código para abrir el Sobre"
-        class="p-2.5 bg-white/[0.02] hover:bg-white/[0.05] border ${ot.urgent ? 'border-rose-500/50 shadow-sm shadow-rose-950/20' : (inTodayCount > 0 ? 'border-emerald-500/30' : 'border-resolve-border')} rounded-xl group hover:border-amber-400/50 transition-all cursor-grab active:cursor-grabbing select-none"
+        class="p-2.5 bg-white/[0.02] hover:bg-white/[0.05] border ${ot.urgent ? 'border-rose-500/50 shadow-sm shadow-rose-950/20' : (inTodayCount > 0 ? 'border-emerald-500/30' : 'border-resolve-border')} rounded-xl group hover:border-sky-400/50 transition-all cursor-grab active:cursor-grabbing select-none"
       >
         <div class="flex items-center justify-between mb-1">
           <div class="flex items-center gap-1.5 truncate">
-            <svg class="w-3.5 h-3.5 text-stone-500 group-hover:text-amber-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-            </svg>
+            ${icon('grip-vertical', 'w-[15px] h-[15px]', 'text-stone-500 group-hover:text-sky-400')}
             <button
               type="button"
               onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${ot.id}' });"
               title="Abrir Sobre OT completo"
-              class="font-mono font-bold text-amber-400 hover:text-white text-[11px] px-1.5 py-0.2 bg-black/40 hover:bg-black/60 rounded-md border border-resolve-border transition-colors cursor-pointer"
+              class="font-mono font-bold text-sky-400 hover:text-white text-[11px] px-1.5 py-0.2 bg-black/40 hover:bg-black/60 rounded-md border border-resolve-border transition-colors cursor-pointer"
             >
               ${ot.id}
             </button>
             ${ot.urgent ? '<span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Urgente"></span>' : ''}
           </div>
-          <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ot.status)}">
-            ${escapeHtml(ot.status || 'Tráfico')}
+          <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full border ${getStatusBadgeClass(ot.responsibleDept || 'Tráfico')}">
+            ${escapeHtml(ot.responsibleDept || 'Tráfico')}
           </span>
         </div>
 
         <div
           onclick="emit('modal:open-envelope', { otId: '${ot.id}' });"
-          class="font-bold text-white hover:text-amber-400 text-[11px] truncate mb-0.5 cursor-pointer transition-colors"
+          class="font-bold text-white hover:text-sky-400 text-[11px] truncate mb-0.5 cursor-pointer transition-colors"
           title="Clic para abrir el Sobre: ${escapeHtml(ot.title || ot.description || '')}"
         >
           ${escapeHtml(ot.title || ot.description || '')}
@@ -389,7 +389,7 @@ export function renderStripboardPendingPool() {
             <button
               type="button"
               onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${ot.id}' });"
-              class="text-stone-400 hover:text-amber-400 underline lowercase font-normal cursor-pointer"
+              class="text-stone-400 hover:text-sky-400 underline lowercase font-normal cursor-pointer"
             >
               abrir sobre →
             </button>
@@ -452,7 +452,7 @@ export function renderStripboard() {
     if (scheduledIds.length > 0) {
       stripboardOrders = scheduledIds.map(id => orders.find(o => o.id === id)).filter(Boolean);
     } else {
-      stripboardOrders = orders.filter(o => !isOtTerminal(o.status));
+      stripboardOrders = orders.filter(o => !isOtTerminal(o.otStatus));
     }
     if (stripboardOrders.length === 0) {
       stripboardOrders = orders;
@@ -474,11 +474,11 @@ export function renderStripboard() {
     if (!strips || strips.length === 0) {
       container.innerHTML = `
         <div class="p-12 text-center border border-dashed border-resolve-border rounded-2xl bg-white/[0.02] text-xs text-resolve-dimText flex flex-col items-center justify-center">
-          <svg class="w-10 h-10 text-stone-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          ${icon('module-agenda', 'w-10 h-10', 'text-stone-600 mb-3')}
           <span class="font-bold text-white text-sm">Arrastra OTs aquí o cárgales automáticamente</span>
           <p class="text-[11px] text-resolve-dimText mt-1 max-w-sm">Puedes arrastrar cualquier OT desde la columna izquierda y soltarla en este tablero, o pulsar el botón para cargar todas las pendientes.</p>
-          <button onclick="autoPopulatePendingOts()" class="mt-4 px-3.5 py-1.5 bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-semibold rounded-lg transition-all active:scale-[0.98] text-xs flex items-center gap-1.5 shadow-sm">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <button onclick="autoPopulatePendingOts()" class="mt-4 px-3.5 py-1.5 bg-gradient-to-b from-sky-400 to-sky-500 hover:from-sky-300 hover:to-sky-400 text-stone-950 font-semibold rounded-lg transition-all active:scale-[0.98] text-xs flex items-center gap-1.5 shadow-sm">
+            ${icon('zap', 'w-[15px] h-[15px]')}
             <span>Cargar OTs Pendientes al Plan</span>
           </button>
         </div>
@@ -497,15 +497,13 @@ export function renderStripboard() {
             ondragleave="handleStripDragLeave(event)"
             ondrop="handleStripDrop(event, ${idx})"
             ondragend="handleStripDragEnd(event)"
-            class="stripboard-row strip-item-print bg-resolve-panel/90 border border-amber-600/30 rounded-xl px-3 py-2 flex items-center justify-between text-xs border-l-4 border-l-amber-500 shadow-xs cursor-grab active:cursor-grabbing"
+            class="stripboard-row strip-item-print bg-resolve-panel/90 border border-sky-600/30 rounded-xl px-3 py-2 flex items-center justify-between text-xs border-l-4 border-l-sky-500 shadow-xs cursor-grab active:cursor-grabbing"
           >
             <div class="flex items-center gap-2.5 flex-1">
-              <span class="text-resolve-dimText hover:text-amber-400 cursor-grab active:cursor-grabbing no-print" title="Arrastrar para mover de posición">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-                </svg>
+              <span class="text-resolve-dimText hover:text-sky-400 cursor-grab active:cursor-grabbing no-print" title="Arrastrar para mover de posición">
+                ${icon('grip-vertical', 'w-[15px] h-[15px]')}
               </span>
-              <span class="text-[10px] text-amber-400 font-bold tracking-widest uppercase shrink-0">BANDA / CORTE:</span>
+              <span class="text-[10px] text-sky-400 font-bold tracking-widest uppercase shrink-0">BANDA / CORTE:</span>
               <input 
                 type="text" 
                 onmousedown="pauseRowDrag(this)"
@@ -513,11 +511,11 @@ export function renderStripboard() {
                 onblur="resumeRowDrag(this)"
                 value="${escapeHtml(strip.title || 'SEPARADOR DE TURNO')}" 
                 onchange="updateStripField(${idx}, 'title', this.value)" 
-                class="bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-amber-500 font-semibold text-white text-xs px-1 flex-1 focus:ring-0 cursor-text"
+                class="bg-transparent border-0 border-b border-transparent hover:border-resolve-border focus:border-sky-500 font-semibold text-white text-xs px-1 flex-1 focus:ring-0 cursor-text"
               />
             </div>
             <div class="flex items-center gap-1 no-print">
-              <button onclick="removeStrip(${idx})" title="Eliminar banda separadora" class="p-1 hover:text-red-400 text-resolve-dimText ml-1">✕</button>
+              <button onclick="removeStrip(${idx})" title="Eliminar banda separadora" class="p-1 hover:text-red-400 text-resolve-dimText ml-1 inline-flex items-center justify-center cursor-pointer">${icon('x', 'w-[15px] h-[15px]')}</button>
             </div>
           </div>
         `;
@@ -525,7 +523,7 @@ export function renderStripboard() {
 
       const ot = strip.otId ? orders.find(o => o.id === strip.otId) : null;
       let borderLeftColor = 'border-l-sky-500';
-      if (strip.shiftStatus === 'En Mesa') borderLeftColor = 'border-l-amber-500 bg-amber-500/[0.04]';
+      if (strip.shiftStatus === 'En Mesa') borderLeftColor = 'border-l-sky-500 bg-sky-500/[0.04]';
       else if (strip.shiftStatus === 'Entregado') borderLeftColor = 'border-l-emerald-500 opacity-80';
       else if (strip.shiftStatus === 'Detenido') borderLeftColor = 'border-l-rose-500 bg-rose-500/[0.04]';
 
@@ -547,10 +545,8 @@ export function renderStripboard() {
         >
           <!-- Col 1: Grip de arrastre + N° de secuencia -->
           <div class="col-span-1 flex items-center gap-1.5 text-[11px] text-resolve-dimText">
-            <span class="text-stone-500 group-hover:text-amber-400 transition-colors cursor-grab active:cursor-grabbing no-print" title="Arrastra la tira a cualquier posición del día">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M7 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm6-12a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0zm0 4a1 1 0 11-2 0 1 1 0 012 0z"/>
-              </svg>
+            <span class="text-stone-500 group-hover:text-sky-400 transition-colors cursor-grab active:cursor-grabbing no-print" title="Arrastra la tira a cualquier posición del día">
+              ${icon('grip-vertical', 'w-[15px] h-[15px]')}
             </span>
             <span class="font-bold text-stone-300">#${idx + 1}</span>
           </div>
@@ -565,7 +561,7 @@ export function renderStripboard() {
               value="${escapeHtml(strip.timeSlot || '')}" 
               onchange="updateStripField(${idx}, 'timeSlot', this.value)" 
               placeholder="08:30 - 10:30" 
-              class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-white font-bold text-xs font-mono focus:border-amber-500/60 focus:outline-none cursor-text"
+              class="w-full bg-black/40 border border-resolve-border rounded-lg px-2 py-1 text-white font-bold text-xs font-mono focus:border-sky-500/60 focus:outline-none cursor-text"
             />
           </div>
 
@@ -579,7 +575,7 @@ export function renderStripboard() {
                 onmouseup="resumeRowDrag(this)"
                 onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${strip.otId}' });" 
                 title="Abrir Sobre OT" 
-                class="px-2 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold text-xs font-mono truncate transition-all cursor-pointer"
+                class="px-2 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 font-bold text-xs font-mono truncate transition-all cursor-pointer"
               >
                 ${strip.otId}
               </button>
@@ -591,7 +587,7 @@ export function renderStripboard() {
                 onmouseup="resumeRowDrag(this)"
                 onclick="event.stopPropagation(); openCustomTaskModal(${idx}, '${state.currentStripboardDate}')" 
                 title="Editar Tarea Libre y Responsable" 
-                class="px-2 py-0.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs transition-colors cursor-pointer"
+                class="px-2 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-300 font-bold text-xs transition-colors cursor-pointer"
               >
                 LIBRE ✎
               </button>
@@ -612,7 +608,7 @@ export function renderStripboard() {
             class="col-span-2 truncate cursor-pointer group/client"
             title="${strip.otId ? 'Clic para abrir Sobre OT' : 'Clic para editar Tarea Libre'}"
           >
-            <div class="font-bold text-white group-hover/client:text-amber-400 truncate transition-colors">${escapeHtml(clientDisplay)}</div>
+            <div class="font-bold text-white group-hover/client:text-sky-400 truncate transition-colors">${escapeHtml(clientDisplay)}</div>
             <div class="text-[11px] text-resolve-dimText truncate">
               ${escapeHtml(brandDisplay)}${productDisplay ? ' • ' + escapeHtml(productDisplay) : ''}
             </div>
@@ -628,7 +624,7 @@ export function renderStripboard() {
               value="${escapeHtml(strip.task || '')}" 
               onchange="updateStripField(${idx}, 'task', this.value)" 
               placeholder="Instrucción de este turno de trabajo..." 
-              class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1 text-zinc-100 text-xs focus:border-amber-500/60 focus:outline-none cursor-text"
+              class="w-full bg-black/30 border border-resolve-border rounded-lg px-2.5 py-1 text-zinc-100 text-xs focus:border-sky-500/60 focus:outline-none cursor-text"
             />
           </div>
 
@@ -643,7 +639,7 @@ export function renderStripboard() {
               value="${escapeHtml(strip.assignee || getActiveUserShortName() || 'Usuario')}" 
               onchange="addResponsible(this.value); updateStripField(${idx}, 'assignee', this.value)" 
               placeholder="Responsable" 
-              class="w-full bg-black/30 border border-resolve-border rounded-lg px-1.5 py-1 text-cyan-300 font-semibold text-[11px] focus:border-amber-500/60 focus:outline-none text-center cursor-text"
+              class="w-full bg-black/30 border border-resolve-border rounded-lg px-1.5 py-1 text-cyan-300 font-semibold text-[11px] focus:border-sky-500/60 focus:outline-none text-center cursor-text"
             />
           </div>
 
@@ -664,9 +660,9 @@ export function renderStripboard() {
             <button 
               onclick="removeStrip(${idx})" 
               title="Quitar tira del plan" 
-              class="p-1 hover:text-red-400 text-resolve-dimText transition-colors no-print cursor-pointer"
+              class="p-1 hover:text-red-400 text-resolve-dimText transition-colors no-print cursor-pointer inline-flex items-center justify-center"
             >
-              ✕
+              ${icon('x', 'w-[15px] h-[15px]')}
             </button>
           </div>
         </div>
@@ -700,7 +696,7 @@ export function insertOtStripOnDate(otId, dateStr, positionIndex, customAssignee
     product: ot.product || '',
     timeSlot: nextSlot,
     task: lastRoute ? lastRoute.task : (ot.title || 'Desarrollo de piezas de campaña'),
-    assignee: customAssignee || ot.responsible || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
+    assignee: customAssignee || ot.sign || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
     shiftStatus: 'Por Iniciar'
   };
 
@@ -766,7 +762,7 @@ export function cycleStripStatusOnDate(dateStr, index) {
 
 export function autoPopulatePendingOts() {
   const orders = getOrders();
-  const activeOrders = orders.filter(o => !isOtTerminal(o.status) && isOrderInUserTray(o));
+  const activeOrders = orders.filter(o => !isOtTerminal(o.otStatus) && isOrderInUserTray(o));
   if (activeOrders.length === 0) {
     if (typeof window !== 'undefined') window.alert("No hay OTs activas en tu bandeja para planificar.");
     return;
@@ -792,7 +788,7 @@ export function autoPopulatePendingOts() {
         product: ot.product || '',
         timeSlot: assignedSlot,
         task: lastRoute ? lastRoute.task : (ot.title || 'Desarrollo'),
-        assignee: ot.responsible || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
+        assignee: ot.sign || (lastRoute ? (lastRoute.to || getActiveUserShortName() || 'Usuario') : (getActiveUserShortName() || 'Usuario')),
         shiftStatus: 'Por Iniciar'
       });
     }
@@ -1029,13 +1025,13 @@ export function getWeekMondayToSaturday(refDateStr) {
 
 export function handleWeekColDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+  e.currentTarget.classList.add('ring-1', 'ring-sky-500', 'bg-sky-950/10');
 }
 
 export function handleWeekColDragLeave(e) {
   const col = e.currentTarget;
   if (!col.contains(e.relatedTarget)) {
-    col.classList.remove('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+    col.classList.remove('ring-1', 'ring-sky-500', 'bg-sky-950/10');
   }
 }
 
@@ -1087,7 +1083,7 @@ export function renderStripboardWeekView() {
     const otCount = dayStrips.filter(s => s.type === 'ot').length;
 
     const headerHighlight = day.isSelected
-      ? 'bg-amber-950/40 border-b-2 border-b-amber-500'
+      ? 'bg-sky-950/40 border-b-2 border-b-sky-500'
       : (day.isToday ? 'bg-resolve-card border-b border-resolve-border' : 'bg-resolve-panel border-b border-resolve-border');
 
     const stripsHtml = dayStrips.length === 0 ? `
@@ -1105,10 +1101,10 @@ export function renderStripboardWeekView() {
             ondragleave="handleStripDragLeave(event)"
             ondrop="handleStripDrop(event, ${idx}, '${day.dateStr}')"
             ondragend="handleStripDragEnd(event)"
-            class="stripboard-row bg-resolve-panel border border-amber-600/40 border-l-4 border-l-amber-500 rounded px-2 py-1.5 text-[10px] text-amber-300 font-bold flex items-center justify-between gap-1 cursor-grab active:cursor-grabbing"
+            class="stripboard-row bg-resolve-panel border border-sky-600/40 border-l-4 border-l-sky-500 rounded px-2 py-1.5 text-[10px] text-sky-300 font-bold flex items-center justify-between gap-1 cursor-grab active:cursor-grabbing"
           >
             <span class="truncate">${escapeHtml(strip.title || 'CORTE / SEPARADOR')}</span>
-            <button onclick="removeStrip(${idx}, '${day.dateStr}')" class="text-stone-500 hover:text-red-400 shrink-0 cursor-pointer">✕</button>
+            <button onclick="removeStrip(${idx}, '${day.dateStr}')" class="text-stone-500 hover:text-red-400 shrink-0 cursor-pointer inline-flex items-center justify-center">${icon('x', 'w-3 h-3')}</button>
           </div>
         `;
       }
@@ -1117,8 +1113,8 @@ export function renderStripboardWeekView() {
       let borderLeft = 'border-l-blue-500';
       let statusBadge = 'text-stone-300 bg-resolve-bg border-resolve-border';
       if (strip.shiftStatus === 'En Mesa') {
-        borderLeft = 'border-l-amber-500 bg-amber-950/10';
-        statusBadge = 'text-amber-300 bg-amber-950/60 border-amber-700/60';
+        borderLeft = 'border-l-sky-500 bg-sky-950/10';
+        statusBadge = 'text-sky-300 bg-sky-950/60 border-sky-700/60';
       } else if (strip.shiftStatus === 'Entregado') {
         borderLeft = 'border-l-emerald-500 opacity-80';
         statusBadge = 'text-emerald-300 bg-emerald-950/60 border-emerald-700/60';
@@ -1151,7 +1147,7 @@ export function renderStripboardWeekView() {
                   onmousedown="pauseRowDrag(this); event.stopPropagation();"
                   onmouseup="resumeRowDrag(this)"
                   onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${strip.otId}' });"
-                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-amber-400 rounded text-amber-400 font-bold text-[10px] truncate cursor-pointer"
+                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-sky-400 rounded text-sky-400 font-bold text-[10px] truncate cursor-pointer"
                 >
                   ${strip.otId}
                 </button>
@@ -1162,10 +1158,10 @@ export function renderStripboardWeekView() {
                   onmousedown="pauseRowDrag(this); event.stopPropagation();"
                   onmouseup="resumeRowDrag(this)"
                   onclick="event.stopPropagation(); openCustomTaskModal(${idx}, '${day.dateStr}')"
-                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-amber-400 rounded text-amber-300 font-bold text-[10px] cursor-pointer"
+                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-sky-400 rounded text-sky-300 font-bold text-[10px] cursor-pointer inline-flex items-center gap-1"
                   title="Editar Tarea Libre y Responsable"
                 >
-                  LIBRE ✎
+                  <span>LIBRE</span> ${icon('pencil', 'w-3 h-3')}
                 </button>
               `}
             </div>
@@ -1179,12 +1175,12 @@ export function renderStripboardWeekView() {
                 onmouseup="resumeRowDrag(this)"
                 onclick="event.stopPropagation(); removeStrip(${idx}, '${day.dateStr}')"
                 title="Quitar tira"
-                class="text-stone-500 hover:text-red-400 text-[10px] cursor-pointer"
-              >✕</button>
+                class="text-stone-500 hover:text-red-400 text-[10px] cursor-pointer inline-flex items-center justify-center"
+              >${icon('x', 'w-3 h-3')}</button>
             </div>
           </div>
 
-          <div class="font-bold text-white hover:text-amber-400 text-[11px] truncate transition-colors" title="Clic para abrir Sobre OT • ${escapeHtml(clientDisplay)}">
+          <div class="font-bold text-white hover:text-sky-400 text-[11px] truncate transition-colors" title="Clic para abrir Sobre OT • ${escapeHtml(clientDisplay)}">
             ${escapeHtml(clientDisplay)} ${brandDisplay ? '<span class="text-resolve-dimText font-normal">• ' + escapeHtml(brandDisplay) + '</span>' : ''}
           </div>
 
@@ -1225,8 +1221,8 @@ export function renderStripboardWeekView() {
         >
           <div>
             <div class="flex items-center gap-1.5">
-              <span class="text-[11px] font-black tracking-wider ${day.isSelected ? 'text-amber-400' : 'text-white'}">${day.dayName}</span>
-              ${day.isToday ? '<span class="px-1 py-0.2 bg-amber-500 text-stone-950 font-black text-[8px] rounded uppercase">HOY</span>' : ''}
+              <span class="text-[11px] font-black tracking-wider ${day.isSelected ? 'text-sky-400' : 'text-white'}">${day.dayName}</span>
+              ${day.isToday ? '<span class="px-1 py-0.2 bg-sky-500 text-stone-950 font-black text-[8px] rounded uppercase">HOY</span>' : ''}
             </div>
             <div class="text-[10px] text-resolve-dimText font-bold">${day.shortDate}</div>
           </div>
@@ -1235,7 +1231,7 @@ export function renderStripboardWeekView() {
             <button
               onclick="event.stopPropagation(); selectStripboardDate('${day.dateStr}', true)"
               title="Abrir este día en vista detallada de Tiras"
-              class="px-1.5 py-0.5 rounded bg-resolve-bg hover:bg-resolve-card border border-resolve-border text-[9px] text-amber-400 font-bold cursor-pointer"
+              class="px-1.5 py-0.5 rounded bg-resolve-bg hover:bg-resolve-card border border-resolve-border text-[9px] text-sky-400 font-bold cursor-pointer"
             >
               Ver Día
             </button>
@@ -1309,7 +1305,7 @@ export function startGanttClipTrim(e, dateStr, stripIdx, edge) {
   if (!strip) return;
 
   clip.setAttribute('draggable', 'false');
-  clip.classList.add('ring-2', 'ring-amber-400', 'z-40', 'shadow-2xl');
+  clip.classList.add('ring-2', 'ring-sky-400', 'z-40', 'shadow-2xl');
 
   const { startMin: initialStart, endMin: initialEnd } = parseTimeSlotToMinutes(strip.timeSlot, stripIdx);
   let currentStart = initialStart;
@@ -1319,7 +1315,7 @@ export function startGanttClipTrim(e, dateStr, stripIdx, edge) {
   if (!hud) {
     hud = document.createElement('div');
     hud.id = 'gantt-trim-hud';
-    hud.className = 'fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-lg bg-stone-950/95 text-amber-300 font-mono text-[11px] font-bold border border-amber-500/50 shadow-2xl backdrop-blur-md flex items-center gap-2 select-none transition-opacity';
+    hud.className = 'fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-lg bg-stone-950/95 text-sky-300 font-mono text-[11px] font-bold border border-sky-500/50 shadow-2xl backdrop-blur-md flex items-center gap-2 select-none transition-opacity';
     document.body.appendChild(hud);
   }
   hud.style.display = 'flex';
@@ -1338,10 +1334,10 @@ export function startGanttClipTrim(e, dateStr, stripIdx, edge) {
     const durStr = formatDuration(currentStart, currentEnd);
     const delta = edge === 'left' ? (initialStart - currentStart) : (currentEnd - initialEnd);
     const deltaSign = delta > 0 ? `+${delta}m` : (delta < 0 ? `${delta}m` : '0m');
-    const deltaColor = delta > 0 ? 'text-emerald-400' : (delta < 0 ? 'text-amber-400' : 'text-zinc-400');
+    const deltaColor = delta > 0 ? 'text-emerald-400' : (delta < 0 ? 'text-sky-400' : 'text-zinc-400');
 
     hud.innerHTML = `
-      <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+      <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
       <span>${minutesToHHMM(currentStart)} – ${minutesToHHMM(currentEnd)}</span>
       <span class="text-zinc-400 font-sans text-[10px]">(${durStr})</span>
       <span class="${deltaColor} font-bold text-[11px]">${deltaSign}</span>
@@ -1385,7 +1381,7 @@ export function startGanttClipTrim(e, dateStr, stripIdx, edge) {
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
 
-    clip.classList.remove('ring-2', 'ring-amber-400', 'z-40', 'shadow-2xl');
+    clip.classList.remove('ring-2', 'ring-sky-400', 'z-40', 'shadow-2xl');
     clip.setAttribute('draggable', 'true');
 
     if (hud) {
@@ -1416,13 +1412,13 @@ export function classifyDepartmentTrack(assignee) {
 
 export function handleGanttTrackDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+  e.currentTarget.classList.add('ring-1', 'ring-sky-500', 'bg-sky-950/10');
 }
 
 export function handleGanttTrackDragLeave(e) {
   const lane = e.currentTarget;
   if (!lane.contains(e.relatedTarget)) {
-    lane.classList.remove('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+    lane.classList.remove('ring-1', 'ring-sky-500', 'bg-sky-950/10');
   }
 }
 
@@ -1472,7 +1468,7 @@ export function renderStripboardGanttView() {
 
   const tracks = [
     { label: 'Cuentas & Contacto', defaultAssignee: 'Cuentas', color: 'border-cyan-500 bg-cyan-950/50 text-cyan-200' },
-    { label: 'Dirección Creativa & Creativos', defaultAssignee: 'Creativos', color: 'border-amber-500 bg-amber-950/50 text-amber-200' },
+    { label: 'Dirección Creativa & Creativos', defaultAssignee: 'Creativos', color: 'border-sky-500 bg-sky-950/50 text-sky-200' },
     { label: 'Redacción / Copy', defaultAssignee: 'Redacción / Copy', color: 'border-yellow-500 bg-yellow-950/50 text-yellow-200' },
     { label: 'Dirección de Arte', defaultAssignee: 'Dirección de Arte', color: 'border-purple-500 bg-purple-950/50 text-purple-200' },
     { label: 'Producción & Artes Finales', defaultAssignee: 'Producción Audiovisual', color: 'border-emerald-500 bg-emerald-950/50 text-emerald-200' },
@@ -1510,17 +1506,17 @@ export function renderStripboardGanttView() {
           ondragend="handleStripDragEnd(event)"
           onclick="handleStripCardClick(event, '${strip.otId || ''}', ${idx}, '${state.currentStripboardDate}')"
           style="left: ${leftPct.toFixed(2)}%; width: ${widthPct.toFixed(2)}%;"
-          class="gantt-clip stripboard-row absolute top-1.5 bottom-1.5 rounded-md border-l-4 ${track.color} border border-resolve-border hover:border-amber-400/80 px-2.5 py-1 flex flex-col justify-between overflow-hidden shadow-md cursor-pointer hover:z-20 transition-[border-color,background-color] group/clip select-none"
+          class="gantt-clip stripboard-row absolute top-1.5 bottom-1.5 rounded-md border-l-4 ${track.color} border border-resolve-border hover:border-sky-400/80 px-2.5 py-1 flex flex-col justify-between overflow-hidden shadow-md cursor-pointer hover:z-20 transition-[border-color,background-color] group/clip select-none"
           title="${strip.otId ? 'Clic para abrir Sobre ' + escapeHtml(strip.otId) : 'Clic para editar Tarea Libre'} • ${escapeHtml(strip.timeSlot || '')} • ${escapeHtml(strip.task || '')}"
         >
           <!-- DaVinci Trim Handle Izquierda (In-Point / Head) -->
           <div
-            class="gantt-trim-handle gantt-trim-left absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize flex items-center justify-center opacity-0 group-hover/clip:opacity-100 hover:!opacity-100 hover:bg-amber-400/30 active:bg-amber-400/50 transition-all rounded-l"
+            class="gantt-trim-handle gantt-trim-left absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize flex items-center justify-center opacity-0 group-hover/clip:opacity-100 hover:!opacity-100 hover:bg-sky-400/30 active:bg-sky-400/50 transition-all rounded-l"
             title="Arrastrar para recortar/expandir inicio (DaVinci Trim Head)"
             onmousedown="startGanttClipTrim(event, '${state.currentStripboardDate}', ${idx}, 'left')"
             onclick="event.stopPropagation()"
           >
-            <div class="w-[2px] h-3.5 bg-amber-400/90 rounded-full shadow-[0_0_4px_rgba(245,158,11,0.6)] pointer-events-none"></div>
+            <div class="w-[2px] h-3.5 bg-sky-400/90 rounded-full shadow-[0_0_4px_rgba(245,158,11,0.6)] pointer-events-none"></div>
           </div>
 
           <div class="flex items-center justify-between gap-1 text-[10px]">
@@ -1532,7 +1528,7 @@ export function renderStripboardGanttView() {
                   onmousedown="pauseRowDrag(this); event.stopPropagation();"
                   onmouseup="resumeRowDrag(this)"
                   onclick="event.stopPropagation(); emit('modal:open-envelope', { otId: '${strip.otId}' });"
-                  class="font-black text-amber-400 hover:text-white underline truncate cursor-pointer font-mono"
+                  class="font-black text-sky-400 hover:text-white underline truncate cursor-pointer font-mono"
                 >
                   ${strip.otId}
                 </button>
@@ -1543,7 +1539,7 @@ export function renderStripboardGanttView() {
                   onmousedown="pauseRowDrag(this); event.stopPropagation();"
                   onmouseup="resumeRowDrag(this)"
                   onclick="event.stopPropagation(); openCustomTaskModal(${idx}, '${state.currentStripboardDate}')"
-                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-amber-400 rounded text-amber-300 font-bold text-[9px] cursor-pointer"
+                  class="px-1.5 py-0.2 bg-resolve-panel hover:bg-resolve-border border border-resolve-border hover:border-sky-400 rounded text-sky-300 font-bold text-[9px] cursor-pointer"
                   title="Editar Tarea Libre y Responsable"
                 >
                   LIBRE ✎
@@ -1584,12 +1580,12 @@ export function renderStripboardGanttView() {
 
           <!-- DaVinci Trim Handle Derecha (Out-Point / Tail) -->
           <div
-            class="gantt-trim-handle gantt-trim-right absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize flex items-center justify-center opacity-0 group-hover/clip:opacity-100 hover:!opacity-100 hover:bg-amber-400/30 active:bg-amber-400/50 transition-all rounded-r"
+            class="gantt-trim-handle gantt-trim-right absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize flex items-center justify-center opacity-0 group-hover/clip:opacity-100 hover:!opacity-100 hover:bg-sky-400/30 active:bg-sky-400/50 transition-all rounded-r"
             title="Arrastrar para expandir/contraer fin (DaVinci Trim Tail)"
             onmousedown="startGanttClipTrim(event, '${state.currentStripboardDate}', ${idx}, 'right')"
             onclick="event.stopPropagation()"
           >
-            <div class="w-[2px] h-3.5 bg-amber-400/90 rounded-full shadow-[0_0_4px_rgba(245,158,11,0.6)] pointer-events-none"></div>
+            <div class="w-[2px] h-3.5 bg-sky-400/90 rounded-full shadow-[0_0_4px_rgba(245,158,11,0.6)] pointer-events-none"></div>
           </div>
         </div>
       `;
@@ -1602,7 +1598,7 @@ export function renderStripboardGanttView() {
         <div class="w-52 shrink-0 bg-resolve-panel border-r border-resolve-border p-2.5 flex flex-col justify-between">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold text-white leading-tight">${track.label}</span>
-            <span class="text-[10px] px-1.5 py-0.2 rounded bg-resolve-bg border border-resolve-border text-amber-400 font-bold">${trackStrips.length}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded bg-resolve-bg border border-resolve-border text-sky-400 font-bold">${trackStrips.length}</span>
           </div>
           <div class="text-[9px] text-resolve-dimText uppercase tracking-wider">Pista de Departamento</div>
         </div>
@@ -1671,13 +1667,13 @@ export function extractCommitmentsByDate() {
 
 export function handleMonthCellDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+  e.currentTarget.classList.add('ring-1', 'ring-sky-500', 'bg-sky-950/10');
 }
 
 export function handleMonthCellDragLeave(e) {
   const cell = e.currentTarget;
   if (!cell.contains(e.relatedTarget)) {
-    cell.classList.remove('ring-1', 'ring-amber-500', 'bg-amber-950/10');
+    cell.classList.remove('ring-1', 'ring-sky-500', 'bg-sky-950/10');
   }
 }
 
@@ -1756,10 +1752,10 @@ export function renderStripboardMonthView() {
     const stripsHtml = dayStrips.slice(0, 3).map(st => `
       <div
         onclick="event.stopPropagation(); ${st.otId ? `emit('modal:open-envelope', { otId: '${st.otId}' });` : `selectStripboardDate('${dateStr}', true)`}"
-        class="px-1.5 py-0.5 rounded bg-resolve-panel border border-resolve-border text-stone-200 text-[9px] truncate cursor-pointer hover:border-amber-500/60"
+        class="px-1.5 py-0.5 rounded bg-resolve-panel border border-resolve-border text-stone-200 text-[9px] truncate cursor-pointer hover:border-sky-500/60"
         title="Tira en Plan: ${escapeHtml(st.otId || 'LIBRE')} • ${escapeHtml(st.timeSlot || '')} • ${escapeHtml(st.task || '')}"
       >
-        <span class="text-amber-400 font-bold">${escapeHtml(st.otId || 'TIRA')}</span> ${escapeHtml(st.client || '')}
+        <span class="text-sky-400 font-bold">${escapeHtml(st.otId || 'TIRA')}</span> ${escapeHtml(st.client || '')}
       </div>
     `).join('');
 
@@ -1772,18 +1768,18 @@ export function renderStripboardMonthView() {
         ondragover="handleMonthCellDragOver(event)"
         ondragleave="handleMonthCellDragLeave(event)"
         ondrop="handleMonthCellDrop(event, '${dateStr}')"
-        class="month-day-cell min-h-[115px] p-2 flex flex-col justify-between transition-colors cursor-pointer ${inCurrentMonth ? 'bg-resolve-bg hover:bg-resolve-surface/60' : 'bg-resolve-bg/40 opacity-45'} ${isSelected ? 'ring-1 ring-inset ring-amber-500 bg-amber-950/10' : ''}"
+        class="month-day-cell min-h-[115px] p-2 flex flex-col justify-between transition-colors cursor-pointer ${inCurrentMonth ? 'bg-resolve-bg hover:bg-resolve-surface/60' : 'bg-resolve-bg/40 opacity-45'} ${isSelected ? 'ring-1 ring-inset ring-sky-500 bg-sky-950/10' : ''}"
       >
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <div class="flex items-center gap-1">
-              <span class="text-xs font-black ${isToday ? 'px-1.5 py-0.2 rounded bg-amber-500 text-stone-950' : (isSelected ? 'text-amber-400' : 'text-white')}">
+              <span class="text-xs font-black ${isToday ? 'px-1.5 py-0.2 rounded bg-sky-500 text-stone-950' : (isSelected ? 'text-sky-400' : 'text-white')}">
                 ${String(d.getDate()).padStart(2, '0')}
               </span>
               ${deliveries.length > 0 ? `<span class="px-1 py-0.2 rounded bg-red-950 text-red-400 border border-red-800 text-[8px] font-bold">${deliveries.length} ENT</span>` : ''}
             </div>
             <div class="flex items-center gap-1">
-              ${dayStrips.length > 0 ? `<span class="text-[9px] text-amber-400 font-bold">${dayStrips.length} tiras</span>` : ''}
+              ${dayStrips.length > 0 ? `<span class="text-[9px] text-sky-400 font-bold">${dayStrips.length} tiras</span>` : ''}
               <button
                 onclick="event.stopPropagation(); selectStripboardDate('${dateStr}', true)"
                 title="Abrir plan de este día"
@@ -1847,7 +1843,7 @@ export function openCustomTaskModal(index, dateStr) {
       <button 
         type="button" 
         onclick="promptNewResponsible()" 
-        class="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
+        class="px-2 py-0.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-semibold transition-colors cursor-pointer"
         title="Crear un nuevo responsable"
       >
         + Nuevo

@@ -125,8 +125,9 @@ export function initDatabaseAndSeed() {
       product TEXT NOT NULL DEFAULT '',
       title TEXT NOT NULL,
       media TEXT NOT NULL DEFAULT '',
-      status TEXT NOT NULL DEFAULT 'En Redacción',
-      responsible TEXT NOT NULL DEFAULT '',
+      responsible_dept TEXT NOT NULL DEFAULT 'Tráfico',
+      ot_status TEXT NOT NULL DEFAULT 'Abierta',
+      sign TEXT NOT NULL DEFAULT '',
       urgent INTEGER NOT NULL DEFAULT 0,
       brief TEXT NOT NULL DEFAULT '',
       legal_text TEXT NOT NULL DEFAULT '',
@@ -147,7 +148,8 @@ export function initDatabaseAndSeed() {
       sign TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       stamp TEXT,
-      completed INTEGER NOT NULL DEFAULT 0,
+      locked INTEGER NOT NULL DEFAULT 0,
+      created_by_user_id TEXT,
       created_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS media_files (
@@ -247,11 +249,77 @@ export function initDatabaseAndSeed() {
   safeAlter("ALTER TABLE statuses ADD COLUMN organization_id TEXT");
   safeAlter("ALTER TABLE work_orders ADD COLUMN organization_id TEXT");
   safeAlter("ALTER TABLE work_orders ADD COLUMN parent_ot_id TEXT");
-  safeAlter("ALTER TABLE work_orders ADD COLUMN responsible TEXT DEFAULT ''");
+  try {
+    const woCols = sqlite.prepare("PRAGMA table_info(work_orders)").all() as Array<{ name: string }>;
+    const hasResponsible = woCols.some((c) => c.name === 'responsible');
+    const hasSign = woCols.some((c) => c.name === 'sign');
+    if (hasResponsible && !hasSign) {
+      sqlite.exec("ALTER TABLE work_orders RENAME COLUMN responsible TO sign");
+    } else if (!hasSign) {
+      safeAlter("ALTER TABLE work_orders ADD COLUMN sign TEXT DEFAULT ''");
+    }
+
+    const hasOldStatus = woCols.some((c) => c.name === 'status');
+    const hasResponsibleDept = woCols.some((c) => c.name === 'responsible_dept');
+    const hasOtStatus = woCols.some((c) => c.name === 'ot_status');
+    if (!hasResponsibleDept) {
+      safeAlter("ALTER TABLE work_orders ADD COLUMN responsible_dept TEXT NOT NULL DEFAULT 'Tráfico'");
+    }
+    if (!hasOtStatus) {
+      safeAlter("ALTER TABLE work_orders ADD COLUMN ot_status TEXT NOT NULL DEFAULT 'Abierta'");
+    }
+    if (hasOldStatus && (!hasResponsibleDept || !hasOtStatus)) {
+      sqlite.exec(`
+        UPDATE work_orders
+        SET ot_status = status,
+            responsible_dept = COALESCE(
+              (SELECT to_dept FROM route_entries WHERE ot_id = work_orders.id ORDER BY line_number DESC, id DESC LIMIT 1),
+              'Tráfico'
+            )
+        WHERE status IN ('Cerrado', 'Cancelado', 'Archivada', 'Aprobado');
+      `);
+      sqlite.exec(`
+        UPDATE work_orders
+        SET responsible_dept = CASE WHEN trim(COALESCE(status, '')) != '' THEN status ELSE 'Tráfico' END,
+            ot_status = 'Abierta'
+        WHERE status NOT IN ('Cerrado', 'Cancelado', 'Archivada', 'Aprobado') OR status IS NULL;
+      `);
+      safeAlter("ALTER TABLE work_orders DROP COLUMN status");
+    }
+  } catch (err) {
+    console.warn('Error migrando work_orders:', err);
+  }
   safeAlter("ALTER TABLE work_orders ADD COLUMN reopen_reason TEXT");
   safeAlter("ALTER TABLE route_entries ADD COLUMN organization_id TEXT");
   safeAlter("ALTER TABLE route_entries ADD COLUMN sign TEXT DEFAULT ''");
   safeAlter("ALTER TABLE route_entries ADD COLUMN notes TEXT DEFAULT ''");
+  try {
+    const reCols = sqlite.prepare("PRAGMA table_info(route_entries)").all() as Array<{ name: string }>;
+    const hasCompleted = reCols.some((c) => c.name === 'completed');
+    const hasLocked = reCols.some((c) => c.name === 'locked');
+    if (hasCompleted && !hasLocked) {
+      sqlite.exec("ALTER TABLE route_entries RENAME COLUMN completed TO locked");
+    } else if (!hasLocked) {
+      safeAlter("ALTER TABLE route_entries ADD COLUMN locked INTEGER NOT NULL DEFAULT 0");
+    }
+    safeAlter("ALTER TABLE route_entries ADD COLUMN created_by_user_id TEXT");
+    sqlite.exec(`
+      UPDATE route_entries
+      SET locked = 1
+      WHERE id NOT IN (
+        SELECT r1.id
+        FROM route_entries r1
+        WHERE r1.line_number = (
+          SELECT MAX(r2.line_number) FROM route_entries r2 WHERE r2.ot_id = r1.ot_id
+        )
+        AND r1.id = (
+          SELECT MAX(r3.id) FROM route_entries r3 WHERE r3.ot_id = r1.ot_id AND r3.line_number = r1.line_number
+        )
+      );
+    `);
+  } catch (err) {
+    console.warn('Error migrando route_entries:', err);
+  }
   safeAlter("ALTER TABLE media_files ADD COLUMN organization_id TEXT");
   safeAlter("ALTER TABLE media_files ADD COLUMN version_group_id TEXT");
   safeAlter("ALTER TABLE review_threads ADD COLUMN pin_color TEXT NOT NULL DEFAULT 'teal'");

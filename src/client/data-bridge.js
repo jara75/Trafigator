@@ -21,6 +21,7 @@ import {
   defaultStatuses,
   statusDescriptions,
   state,
+  isOtTerminal,
   getScopedStorageKey,
   clearScopedLocalCache,
   emit
@@ -60,8 +61,9 @@ export const defaultOrders = [
     title: "Comercial TV 20'' Lanzamiento Nueva Botella",
     media: "Televisión Abierta & Digital 20''",
     urgent: true,
-    status: "Tráfico",
-    responsible: "Andrés J.",
+    responsibleDept: "Tráfico",
+    otStatus: "Abierta",
+    sign: "Andrés J.",
     brief: "Campaña de posicionamiento de la nueva botella retornable. Tono sofisticado, noche entre amigos selectos.",
     legalText: "Prohibida su venta a menores de edad. Tomar bebidas alcohólicas en exceso es perjudicial.",
     mediaFiles: [
@@ -92,7 +94,7 @@ export const defaultOrders = [
         sign: "Andrés J.",
         notes: "Prioridad alta por pauta en TV",
         stamp: "RECIBIDO",
-        completed: false
+        locked: true
       },
       {
         from: "Creativos",
@@ -103,7 +105,7 @@ export const defaultOrders = [
         sign: "Andrés J.",
         notes: "Listos para aprobación del cliente",
         stamp: "ENTREGADO",
-        completed: true
+        locked: true
       }
     ]
   },
@@ -117,8 +119,9 @@ export const defaultOrders = [
     title: "Doble Página Prensa Dominical",
     media: "Prensa Nacional 2 Páginas",
     urgent: false,
-    status: "Desarrollo",
-    responsible: "Andrés J.",
+    responsibleDept: "Desarrollo",
+    otStatus: "Abierta",
+    sign: "Andrés J.",
     brief: "Tasa preferencial vivienda sostenible.",
     legalText: "Sujeto a estudio de crédito y políticas de la entidad.",
     mediaFiles: [],
@@ -132,7 +135,7 @@ export const defaultOrders = [
         sign: "Andrés J.",
         notes: "Pendiente confirmación de fecha de publicación",
         stamp: "APROBADO",
-        completed: true
+        locked: true
       }
     ]
   }
@@ -411,11 +414,11 @@ export async function saveUserProfile(profileData) {
     }
     writeLocal(RESPONSIBLES_STORAGE_KEY, responsiblesCache);
 
-    // 2. ordersCache (campo responsible y routes[].sign)
+    // 2. ordersCache (campo sign y routes[].sign)
     let ordersModified = false;
     ordersCache.forEach(order => {
-      if (order.responsible === oldShortName) {
-        order.responsible = newShortName;
+      if (order.sign === oldShortName) {
+        order.sign = newShortName;
         ordersModified = true;
       }
       if (Array.isArray(order.routes)) {
@@ -1006,8 +1009,11 @@ export function renameStatus(statusId, newName) {
     st.name = newName.trim();
     // Actualizar las órdenes que tenían el estado anterior
     ordersCache.forEach(ot => {
-      if (ot.status === oldName) {
-        ot.status = st.name;
+      if (ot.responsibleDept === oldName) {
+        ot.responsibleDept = st.name;
+      }
+      if (ot.otStatus === oldName) {
+        ot.otStatus = st.name;
       }
     });
     saveStatuses(statusesCache);
@@ -1045,31 +1051,39 @@ export function getActiveRoute(ot) {
     const fallbackResp = getActiveUserShortName() || 'Usuario';
     ot.routes = [{
       from: 'Tráfico',
-      to: ot.responsible || fallbackResp,
+      to: ot.sign || fallbackResp,
       task: ot.title || ot.description || '',
       entryDate: ot.createdAt || getNowFormatted(),
       deliveryDate: '',
-      sign: ot.responsible || fallbackResp,
+      sign: ot.sign || fallbackResp,
       notes: '',
       stamp: null,
-      completed: false
+      locked: false,
+      createdByUserId: state.currentUser?.id || null
     }];
     return ot.routes[0];
   }
-  const pending = ot.routes.find(r => !r.completed);
-  return pending || ot.routes[ot.routes.length - 1];
+  const active = ot.routes.find(r => !r.locked);
+  return active || ot.routes[ot.routes.length - 1];
 }
 
-export function syncOtStatusAndRoute(otId, newStatus, { syncLatestRouteTo = true } = {}) {
+export function syncOtStatusAndRoute(otId, newStatus, { syncLatestRouteStatus = true } = {}) {
   if (!otId || !newStatus) return null;
   const ot = ordersCache.find(o => o.id === otId);
   if (!ot) return null;
 
-  ot.status = newStatus;
-  if (syncLatestRouteTo && Array.isArray(ot.routes) && ot.routes.length > 0) {
-    const activeRoute = ot.routes.find(r => !r.completed) || ot.routes[ot.routes.length - 1];
+  if (isOtTerminal(newStatus)) {
+    ot.otStatus = newStatus;
+  } else {
+    ot.responsibleDept = newStatus;
+    if (!ot.otStatus || isOtTerminal(ot.otStatus)) {
+      ot.otStatus = 'Abierta';
+    }
+  }
+  if (syncLatestRouteStatus && Array.isArray(ot.routes) && ot.routes.length > 0) {
+    const activeRoute = ot.routes.find(r => !r.locked) || ot.routes[ot.routes.length - 1];
     if (activeRoute) {
-      activeRoute.to = newStatus;
+      activeRoute.status = newStatus;
     }
   }
   saveOrders(ordersCache);
@@ -1125,8 +1139,9 @@ export async function createOt(otData = {}) {
     title: otData.title || otData.description || 'Nueva OT',
     media: otData.media || 'Digital',
     urgent: !!otData.urgent,
-    status: otData.status || 'Tráfico',
-    responsible: otData.responsible || activeShort || 'Usuario',
+    responsibleDept: otData.responsibleDept || (!isOtTerminal(otData.status) && otData.status ? otData.status : 'Tráfico'),
+    otStatus: otData.otStatus || (isOtTerminal(otData.status) ? otData.status : 'Abierta'),
+    sign: otData.sign || otData.responsible || activeShort || 'Usuario',
     brief: otData.brief || '',
     legalText: otData.legalText || '',
     deliveryDate: otData.deliveryDate || '',
@@ -1137,10 +1152,11 @@ export async function createOt(otData = {}) {
         task: otData.title || otData.description || 'Recepción inicial de OT',
         entryDate: getNowFormatted(),
         deliveryDate: otData.deliveryDate || '',
-        sign: otData.responsible || activeShort || 'Usuario',
+        sign: otData.sign || otData.responsible || activeShort || 'Usuario',
         notes: '',
         stamp: 'RECIBIDO',
-        completed: false
+        locked: false,
+        createdByUserId: state.currentUser?.id || null
       }
     ]
   };

@@ -763,10 +763,14 @@ publicReviewRoutes.post('/:token/decision', async (c) => {
       .get(lookup.order.id) as { max_line: number };
     const nextLine = (maxLineRow?.max_line || 0) + 1;
 
+    sqlite
+      .prepare('UPDATE route_entries SET locked = 1 WHERE ot_id = ?')
+      .run(lookup.order.id);
+
     const routeRes = sqlite
       .prepare(
-        `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, completed, created_at)
-         VALUES (?, ?, ?, 'Cliente', ?, ?, ?, '', ?, ?, ?, ?, ?)`
+        `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id, created_at)
+         VALUES (?, ?, ?, 'Cliente', ?, ?, ?, '', ?, ?, ?, ?, ?, ?)`
       )
       .run(
         orgId,
@@ -779,12 +783,19 @@ publicReviewRoutes.post('/:token/decision', async (c) => {
         summary,
         stamp,
         isApproved ? 1 : 0,
+        author.authorUserId || null,
         nowIso
       );
 
-    sqlite
-      .prepare('UPDATE work_orders SET status = ?, updated_at = ? WHERE id = ?')
-      .run(nextOrderStatus, nowIso, lookup.order.id);
+    if (nextOrderStatus === 'Aprobado') {
+      sqlite
+        .prepare('UPDATE work_orders SET ot_status = ?, updated_at = ? WHERE id = ?')
+        .run('Aprobado', nowIso, lookup.order.id);
+    } else {
+      sqlite
+        .prepare("UPDATE work_orders SET responsible_dept = ?, ot_status = 'Abierta', updated_at = ? WHERE id = ?")
+        .run(nextOrderStatus, nowIso, lookup.order.id);
+    }
 
     return Number(routeRes.lastInsertRowid);
   });
@@ -811,7 +822,7 @@ publicReviewRoutes.post('/:token/decision', async (c) => {
       sign: author.authorName,
       notes: summary,
       stamp,
-      completed: isApproved,
+      locked: isApproved,
     },
   });
 });

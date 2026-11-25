@@ -180,6 +180,8 @@ export const state = {
   filterUrgentOnly: false,              // true para filtrar solo OTs marcadas como urgentes
   hideTreeBadges: typeof localStorage !== 'undefined' ? (localStorage.getItem('resolve_hide_tree_badges') === 'true') : false,
   activeOtId: null,
+  activeEnvelopeRootId: null,
+  activeEnvelopeTaskId: null,
   activeOtTab: 'route',                 // 'route' | 'media' | 'specs'
   activeCustomTaskIndex: null,
   activeCustomTaskDate: null,

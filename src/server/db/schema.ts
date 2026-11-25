@@ -117,8 +117,9 @@ export const workOrders = sqliteTable('work_orders', {
   product: text('product').notNull().default(''),
   title: text('title').notNull(),
   media: text('media').notNull().default(''),
-  status: text('status').notNull().default('En Redacción'),
-  responsible: text('responsible').notNull().default(''),
+  responsibleDept: text('responsible_dept').notNull().default('Tráfico'),
+  otStatus: text('ot_status').notNull().default('Abierta'),
+  sign: text('sign').notNull().default(''),
   urgent: integer('urgent', { mode: 'boolean' }).notNull().default(false),
   brief: text('brief').notNull().default(''),
   legalText: text('legal_text').notNull().default(''),
@@ -140,7 +141,8 @@ export const routeEntries = sqliteTable('route_entries', {
   sign: text('sign').default(''),
   notes: text('notes').default(''),
   stamp: text('stamp'),
-  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  locked: integer('locked', { mode: 'boolean' }).notNull().default(false),
+  createdByUserId: text('created_by_user_id'),
   createdAt: text('created_at').notNull(),
 });
 

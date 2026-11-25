@@ -314,6 +314,12 @@ function parseUserDepartments(raw: unknown): string[] {
   return [];
 }
 
+const TERMINAL_OT_STATUSES = ['Cerrado', 'Cancelado', 'Archivada', 'Aprobado'] as const;
+
+function isTerminalOtStatus(val: unknown): boolean {
+  return typeof val === 'string' && (TERMINAL_OT_STATUSES as readonly string[]).includes(val.trim());
+}
+
 function isOrderAuthorizedForUser(params: {
   organizationId: string;
   memberRole: 'owner' | 'member' | 'client';
@@ -321,10 +327,10 @@ function isOrderAuthorizedForUser(params: {
   userDepts: string[];
   userIdentifiers: string[];
   clientName?: string | null;
-  responsible?: string | null;
+  sign?: string | null;
   routes?: Array<{ from?: string; to?: string; fromDept?: string; toDept?: string; sign?: string }>;
 }): boolean {
-  const { organizationId, memberRole, allowedClientId, userDepts, userIdentifiers, clientName, responsible, routes } = params;
+  const { organizationId, memberRole, allowedClientId, userDepts, userIdentifiers, clientName, sign, routes } = params;
   if (memberRole === 'owner') return true;
 
   const allowedName = resolveAllowedClientName(organizationId, allowedClientId);
@@ -339,8 +345,8 @@ function isOrderAuthorizedForUser(params: {
   if (allowedClientId === '*') return true;
   if (allowedName && otClient === allowedName.trim().toLowerCase()) return true;
 
-  const respLower = (responsible || '').trim().toLowerCase();
-  if (respLower && userIdentifiers.includes(respLower)) return true;
+  const signLower = (sign || '').trim().toLowerCase();
+  if (signLower && userIdentifiers.includes(signLower)) return true;
 
   if (Array.isArray(routes)) {
     for (const r of routes) {
@@ -495,10 +501,18 @@ app.get('/api/studio/bootstrap', async (c) => {
 
   const ordersHydratedAll = studioOrders.map((ot) => ({
     ...ot,
-    responsible: (ot as any).responsible || '',
+    responsibleDept: (ot as any).responsibleDept || 'Tráfico',
+    otStatus: (ot as any).otStatus || 'Abierta',
+    sign: (ot as any).sign || '',
     urgent: Boolean(ot.urgent),
     routes: studioRoutes
-      .filter((r) => r.otId === ot.id)
+      .filter((r) => {
+        if (r.otId !== ot.id) return false;
+        const hasSign = Boolean(String((r as any).sign || '').trim());
+        if (hasSign) return true;
+        const creatorId = (r as any).createdByUserId || null;
+        return !creatorId || creatorId === user.id;
+      })
       .sort((a, b) => a.lineNumber - b.lineNumber)
       .map((r) => ({
         id: r.id,
@@ -510,7 +524,8 @@ app.get('/api/studio/bootstrap', async (c) => {
         sign: (r as any).sign || '',
         notes: (r as any).notes || '',
         stamp: r.stamp,
-        completed: Boolean(r.completed),
+        locked: Boolean((r as any).locked),
+        createdByUserId: (r as any).createdByUserId || null,
       })),
     mediaFiles: studioMedia.filter((m) => m.otId === ot.id),
   }));
@@ -523,7 +538,7 @@ app.get('/api/studio/bootstrap', async (c) => {
       userDepts,
       userIdentifiers,
       clientName: ot.client,
-      responsible: ot.responsible,
+      sign: ot.sign,
       routes: ot.routes,
     })
   );
@@ -622,7 +637,7 @@ app.post('/api/studio/orders', async (c) => {
         userDepts,
         userIdentifiers,
         clientName: parentOt.client,
-        responsible: parentOt.responsible,
+        sign: parentOt.sign,
         routes: parentRoutes.map((r) => ({ fromDept: r.from_dept, toDept: r.to_dept, sign: r.sign })),
       });
       if (!authorized) {
@@ -679,16 +694,23 @@ app.post('/api/studio/orders', async (c) => {
     const discipline = typeof body.discipline === 'string' && body.discipline.trim() ? body.discipline.trim() : 'advertising';
     const title = typeof body.title === 'string' ? body.title.trim() : 'Nueva Orden de Trabajo';
     const media = typeof body.media === 'string' ? body.media.trim() : '';
-    const status = typeof body.status === 'string' && body.status.trim() ? body.status.trim() : 'Tráfico';
-    const responsible = typeof body.responsible === 'string' ? body.responsible.trim() : (dbUser?.short_name || user?.name || '');
+    const legacyStatus = typeof body.status === 'string' && body.status.trim() ? body.status.trim() : '';
+    const responsibleDept = typeof body.responsibleDept === 'string' && body.responsibleDept.trim()
+      ? body.responsibleDept.trim()
+      : (legacyStatus && !isTerminalOtStatus(legacyStatus) ? legacyStatus : 'Tráfico');
+    const otStatus = typeof body.otStatus === 'string' && body.otStatus.trim()
+      ? body.otStatus.trim()
+      : (isTerminalOtStatus(legacyStatus) ? legacyStatus : 'Abierta');
+    const rawSign = typeof body.sign === 'string' ? body.sign : (typeof body.responsible === 'string' ? body.responsible : '');
+    const sign = rawSign.trim() || (dbUser?.short_name || user?.name || '');
     const urgent = body.urgent ? 1 : 0;
     const brief = typeof body.brief === 'string' ? body.brief : '';
     const legalText = typeof body.legalText === 'string' ? body.legalText : '';
 
     sqlite
       .prepare(
-        `INSERT INTO work_orders (id, organization_id, parent_ot_id, ref, discipline, client, brand, product, title, media, status, responsible, urgent, brief, legal_text, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO work_orders (id, organization_id, parent_ot_id, ref, discipline, client, brand, product, title, media, responsible_dept, ot_status, sign, urgent, brief, legal_text, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         newId,
@@ -701,8 +723,9 @@ app.post('/api/studio/orders', async (c) => {
         resolvedProduct,
         title,
         media,
-        status,
-        responsible,
+        responsibleDept,
+        otStatus,
+        sign,
         urgent,
         brief,
         legalText,
@@ -721,16 +744,20 @@ app.post('/api/studio/orders', async (c) => {
             deliveryDate: typeof body.deliveryDate === 'string' ? body.deliveryDate : '',
             sign: '',
             notes: '',
-            completed: false,
+            locked: false,
+            createdByUserId: user?.id || null,
           },
         ];
 
     const insRoute = sqlite.prepare(
-      `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, completed, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
 
     const createdRoutes = rawRoutes.map((r: any, idx: number) => {
+      const isBeforeLast = idx < rawRoutes.length - 1;
+      const isLocked = isBeforeLast ? true : Boolean(r.locked ?? r.completed);
+      const createdByUserId = r.createdByUserId || user?.id || null;
       const info = insRoute.run(
         organizationId,
         newId,
@@ -743,7 +770,8 @@ app.post('/api/studio/orders', async (c) => {
         r.sign || '',
         r.notes || '',
         r.stamp || null,
-        r.completed ? 1 : 0,
+        isLocked ? 1 : 0,
+        createdByUserId,
         now
       );
       return {
@@ -756,7 +784,8 @@ app.post('/api/studio/orders', async (c) => {
         sign: r.sign || '',
         notes: r.notes || '',
         stamp: r.stamp || null,
-        completed: Boolean(r.completed),
+        locked: isLocked,
+        createdByUserId,
       };
     });
 
@@ -772,8 +801,9 @@ app.post('/api/studio/orders', async (c) => {
         product: resolvedProduct,
         title,
         media,
-        status,
-        responsible,
+        responsibleDept,
+        otStatus,
+        sign,
         urgent: Boolean(urgent),
         brief,
         legalText,
@@ -818,8 +848,8 @@ app.post('/api/studio/sync', async (c) => {
     for (const ot of body.orders) {
       if (!ot || !ot.id) continue;
       const existingOt = sqlite
-        .prepare('SELECT id, organization_id, client, responsible FROM work_orders WHERE id = ?')
-        .get(String(ot.id)) as { id: string; organization_id: string | null; client: string; responsible: string } | undefined;
+        .prepare('SELECT id, organization_id, client, sign FROM work_orders WHERE id = ?')
+        .get(String(ot.id)) as { id: string; organization_id: string | null; client: string; sign: string } | undefined;
 
       if (existingOt && existingOt.organization_id && existingOt.organization_id !== organizationId) {
         return c.json({ ok: false, error: 'forbidden', message: `Orden ${ot.id} pertenece a otro estudio.` }, 403);
@@ -838,7 +868,7 @@ app.post('/api/studio/sync', async (c) => {
         userDepts,
         userIdentifiers,
         clientName: existingOt?.client || ot.client,
-        responsible: existingOt?.responsible || ot.responsible,
+        sign: existingOt?.sign || ot.sign || ot.responsible,
         routes: existingRoutes.length > 0
           ? existingRoutes.map((r) => ({ fromDept: r.from_dept, toDept: r.to_dept, sign: r.sign }))
           : (Array.isArray(ot.routes) ? ot.routes : []),
@@ -880,8 +910,8 @@ app.post('/api/studio/sync', async (c) => {
 
     if (Array.isArray(body.orders)) {
       const insOrder = sqlite.prepare(`
-        INSERT INTO work_orders (id, organization_id, parent_ot_id, ref, discipline, client, brand, product, title, media, status, responsible, urgent, brief, legal_text, reopen_reason, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO work_orders (id, organization_id, parent_ot_id, ref, discipline, client, brand, product, title, media, responsible_dept, ot_status, sign, urgent, brief, legal_text, reopen_reason, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           parent_ot_id = COALESCE(excluded.parent_ot_id, work_orders.parent_ot_id),
           ref = excluded.ref,
@@ -891,8 +921,9 @@ app.post('/api/studio/sync', async (c) => {
           product = excluded.product,
           title = excluded.title,
           media = excluded.media,
-          status = excluded.status,
-          responsible = excluded.responsible,
+          responsible_dept = excluded.responsible_dept,
+          ot_status = excluded.ot_status,
+          sign = excluded.sign,
           urgent = excluded.urgent,
           brief = excluded.brief,
           legal_text = excluded.legal_text,
@@ -900,8 +931,8 @@ app.post('/api/studio/sync', async (c) => {
           updated_at = excluded.updated_at
       `);
       const insRoute = sqlite.prepare(`
-        INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, completed, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       const insMedia = sqlite.prepare(`
         INSERT INTO media_files (id, organization_id, ot_id, route_entry_id, name, type, ext, size, date, url, preview_url, preview_kind, content, version_group_id, version_number, review_status)
@@ -927,13 +958,15 @@ app.post('/api/studio/sync', async (c) => {
         if (!ot || !ot.id) continue;
 
         const existingOtRow = sqlite
-          .prepare('SELECT status, reopen_reason FROM work_orders WHERE id = ? AND organization_id = ?')
-          .get(ot.id, organizationId) as { status?: string; reopen_reason?: string | null } | undefined;
+          .prepare('SELECT responsible_dept, ot_status, reopen_reason FROM work_orders WHERE id = ? AND organization_id = ?')
+          .get(ot.id, organizationId) as { responsible_dept?: string; ot_status?: string; reopen_reason?: string | null } | undefined;
 
-        const effectiveStatus =
-          memberRole !== 'owner' && existingOtRow?.status === 'Archivada'
+        const effectiveOtStatus =
+          memberRole !== 'owner' && existingOtRow?.ot_status === 'Archivada'
             ? 'Archivada'
-            : (ot.status || 'Tráfico');
+            : (ot.otStatus || (isTerminalOtStatus(ot.status) ? ot.status : 'Abierta'));
+        const effectiveResponsibleDept =
+          ot.responsibleDept || (!isTerminalOtStatus(ot.status) && ot.status ? ot.status : (existingOtRow?.responsible_dept || 'Tráfico'));
         const effectiveReopenReason =
           memberRole === 'owner' ? (ot.reopenReason || null) : (existingOtRow?.reopen_reason || null);
 
@@ -948,8 +981,9 @@ app.post('/api/studio/sync', async (c) => {
           ot.product || '',
           ot.title || '',
           ot.media || '',
-          effectiveStatus,
-          ot.responsible || '',
+          effectiveResponsibleDept,
+          effectiveOtStatus,
+          ot.sign || ot.responsible || '',
           ot.urgent ? 1 : 0,
           ot.brief || '',
           ot.legalText || '',
@@ -960,18 +994,41 @@ app.post('/api/studio/sync', async (c) => {
 
         if (Array.isArray(ot.routes)) {
           const existingRouteRows = sqlite
-            .prepare('SELECT line_number, delivery_date FROM route_entries WHERE ot_id = ? AND organization_id = ?')
-            .all(ot.id, organizationId) as Array<{ line_number: number; delivery_date: string }>;
-          const existingDeliveryByLine = new Map(existingRouteRows.map((r) => [r.line_number, r.delivery_date]));
+            .prepare('SELECT line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id FROM route_entries WHERE ot_id = ? AND organization_id = ?')
+            .all(ot.id, organizationId) as Array<{
+              line_number: number;
+              from_dept: string;
+              to_dept: string;
+              task: string;
+              entry_date: string;
+              delivery_date: string;
+              sign: string;
+              notes: string;
+              stamp: string | null;
+              locked: number;
+              created_by_user_id: string | null;
+            }>;
+          const existingByLine = new Map(existingRouteRows.map((r) => [r.line_number, r]));
+          const foreignDrafts = existingRouteRows.filter(
+            (r) => !String(r.sign || '').trim() && Boolean(r.created_by_user_id) && r.created_by_user_id !== user?.id
+          );
 
           sqlite.prepare('DELETE FROM route_entries WHERE ot_id = ? AND organization_id = ?').run(ot.id, organizationId);
           ot.routes.forEach((r: any, idx: number) => {
             const lineNum = idx + 1;
-            const lockedDelivery = existingDeliveryByLine.get(lineNum);
+            const prev = existingByLine.get(lineNum);
+            const lockedDelivery = prev?.delivery_date;
             const finalDeliveryDate =
               memberRole !== 'owner' && lockedDelivery && lockedDelivery.trim() !== ''
                 ? lockedDelivery
                 : (r.deliveryDate || '');
+
+            const hasSignedAfter = ot.routes.slice(idx + 1).some((nextR: any) => Boolean(String(nextR?.sign || '').trim()));
+            const isBeforeLast = idx < ot.routes.length - 1 && hasSignedAfter;
+            const rowCreator = prev?.created_by_user_id || r.createdByUserId || user?.id || null;
+            const isForeignLocked = Boolean(prev?.locked) && Boolean(prev?.created_by_user_id && user?.id && prev.created_by_user_id !== user.id);
+            const isSigned = Boolean(String(r.sign || '').trim());
+            const finalLocked = isBeforeLast || isForeignLocked ? 1 : (isSigned && (r.locked ?? true) ? 1 : ((r.locked ?? false) ? 1 : 0));
 
             insRoute.run(
               organizationId,
@@ -985,7 +1042,27 @@ app.post('/api/studio/sync', async (c) => {
               r.sign || '',
               r.notes || '',
               r.stamp || null,
-              r.completed ? 1 : 0,
+              finalLocked,
+              rowCreator,
+              now
+            );
+          });
+
+          foreignDrafts.forEach((fd, fIdx) => {
+            insRoute.run(
+              organizationId,
+              ot.id,
+              ot.routes.length + fIdx + 1,
+              fd.from_dept,
+              fd.to_dept,
+              fd.task,
+              fd.entry_date,
+              fd.delivery_date,
+              fd.sign,
+              fd.notes,
+              fd.stamp,
+              fd.locked ? 1 : 0,
+              fd.created_by_user_id,
               now
             );
           });
@@ -1208,7 +1285,6 @@ app.post('/api/studio/open-native', async (c) => {
 });
 
 // 7.1 GOBERNANZA DE EQUIPO COLABORATIVO (/api/studio/team/*)
-const TERMINAL_OT_STATUSES = ['Cerrado', 'Cancelado', 'Archivada', 'Aprobado'] as const;
 const MAX_ACTIVE_SEATS = 6;
 
 function requireStudioAdmin(c: any) {
@@ -1422,14 +1498,14 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
     ? (sqlite
         .prepare(
           `SELECT id, title FROM work_orders 
-           WHERE organization_id = ? AND responsible = ? AND status NOT IN (${placeholders})`
+           WHERE organization_id = ? AND sign = ? AND ot_status NOT IN (${placeholders})`
         )
         .all(organizationId, leavingShortName, ...TERMINAL_OT_STATUSES) as Array<{ id: string; title: string }>)
     : [];
 
   const activeRoutes = leavingShortName
     ? (sqlite
-        .prepare('SELECT id FROM route_entries WHERE organization_id = ? AND sign = ? AND completed = 0')
+        .prepare('SELECT id FROM route_entries WHERE organization_id = ? AND sign = ? AND locked = 0')
         .all(organizationId, leavingShortName) as Array<{ id: number }>)
     : [];
 
@@ -1482,14 +1558,14 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
       if (leavingShortName && successorShortName) {
         const resOrders = sqlite
           .prepare(
-            `UPDATE work_orders SET responsible = ?, updated_at = ? 
-             WHERE organization_id = ? AND responsible = ? AND status NOT IN (${placeholders})`
+            `UPDATE work_orders SET sign = ?, updated_at = ? 
+             WHERE organization_id = ? AND sign = ? AND ot_status NOT IN (${placeholders})`
           )
           .run(successorShortName, nowIso, organizationId, leavingShortName, ...TERMINAL_OT_STATUSES);
         reassignedOrdersCount = resOrders.changes;
 
         const resRoutes = sqlite
-          .prepare('UPDATE route_entries SET sign = ? WHERE organization_id = ? AND sign = ? AND completed = 0')
+          .prepare('UPDATE route_entries SET sign = ? WHERE organization_id = ? AND sign = ? AND locked = 0')
           .run(successorShortName, organizationId, leavingShortName);
         reassignedRoutesCount = resRoutes.changes;
 
@@ -1500,9 +1576,10 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
 
         if (activeOrders.length > 0) {
           const maxLineStmt = sqlite.prepare('SELECT COALESCE(MAX(line_number), 0) as maxLine FROM route_entries WHERE ot_id = ?');
+          const lockPrevStmt = sqlite.prepare('UPDATE route_entries SET locked = 1 WHERE ot_id = ?');
           const insNoteStmt = sqlite.prepare(
-            `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, completed, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           );
           const nowDate = new Date();
           const dd = String(nowDate.getDate()).padStart(2, '0');
@@ -1515,6 +1592,7 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
           for (const ot of activeOrders) {
             const maxRow = maxLineStmt.get(ot.id) as { maxLine: number } | undefined;
             const nextLine = (maxRow?.maxLine || 0) + 1;
+            lockPrevStmt.run(ot.id);
             insNoteStmt.run(
               organizationId,
               ot.id,
@@ -1528,6 +1606,7 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
               `Transferido desde ${leavingShortName}`,
               'RELEVO',
               1,
+              authCtx.user?.id || null,
               nowIso
             );
           }
