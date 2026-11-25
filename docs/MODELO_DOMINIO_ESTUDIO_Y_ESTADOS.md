@@ -181,23 +181,23 @@ Pertenece al Estudio completo (nunca se duplica por Espacio):
   *(Se oculta automáticamente cuando el estudio solo tiene 1 Espacio activo).*
 - Cada OT nace con un `workspaceId` (desde `Nueva OT` con selector `Espacio *` preseleccionado al espacio actual).
 - Dentro de cualquier OT, su **Bitácora (`De:` / `Para:`)** únicamente muestra los departamentos de `ot.workspaceId`, incluso si fue abierta desde `Tráfico · Estudio`.
-- Al entrar a un Espacio puntual (`Publicidad`, `Web`, `Software`), la columna `Espacio` se oculta, el filtro `Depto.` y el Kanban por Departamento muestran únicamente las áreas de ese Espacio, y `Tráfico`, `Todas las Tareas`, `Mis OTs`, `Galería` y `Escritorio` filtran solo ese Espacio.
+- Al entrar a un Espacio puntual (`Publicidad`, `Web`, `Software`), la columna `Espacio` se oculta, el filtro `Depto.` y el Kanban por Departamento muestran únicamente las áreas de ese Espacio, y `Tráfico`, `Todas las Tareas`, `Mis OTs`, `Galería` y `Tablero` filtran solo ese Espacio.
 
 ### 3. Regla Física del `Stripboard` (Hoja de Tiempos Invertida)
 - **Tu jornada diaria (ej. 8h/día) es una sola**, aunque tus OTs se separen por Espacio.
 - En el **Stripboard** (`Mis Tareas`), el cálculo de horas diarias (`Día: Xh / 8h`) siempre suma la carga real total entre todos los Espacios para impedir la ceguera de sobrecarga.
 - Dentro de un Espacio puntual (ej. `Web`), las tareas de otros Espacios permanecen visibles pero atenuadas (`opacity-45`), acompañadas del desglose `Día: Xh / 8h (Nh Web + Mh otros)`.
-- **Filosofía de presupuesto de tiempo:** El usuario asigna horas *hacia adelante* desde el inicio de semana/día como presupuesto de enfoque (en lugar de llenar planillas de memoria al final de la semana). El tracking competitivo en tiempo real (`Asignado vs. Real`) se documenta como plugin desacoplado en [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md).
+- **Filosofía de presupuesto de tiempo:** El usuario asigna horas *hacia adelante* desde el inicio de semana/día como presupuesto de enfoque (en lugar de llenar planillas de memoria al final de la semana). El tracking competitivo en tiempo real (`Asignado vs. Real`) se documenta como plugin desacoplado en [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./Plugins/ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md).
 
 ---
 
-## 11. Presets de Escritorio y Estadísticas por Rol
+## 11. Presets de Tablero y Estadísticas por Rol
 
-El Escritorio comparte un único motor de consultas (`LIVE` vs. `THROUGHPUT` con Regla de Nodos Hoja; especificación completa en [`arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md)) y despliega un **preset inicial según el rol**:
+El Tablero comparte un único motor de consultas (`LIVE` vs. `THROUGHPUT` con Regla de Nodos Hoja; especificación completa en [`arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md)) y despliega un **preset inicial según el rol**:
 
 | Rol | Ancla inicial | Bloques predeterminados | Restricciones de visibilidad |
 | :--- | :--- | :--- | :--- |
 | **Dueño (`owner`)** | `Estudio` *(Global, con conmutador a Personal)* | 1. Horizonte de Entregas (`LIVE`) · 2. Pulso de Acuse y Operación (`LIVE`) · 3. Capacidad y Carga del Estudio (`LIVE` vs. `dailyHours`) · 4. Distribución por Espacio y Cuellos (`LIVE`) · 5. Ritmo y Ciclo de Facturación (`THROUGHPUT`) · 6. Concentración por Cliente (`LIVE`). | Acceso total + tramo financiero (`Cerrar OT/Facturar → Facturada → Pagada`). |
 | **Colaborador (`member`)** | `Colaborador = Yo` *(Personal)* | 1. Mi Horizonte de Entregas (`LIVE`) · 2. Mi Bandeja de Acuse y Ejecución (`LIVE`) · 3. Mi Capacidad Horaria (`LIVE` vs. `dailyHours`) · 4. Mi Distribución por Cliente y Depto (`LIVE`) · 5. Mi Ritmo de Cierre y Cumplimiento (`THROUGHPUT`). | Sin tramo financiero ni capacidad de terceros. Si tiene `allowed_client_id = '*'` o rol `Tráfico`, habilita conmutador operativo a `Estudio` sin tramo financiero (salvo permiso del Dueño). |
 | **Cliente (`client`)** | `Cliente = allowed_client_id` *(Bloqueado)* | 1. Horizonte de Entregas de su cuenta (`LIVE`) · 2. Estado de avance de sus OTs (`LIVE`) · 3. Pendientes en su cancha (`Depto: Cliente` y piezas en revisión). | Sin acceso a otros clientes, capacidad interna del equipo ni estadísticas financieras del estudio. |
-| **Invitado (`share_token`)** | — | Sin acceso a Escritorio ni Estadísticas. | Solo enlace `/review/:token`. |
+| **Invitado (`share_token`)** | — | Sin acceso a Tablero ni Estadísticas. | Solo enlace `/review/:token`. |

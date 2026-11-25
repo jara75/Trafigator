@@ -83,10 +83,10 @@ Versión: 2.1 | Estado: Aprobada para Implementación | Última actualización: 
 | Editar catálogos globales | Sí | No | No | No | No |
 | Borrar OTs/clientes / Importar backup | Sí | No | No | No | No |
 | Reabrir OT `Archivada` (con nota) | Sí | No | No | No | No |
-| Escritorio y Estadísticas (Preset por Rol) | Global (`Estudio`) + Financiero | Bloqueado a su `allowed_client_id` (sin financiero ni capacidad interna) | Personal (`Colaborador = Yo`); si `*`, conmutador operativo `Estudio` sin financiero | Sin acceso | Sin acceso |
+| Tablero y Estadísticas (Preset por Rol) | Global (`Estudio`) + Financiero | Bloqueado a su `allowed_client_id` (sin financiero ni capacidad interna) | Personal (`Colaborador = Yo`); si `*`, conmutador operativo `Estudio` sin financiero | Sin acceso | Sin acceso |
 | Activar/suspender licencia (`status`) | No | No | No | No | Sí |
 
-### 3.7. Presets Predeterminados de Escritorio y Estadísticas por Rol
+### 3.7. Presets Predeterminados de Tablero y Estadísticas por Rol
 
 Referencia técnica completa del motor: [`docs/arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md) (Secciones 6 y 7).
 
@@ -109,7 +109,7 @@ Referencia técnica completa del motor: [`docs/arquitectura_del_m_dulo_estad_sti
   2. *Estado de avance de sus OTs* (`LIVE`).
   3. *Pendientes en su cancha* (`Depto: Cliente` y piezas en revisión).
   * *Ocultos:* otros clientes, capacidad horaria interna del equipo y estadísticas financieras del estudio.
-* **Invitado (`share_token`):** Sin acceso a Escritorio ni Estadísticas.
+* **Invitado (`share_token`):** Sin acceso a Tablero ni Estadísticas.
 
 ---
 

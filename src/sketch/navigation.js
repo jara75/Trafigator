@@ -198,7 +198,7 @@ export function initNavigation(handlers = {}) {
       const centerTitle = document.getElementById('center-page-title');
 
       if (centerTitle) {
-        centerTitle.textContent = otView === 'my-tasks' ? 'Mis Tareas · Stripboard' : (btn.innerText.trim() || 'Escritorio');
+        centerTitle.textContent = otView === 'my-tasks' ? 'Mis Tareas · Stripboard' : (btn.innerText.trim() || 'Tablero');
       }
 
       const isArchiveGridView = otView === 'gallery' || otView === 'documents' || otView === 'dev';
@@ -268,7 +268,7 @@ export function initNavigation(handlers = {}) {
 
   document.getElementById('btn-desktop-menu')?.addEventListener('click', () => {
     const centerTitle = document.getElementById('center-page-title');
-    if (centerTitle) centerTitle.textContent = 'Escritorio';
+    if (centerTitle) centerTitle.textContent = 'Tablero';
     resetSubNavButtons();
     hideAllWorkspaceViews();
     document.getElementById('view-desktop')?.classList.remove('hidden');
@@ -278,7 +278,7 @@ export function initNavigation(handlers = {}) {
 
   document.getElementById('btn-left-back')?.addEventListener('click', () => {
     const centerTitle = document.getElementById('center-page-title');
-    if (centerTitle) centerTitle.textContent = 'Escritorio';
+    if (centerTitle) centerTitle.textContent = 'Tablero';
     resetSubNavButtons();
     hideAllWorkspaceViews();
     document.getElementById('view-desktop')?.classList.remove('hidden');

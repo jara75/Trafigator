@@ -493,7 +493,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     ${canSwitchGlobal ? `
       <div class="flex items-center justify-between gap-2 shrink-0 px-0.5">
         <span class="font-mono text-[9px] uppercase tracking-wider text-[#737373]">
-          ${isPersonalScope ? `Escritorio Personal · ${escapeHtml(myMember)}` : 'Escritorio Global · Estudio'}
+          ${isPersonalScope ? `Tablero Personal · ${escapeHtml(myMember)}` : 'Tablero Global · Estudio'}
         </span>
         <div class="inline-flex items-center gap-1 text-[9.5px] font-mono shrink-0">
           <button type="button" data-dk-scope-mode="global"

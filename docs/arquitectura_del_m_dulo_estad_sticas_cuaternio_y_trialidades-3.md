@@ -92,7 +92,7 @@ El motor admite encadenar anclas sobre el mismo modelo sin recalcular reglas ni 
 ### 4.2. Traducción Invisible para el Usuario Creativo
 
 * **En el Backend / Motor:** Todo se resuelve como consultas sobre el Cuaternio (`anclas`, `universo`, `proyección`, `alcance RBAC`).
-* **En la Interfaz (Escritorio y Estadísticas):** Nunca se muestran términos como *Trialidad*, *Cuaternio*, *DF* o *rf*. Cada barra, número o tarjeta es un **atajo operativo de 1 clic**: tocar una barra (ej. *"Esta semana"*, *"Creativo"* o *"Cliente 01"*) rota el ancla en silencio y baja directo a la lista viva de OTs o Tareas correspondientes.
+* **En la Interfaz (Tablero y Estadísticas):** Nunca se muestran términos como *Trialidad*, *Cuaternio*, *DF* o *rf*. Cada barra, número o tarjeta es un **atajo operativo de 1 clic**: tocar una barra (ej. *"Esta semana"*, *"Creativo"* o *"Cliente 01"*) rota el ancla en silencio y baja directo a la lista viva de OTs o Tareas correspondientes.
 
 ---
 
@@ -143,9 +143,9 @@ Para evitar que el usuario tenga que configurar un *"Agrupar por"* manual cada v
 
 ---
 
-## 6. Vistas Predeterminadas en Escritorio por Rol
+## 6. Vistas Predeterminadas en Tablero por Rol
 
-El Escritorio no despliega todo el Cuaternio de golpe; inicializa un **preset predeterminado según el rol del usuario autenticado**, donde cada bloque es al mismo tiempo lectura estadística y atajo de 1 clic.
+El Tablero no despliega todo el Cuaternio de golpe; inicializa un **preset predeterminado según el rol del usuario autenticado**, donde cada bloque es al mismo tiempo lectura estadística y atajo de 1 clic.
 
 ### 6.1. Dueño (`owner`) — Ancla Inicial: Trialidad 1 (`Estudio`)
 
@@ -178,7 +178,7 @@ El Escritorio no despliega todo el Cuaternio de golpe; inicializa un **preset pr
 
 ### 6.3. Cliente / Cuentas Colaborativo (`client`) — Ancla Inicial: Trialidad 2A (`Cliente = allowed_client_id`)
 
-* Su Escritorio nace y permanece **bloqueado** en su cuenta (`allowed_client_id = 'c-xxx'`).
+* Su Tablero nace y permanece **bloqueado** en su cuenta (`allowed_client_id = 'c-xxx'`).
 * Proyecta únicamente:
   1. **Horizonte de Entregas de su cuenta** (`LIVE`).
   2. **Estado de avance de sus OTs** (`Etapa` operativa / `Estado` en `LIVE`).
@@ -187,7 +187,7 @@ El Escritorio no despliega todo el Cuaternio de golpe; inicializa un **preset pr
 
 ### 6.4. Qué queda deliberadamente fuera de lo predeterminado
 
-Para proteger la limpieza del Escritorio, no se fijan como vistas por defecto: zooms individuales (`1 OT` / `1 Tarea`), `Estado: Cancelada`, histórico bruto de `Archivada` fuera de ventanas de Ritmo/Cobro, ni cruces compuestos de 2 o más anclas (reservados para exploración bajo demanda).
+Para proteger la limpieza del Tablero, no se fijan como vistas por defecto: zooms individuales (`1 OT` / `1 Tarea`), `Estado: Cancelada`, histórico bruto de `Archivada` fuera de ventanas de Ritmo/Cobro, ni cruces compuestos de 2 o más anclas (reservados para exploración bajo demanda).
 
 ---
 
@@ -226,7 +226,7 @@ Para que el módulo de Estadísticas no choque con el modelo de dominio ni con l
    | **`member` con `allowed_client_id = '*'`** | Arranca en `Colaborador = Yo`; puede rotar a vistas operativas de `Estudio` | **No** *(salvo permiso explícito)* | **Sí** *(entra en denominador)* |
    | **`member` con `allowed_client_id = 'c-xxx'`** | Solo `Colaborador = Yo` y registros donde `client_id = c-xxx` o participa en `De: -> Para:` | **No** | **No** ve capacidad global *(solo su propia jornada)* |
    | **`client` con `allowed_client_id = 'c-xxx'`** | Bloqueado en `Cliente = c-xxx` | **No** | **No** *(no entra al denominador interno)* |
-   | **Invitado temporal (`share_token`)** | Sin acceso a Estadísticas ni Escritorio | **No** | **No** *(sus decisiones en `/review/:token` alimentan la métrica derivada de Reprocesos)* |
+   | **Invitado temporal (`share_token`)** | Sin acceso a Estadísticas ni Tablero | **No** | **No** *(sus decisiones en `/review/:token` alimentan la métrica derivada de Reprocesos)* |
 
 2. **Cupos y Denominador de Capacidad (`owner` + `member` activos únicamente):**
    * Los usuarios con `role = 'client'` (ilimitados, no consumen cupo del equipo) **jamás** se suman al denominador de capacidad horaria del estudio ni aparecen en el gráfico de carga interna del equipo.

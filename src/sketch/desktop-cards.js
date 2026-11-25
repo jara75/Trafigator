@@ -48,7 +48,7 @@ export function renderExpandPanelBtn(modId, isExpanded = false) {
       </button>
     `
     : `
-      <button type="button" data-dk-lb-open-panel="${escapeHtml(modId)}" title="Expandir a Escritorio completo" aria-label="Expandir panel"
+      <button type="button" data-dk-lb-open-panel="${escapeHtml(modId)}" title="Expandir a Tablero completo" aria-label="Expandir panel"
         class="w-6 h-6 rounded hover:bg-obsidian-elevated text-[#A3A3A3] hover:text-obsidian-amber flex items-center justify-center cursor-pointer transition-colors shrink-0">
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
