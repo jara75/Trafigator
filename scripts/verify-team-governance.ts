@@ -6,7 +6,7 @@ import { sqlite } from '../src/server/db';
 
 async function run() {
   console.log('================================================================');
-  console.log('TRAFIKEITOR // SUITE E2E: GOBERNANZA DE EQUIPO COLABORATIVO');
+  console.log('TRAFIGATOR // SUITE E2E: GOBERNANZA DE EQUIPO COLABORATIVO');
   console.log('================================================================');
 
   const ts = Date.now();

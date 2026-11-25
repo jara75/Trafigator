@@ -1681,7 +1681,7 @@ app.get('/', (c) => {
     html = html.replace('</body>', '<script src="/client-bridge.js"></script></body>');
     return c.html(html);
   }
-  return c.text('Trafikeitor // Servidor Activo');
+  return c.text('Trafigator // Servidor Activo');
 });
 
 const port = Number(process.env.PORT || 3000);
@@ -1692,7 +1692,7 @@ if (!process.env.IS_TEST) {
       fetch: app.fetch,
       port,
     }, (info) => {
-      console.log(`TRAFIKEITOR // Servidor activo en http://localhost:${info.port}`);
+      console.log(`TRAFIGATOR // Servidor activo en http://localhost:${info.port}`);
     });
     server.on('error', (err: any) => {
       if (err.code === 'EADDRINUSE') {

@@ -89,7 +89,7 @@ export const studioSettings = {
   trialDaysLeft: 14,
   planName: 'Prueba Gratis (5 puestos · 14 días)',
   maxSeats: 5,
-  apiKey: 'sk-trafikeitor-demo-••••••••••••',
+  apiKey: 'sk-trafigator-demo-••••••••••••',
   theme: 'dark',
   language: 'es'
 };

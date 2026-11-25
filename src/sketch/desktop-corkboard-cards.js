@@ -341,7 +341,7 @@ export function renderCorkAdCard() {
       </div>
       <div class="flex items-center justify-between gap-1.5 text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50">
         <span>Sin anuncios en pago</span>
-        <a href="https://trafikeitor.com/planes" target="_blank" rel="noopener noreferrer"
+        <a href="https://trafigator.com/planes" target="_blank" rel="noopener noreferrer"
           class="text-obsidian-amber hover:underline shrink-0">Ver planes ↗</a>
       </div>
     </article>

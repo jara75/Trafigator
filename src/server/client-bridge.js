@@ -90,9 +90,9 @@
         <div class="w-full max-w-md bg-[#16171b]/95 border border-white/[0.12] rounded-2xl shadow-2xl shadow-black/90 p-7 text-xs text-zinc-200">
           <div class="flex items-center justify-between border-b border-white/[0.08] pb-4 mb-5">
             <div class="flex items-center gap-2.5">
-              <img src="/assets/favicon-32x32.png" alt="Trafikeitor" class="w-6 h-6 rounded-md object-cover shadow-[0_1px_4px_rgba(0,0,0,0.6),0_0_8px_rgba(245,158,11,0.25)]">
+              <img src="/assets/favicon-32x32.png" alt="Trafigator" class="w-6 h-6 rounded-md object-cover shadow-[0_1px_4px_rgba(0,0,0,0.6),0_0_8px_rgba(245,158,11,0.25)]">
               <div>
-                <h1 class="font-bold text-sm tracking-tight text-white uppercase">TRAFIKEITOR</h1>
+                <h1 class="font-bold text-sm tracking-tight text-white uppercase">TRAFIGATOR</h1>
                 <p class="text-[10px] text-zinc-400 font-medium">CONTROL DE TRÁFICO • EL MARCANTE</p>
               </div>
             </div>

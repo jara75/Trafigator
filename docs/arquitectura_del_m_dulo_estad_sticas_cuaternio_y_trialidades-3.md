@@ -193,7 +193,7 @@ Para proteger la limpieza del Escritorio, no se fijan como vistas por defecto: z
 
 ## 7. Alineación e Integración con el Módulo Dominio y Gestión de Equipo
 
-Para que el módulo de Estadísticas no choque con el modelo de dominio ni con las reglas ya implementadas de gobernanza del equipo (`MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md`, `PLAN_GESTION_EQUIPO_COLABORATIVO_2.md` y `definici_n_funcional_y_roles_de_trafikeitor.md`), el motor debe cumplir estrictamente estas reglas de frontera:
+Para que el módulo de Estadísticas no choque con el modelo de dominio ni con las reglas ya implementadas de gobernanza del equipo (`MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md`, `PLAN_GESTION_EQUIPO_COLABORATIVO_2.md` y `definici_n_funcional_y_roles_de_trafigator.md`), el motor debe cumplir estrictamente estas reglas de frontera:
 
 ### 7.1. Reglas de Integración con el Módulo Dominio
 

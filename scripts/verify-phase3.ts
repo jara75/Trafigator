@@ -114,7 +114,7 @@ async function testPhase3() {
   }
 
   // 3. Verificar simulación de URL de Bold Checkout con reference del estudio
-  const boldBaseUrl = 'https://checkout.bold.co/payment/LNK_TRAFIKEITOR_PRO';
+  const boldBaseUrl = 'https://checkout.bold.co/payment/LNK_TRAFIGATOR_PRO';
   const expectedCheckoutUrl = `${boldBaseUrl}?reference=${encodeURIComponent(createdOrg.id)}`;
   console.log('✔ 3. URL de Checkout Bold generada correctamente:');
   console.log('   -', expectedCheckoutUrl);

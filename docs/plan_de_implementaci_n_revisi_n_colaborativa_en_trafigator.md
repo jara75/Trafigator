@@ -1,6 +1,6 @@
-# Plan de Implementación v2.0.0: Sistema de Revisión Colaborativa y Notas Ancladas ("Compartir para Revisar") en Trafikeitor
+# Plan de Implementación v2.0.0: Sistema de Revisión Colaborativa y Notas Ancladas ("Compartir para Revisar") en Trafigator
 
-> **Estado:** v2.0.0 — Alineado a la arquitectura real de 3 capas de Trafikeitor (**Hono + Drizzle ORM + SQLite + Better Auth + Vanilla JS ES Modules + Tailwind + Vite**).
+> **Estado:** v2.0.0 — Alineado a la arquitectura real de 3 capas de Trafigator (**Hono + Drizzle ORM + SQLite + Better Auth + Vanilla JS ES Modules + Tailwind + Vite**).
 
 ---
 
@@ -91,7 +91,7 @@ No se crea una tabla paralela `ot_deliverables`; se extiende `media_files` y `sh
 ### 4.2. Visor Público (`review.html` + `src/client/review-viewer.js`)
 - **Header:** Identificador de OT, selector de versiones (`v1`, `v2`), controles de zoom (`-`, `100%`, `+`, `Ajustar`), paginador PDF (cuando `fileType === 'pdf'`), toggle de pines resueltos y botones **"Solicitar Cambios"** / **"Aprobar Pieza"** (`#0BA2AC`).
 - **Área Central (70%):** Contenedor con zoom/paneo Vanilla JS (`wheel` + `pointerdown`/`pointermove`), capa base (`<img>`, `preview_url` o `<canvas>` de `pdfjs-dist`) y capa overlay con pines numerados y contra-escalados (`scale(1 / zoom)`).
-- **Panel Lateral (30%):** Lista de hilos sincronizada (clic en pin resalta y hace scroll al hilo; clic en hilo centra el pin y cambia de página si es PDF) + chat general + captura única de nombre de invitado en `localStorage` (`trafikeitor_guest_name`).
+- **Panel Lateral (30%):** Lista de hilos sincronizada (clic en pin resalta y hace scroll al hilo; clic en hilo centra el pin y cambia de página si es PDF) + chat general + captura única de nombre de invitado en `localStorage` (`trafigator_guest_name`).
 
 ### 4.3. Integración en Sobre OT (`src/client/modals-controller.js`)
 - En cada pieza del Media Pool: botón **"Compartir para Revisar"** (copia `/review/:token` y muestra badge de estado `En Revisión` / `Ajustes` / `Aprobado`) y botón **"Subir nueva versión (v2)"** cuando la pieza ya pertenece a un `version_group_id`.

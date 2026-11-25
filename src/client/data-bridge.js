@@ -1,5 +1,5 @@
 /**
- * TRAFIKEITOR // DATA BRIDGE (ADAPTADOR REST SQLITE/HONO + CACHÉ SÍNCRONA + FALLBACK LOCAL)
+ * TRAFIGATOR // DATA BRIDGE (ADAPTADOR REST SQLITE/HONO + CACHÉ SÍNCRONA + FALLBACK LOCAL)
  * Módulo 2: Única fuente de verdad de datos en el cliente.
  * Regla: Cero referencias al DOM y cero manipulación de elementos HTML.
  */

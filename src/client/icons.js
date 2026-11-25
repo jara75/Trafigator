@@ -1,6 +1,6 @@
 // ============================================================================
 // CATÁLOGO CENTRALIZADO DE ICONOGRAFÍA — LUCIDE ICONS (Trazo Técnico 1.75)
-// Studio Obsidian · Única fuente de verdad para todos los íconos de Trafikeitor
+// Studio Obsidian · Única fuente de verdad para todos los íconos de Trafigator
 // ============================================================================
 
 const LUCIDE_PATHS = {

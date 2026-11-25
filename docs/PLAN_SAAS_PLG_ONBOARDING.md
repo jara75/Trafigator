@@ -11,7 +11,7 @@ payment_gateway: Bold (Bold Colombia / bold.co)
 
 # Plan de Arquitectura e Implementación: SaaS PLG Onboarding en 4 Pasos (Better Auth Nativo + Bold)
 
-Este documento define la arquitectura y el plan de implementación para el flujo comercial estándar **Product-Led Growth (PLG)** con modelo *Reverse Trial* (14 días de prueba gratuita sin tarjeta de crédito) para **Trafikeitor**, utilizando exclusivamente los estándares y plugins nativos de **Better Auth** (`organization`) y la pasarela de pagos **Bold**.
+Este documento define la arquitectura y el plan de implementación para el flujo comercial estándar **Product-Led Growth (PLG)** con modelo *Reverse Trial* (14 días de prueba gratuita sin tarjeta de crédito) para **Trafigator**, utilizando exclusivamente los estándares y plugins nativos de **Better Auth** (`organization`) y la pasarela de pagos **Bold**.
 
 ---
 
@@ -192,7 +192,7 @@ Al inicializar la aplicación (`main.js` / `initializeApp()`), el sistema evalú
     - Manejar el clic en `#paywall-bold-checkout-btn`:
       - Abrir la URL de pago de Bold pasando la referencia de la organización:
         ```javascript
-        const boldBaseUrl = window.BOLD_CHECKOUT_URL || 'https://checkout.bold.co/payment/LNK_TRAFIKEITOR_PRO';
+        const boldBaseUrl = window.BOLD_CHECKOUT_URL || 'https://checkout.bold.co/payment/LNK_TRAFIGATOR_PRO';
         const checkoutUrl = `${boldBaseUrl}?reference=${encodeURIComponent(currentOrgId)}`;
         window.open(checkoutUrl, '_blank');
         ```

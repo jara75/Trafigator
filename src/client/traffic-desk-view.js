@@ -1,5 +1,5 @@
 /**
- * TRAFIKEITOR // MÓDULO DE VISTAS: MESA DE TRÁFICO Y TABLA UNIFICADA
+ * TRAFIGATOR // MÓDULO DE VISTAS: MESA DE TRÁFICO Y TABLA UNIFICADA
  * Módulo 3: Renderizado de Master Bin Tree, Vista Cuadrícula/Lista, Componente Fila Unificada (11 columnas),
  * Ordenamiento, Agrupación Apple Numbers y Drag & Drop de OTs.
  */
@@ -1645,13 +1645,13 @@ export function initSidebarResizer() {
 
   // Restaurar ancho previo si existe
   try {
-    const savedWidth = localStorage.getItem('trafikeitor_sidebar_width');
+    const savedWidth = localStorage.getItem('trafigator_sidebar_width');
     if (savedWidth) {
       const num = parseInt(savedWidth, 10);
       if (!isNaN(num) && num >= 150 && num <= 380) {
         if (num >= 210 || num === 185 || num === 195) {
           sidebar.style.width = '200px';
-          localStorage.setItem('trafikeitor_sidebar_width', '200');
+          localStorage.setItem('trafigator_sidebar_width', '200');
         } else {
           sidebar.style.width = `${num}px`;
         }
@@ -1685,7 +1685,7 @@ export function initSidebarResizer() {
       try {
         const widthVal = parseInt(sidebar.style.width, 10);
         if (!isNaN(widthVal)) {
-          localStorage.setItem('trafikeitor_sidebar_width', String(widthVal));
+          localStorage.setItem('trafigator_sidebar_width', String(widthVal));
         }
       } catch (_) {}
     };

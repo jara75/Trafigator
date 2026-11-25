@@ -792,7 +792,7 @@ export function renderSettingsTab() {
               <div class="text-[14px] font-medium text-[#D4D4D4]">${escapeHtml(studioSettings.planName)}</div>
               <div class="text-[10.5px] text-[#8C8C8C]">Te quedan <strong class="text-[#D4D4D4]">${studioSettings.trialDaysLeft} días</strong> de prueba gratis.</div>
             </div>
-            <a href="https://trafikeitor.com/planes" target="_blank" rel="noopener noreferrer"
+            <a href="https://trafigator.com/planes" target="_blank" rel="noopener noreferrer"
               class="px-3.5 py-1.5 rounded-lg bg-obsidian-amber hover:bg-amber-400 text-[#191919] font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors">
               <span>Administrar / Mejorar plan</span>
               <span>↗</span>
@@ -815,7 +815,7 @@ export function renderSettingsTab() {
         </div>
 
         <div class="bg-[#202020] border border-obsidian-border rounded-xl p-4 space-y-2">
-          <div class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Planes disponibles en trafikeitor.com</div>
+          <div class="text-[10px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Planes disponibles en trafigator.com</div>
           <div class="grid grid-cols-2 gap-2.5 text-[10.5px]">
             <div class="bg-[#191919] border border-obsidian-border rounded-lg p-3 space-y-1">
               <div class="flex items-center justify-between"><strong class="text-[#D4D4D4]">Plan Solo</strong><span class="font-mono text-obsidian-amber">USD $12/mes</span></div>
@@ -925,7 +925,7 @@ export function renderSettingsTab() {
         ['Ayuda', 'Preguntas frecuentes y primeros pasos'],
         ['Soporte técnico', 'Reportar un fallo o incidencia'],
         ['Soporte de facturación', 'Dudas sobre cobros, facturas y puestos'],
-        ['Contáctenos', 'Hablar con el equipo de Trafikeitor'],
+        ['Contáctenos', 'Hablar con el equipo de Trafigator'],
         ['Términos del servicio', 'Condiciones de uso de la plataforma'],
         ['Política de privacidad', 'Tratamiento de datos personales'],
         ['Cómo se usan sus datos', 'Seguridad, cifrado y propiedad de archivos']
