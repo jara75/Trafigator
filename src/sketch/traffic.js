@@ -588,7 +588,7 @@ export function renderTrafficGrid() {
           ${escapeHtml(ot.responsible || '—')}
         </td>
         <td class="px-1 py-1.5 align-middle text-center">
-          <button type="button" data-traffic-edit-ot="${escapeHtml(ot.id)}" data-traffic-edit-task="${taskIdxAttr}" title="Editar notas en Inspector"
+          <button type="button" data-traffic-edit-ot="${escapeHtml(realOtId)}" data-traffic-edit-task="${taskIdxAttr}" title="Editar notas en Inspector"
             class="w-6 h-6 mx-auto rounded hover:bg-obsidian-elevated text-[#8C8C8C] hover:text-obsidian-amber flex items-center justify-center transition-colors cursor-pointer">
             <span data-icon="pencil" data-icon-size="w-3 h-3"></span>
           </button>

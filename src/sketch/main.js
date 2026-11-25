@@ -5,6 +5,7 @@ import {
   canUndoOrders,
   onSketchChange,
   redoOrders,
+  resolveOtTarget,
   sketchState,
   undoOrders,
 } from './store.js';
@@ -72,10 +73,29 @@ function goBackInHistory() {
 
 function openOtInDetail(target, taskIndex = null, scope = 'active') {
   const isObj = typeof target === 'object' && target !== null;
-  const otId = isObj ? target.otId : target;
-  const resolvedTaskIdx = isObj && target.taskIndex !== undefined ? target.taskIndex : taskIndex;
-  const resolvedScope = isObj && target.scope ? target.scope : scope;
-  if (!otId) return;
+  const rawOtId = isObj ? target.otId : target;
+  const rawTaskIdx = isObj && target.taskIndex !== undefined ? target.taskIndex : taskIndex;
+  const requestedScope = isObj && target.scope !== undefined ? target.scope : scope;
+  if (!rawOtId) return;
+
+  const resolved = resolveOtTarget(rawOtId, rawTaskIdx);
+  const otId = resolved ? resolved.otId : String(rawOtId).trim();
+  const resolvedTaskIdx = resolved
+    ? resolved.taskIndex
+    : (rawTaskIdx !== '' && rawTaskIdx !== undefined && rawTaskIdx !== null ? Number(rawTaskIdx) : null);
+
+  let resolvedScope = requestedScope || 'active';
+  if (resolved?.ot) {
+    if (resolved.ot.archived) {
+      resolvedScope = 'archived';
+    } else if (
+      resolved.ot.responsible !== sketchState.myOtsMember &&
+      (!requestedScope || requestedScope === 'active')
+    ) {
+      resolvedScope = 'traffic-open';
+    }
+  }
+
   recordNavEntry({ type: 'ot-detail', otId, taskIndex: resolvedTaskIdx, scope: resolvedScope });
   const viewIds = ['view-desktop', 'view-new-ot', 'view-traffic', 'view-gallery', 'view-stripboard', 'view-review', 'view-envelope-open', 'settings-modal'];
   viewIds.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
@@ -219,7 +239,7 @@ onSketchChange('workspace', refreshDesktopIfVisible);
 
 onSketchChange('open-ot', (payload) => {
   if (payload?.otId) {
-    openOtInDetail(payload.otId, payload.taskIndex ?? null);
+    openOtInDetail(payload.otId, payload.taskIndex ?? null, payload.scope);
   }
 });
 

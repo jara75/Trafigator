@@ -602,6 +602,64 @@ function formatNowDisplay() {
   return `${dd}/${mm} ${hh}:${min}`;
 }
 
+export function resolveOtTarget(rawOtId, explicitTaskIndex = null) {
+  const raw = String(rawOtId ?? '').trim();
+  if (!raw) return null;
+
+  const findOtByCode = (code) => {
+    const target = String(code || '').trim().toLowerCase();
+    if (!target) return null;
+    const targetShort = target.replace(/^ot-/i, '');
+    return trafficOrders.find((o) => {
+      const idLow = String(o.id || '').trim().toLowerCase();
+      return idLow === target || idLow.replace(/^ot-/i, '') === targetShort;
+    }) || null;
+  };
+
+  let ot = findOtByCode(raw);
+  let parsedTaskIndex = null;
+
+  if (!ot) {
+    const dotMatch = raw.match(/^(?:OT-)?(.+?)\.(\d+)$/i);
+    if (dotMatch) {
+      const candidate = findOtByCode(dotMatch[1]);
+      if (candidate) {
+        ot = candidate;
+        parsedTaskIndex = Number(dotMatch[2]) - 1;
+      }
+    }
+  }
+
+  if (!ot) {
+    const dashMatch = raw.match(/^(.+)-(\d+)$/);
+    if (dashMatch) {
+      const candidate = findOtByCode(dashMatch[1]);
+      if (candidate) {
+        ot = candidate;
+        parsedTaskIndex = Number(dashMatch[2]) - 1;
+      }
+    }
+  }
+
+  if (!ot) return null;
+
+  const hasExplicitTask =
+    explicitTaskIndex !== null && explicitTaskIndex !== undefined && explicitTaskIndex !== '';
+  const taskIndex = hasExplicitTask ? Number(explicitTaskIndex) : parsedTaskIndex;
+
+  if (taskIndex !== null) {
+    ensureOtData(ot);
+    const taskList = Array.isArray(ot.subtasks)
+      ? ot.subtasks
+      : (Array.isArray(ot.tasks) ? ot.tasks : []);
+    if (!Number.isInteger(taskIndex) || taskIndex < 0 || taskIndex >= taskList.length) {
+      return null;
+    }
+  }
+
+  return { ot, otId: ot.id, taskIndex };
+}
+
 export function recordOtActivity(otOrId, text, actor = sketchState.myOtsMember || 'Andrés') {
   const ot = typeof otOrId === 'string' ? trafficOrders.find((o) => o.id === otOrId) : otOrId;
   if (!ot || !text) return;
