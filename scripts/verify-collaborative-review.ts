@@ -32,7 +32,7 @@ function extractCookie(setCookie: string): string {
 }
 
 console.log('================================================================');
-console.log('TRAFIKEITOR // SUITE E2E: REVISIÓN COLABORATIVA Y PINES');
+console.log('TRAFIGATOR // SUITE E2E: REVISIÓN COLABORATIVA Y PINES');
 console.log('================================================================\n');
 
 // 1. Registro + Estudio + OT

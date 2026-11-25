@@ -1,7 +1,7 @@
 # Contrato de Diseño y Operación — Módulo Estudio (`Perfil del Estudio`)
 
 > **Rama objetivo:** `ui/sketch-exp-2` (`src/sketch/settings.js`, `src/sketch/store.js`, `src/sketch/new-ot.js`, `src/sketch/ot-detail.js`)  
-> **Sistema de Diseño:** `trafikeitor-ui` (Obsidian — `#191919` / `#202020` / `#2A2A2A` / `#f59e0b`)  
+> **Sistema de Diseño:** `trafigator-ui` (Obsidian — `#191919` / `#202020` / `#2A2A2A` / `#f59e0b`)  
 > **Estado:** Aprobado para diseño y maquetación
 
 ---

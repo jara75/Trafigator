@@ -1,4 +1,4 @@
-# Historias de Usuario — Trafikeitor // Control de Tráfico
+# Historias de Usuario — Trafigator // Control de Tráfico
 
 > Documento de referencia funcional para validar el comportamiento esperado por rol antes de ajustar la implementación.
 
@@ -92,5 +92,5 @@
 ### HU-R4: Solicitud Opcional de Nueva OT *(Alcance Opcional Futuro)*
 - **Como** Cliente recurrente (si el Dueño habilita esta opción para su cuenta/enlace),  
   **quiero** enviar un brief de solicitud que genere una nueva OT en estado inicial (`En Redacción`),  
-  **para** canalizar nuevos pedidos sin salir del flujo de Trafikeitor.
+  **para** canalizar nuevos pedidos sin salir del flujo de Trafigator.
 

@@ -5,7 +5,7 @@
 > - [`EXPLICACION_MODULO_ESCRITORIO.md`](./EXPLICACION_MODULO_ESCRITORIO.md)
 > - [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)
 > - [`MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md`](./MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md)
-> - [`definici_n_funcional_y_roles_de_trafikeitor.md`](./definici_n_funcional_y_roles_de_trafikeitor.md)
+> - [`definici_n_funcional_y_roles_de_trafigator.md`](./definici_n_funcional_y_roles_de_trafigator.md)
 
 ---
 

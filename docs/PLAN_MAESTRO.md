@@ -1,4 +1,4 @@
-# Plan Maestro: Trafikeitor // Control de Tráfico • El Marcante
+# Plan Maestro: Trafigator // Control de Tráfico • El Marcante
 
 > **Regla de Oro**: El archivo actual `mesa_de_tr_fico_sobres_ot v1.1.html` (5,131 líneas) queda congelado como prototipo maestro de referencia visual y funcional. La aplicación de producción se construye sobre una arquitectura modular en TypeScript con SQLite local/embebido (cero Docker), Hono, Drizzle ORM y Better Auth.
 

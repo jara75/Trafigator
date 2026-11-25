@@ -1,12 +1,12 @@
-# TRAFIKEITOR — Definición Funcional, Roles y Modelo Operativo
+# TRAFIGATOR — Definición Funcional, Roles y Modelo Operativo
 
-Versión: 2.1 | Estado: Aprobada para Implementación | Última actualización: 2026-11-12 | Archivo Canónico: `docs/definici_n_funcional_y_roles_de_trafikeitor.md`
+Versión: 2.1 | Estado: Aprobada para Implementación | Última actualización: 2026-11-12 | Archivo Canónico: `docs/definici_n_funcional_y_roles_de_trafigator.md`
 
 ---
 
 ## 1. Visión y Filosofía del Producto
 
-* **Qué es:** Trafikeitor es un sistema ligero de control de producción y tráfico de Órdenes de Trabajo (OTs) centrado en el seguimiento operativo y custodia de cada entrega.
+* **Qué es:** Trafigator es un sistema ligero de control de producción y tráfico de Órdenes de Trabajo (OTs) centrado en el seguimiento operativo y custodia de cada entrega.
 * **Para quién es:** Está diseñado para **creadores independientes y freelances** de **Publicidad (AD), Diseño/Desarrollo Web y Desarrollo de Software** que necesitan organizar su producción diaria sin la sobrecarga administrativa de herramientas corporativas (Jira, Monday, ClickUp, Wrike, Notion).
 * **Filosofía de escala:** Es un panel operativo individual que habilita acceso acotado para que un cliente (si participa en solicitudes o aprobaciones) o un colaborador puntual entre únicamente a sus cuentas o tareas asignadas sin ver el resto del estudio.
 * **Stack y Despliegue (SaaS en Hostinger):** Construido sobre **Node.js + Hono + SQLite + Better Auth**, permitiendo que cada creador independiente cree su propia **Organización** con aislamiento lógico en la base de datos.
@@ -62,7 +62,7 @@ Versión: 2.1 | Estado: Aprobada para Implementación | Última actualización: 
 
 ### 3.5. Super Admin de Plataforma (`super_admin` — Consola SaaS)
 
-* **Quién es:** El administrador propietario de la plataforma Trafikeitor (`user.role = 'super_admin'`, separado del rol `admin` de Better Auth Organization).
+* **Quién es:** El administrador propietario de la plataforma Trafigator (`user.role = 'super_admin'`, separado del rol `admin` de Better Auth Organization).
 * **Acceso:** Consola global de plataforma sobre el registro de organizaciones y su estado de licencia (`status`).
 * **Operación:** Supervisa las organizaciones registradas en el servidor y activa o suspende licencias (`active` / `suspended`), quedando toda acción de soporte o cambio de licencia registrada en un **log de auditoría**.
 * **Restricciones:** No opera ni altera el contenido creativo o de tráfico interno de los estudios. Cuando una organización pasa a `suspended`, cualquier solicitud a `/api/studio/*` responde `403 license_suspended` y el cliente bloquea la pantalla sin fallback offline.

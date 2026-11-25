@@ -4,7 +4,7 @@ import { sqlite } from '../src/server/db';
 
 async function verifyFullPlgFlow() {
   console.log('================================================================');
-  console.log('TRAFIKEITOR // VERIFICACIÓN INTEGRAL DE FLUJO COMERCIAL SAAS PLG');
+  console.log('TRAFIGATOR // VERIFICACIÓN INTEGRAL DE FLUJO COMERCIAL SAAS PLG');
   console.log('================================================================');
 
   const testEmail = 'director.master@agencia-creativa-plg.com';

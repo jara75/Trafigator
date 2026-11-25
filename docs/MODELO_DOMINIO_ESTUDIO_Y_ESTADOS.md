@@ -1,6 +1,6 @@
 # Modelo de Dominio: Estudio, Perfiles, Áreas y Estados de OT
 
-> Documento vivo de definición funcional para **Trafikeitor**. Registra únicamente lo ya acordado y marca explícitamente lo que sigue en análisis (`[POR DEFINIR]`).
+> Documento vivo de definición funcional para **Trafigator**. Registra únicamente lo ya acordado y marca explícitamente lo que sigue en análisis (`[POR DEFINIR]`).
 
 ---
 
@@ -116,7 +116,7 @@ Estudio
 ## 7. Inspector de OT, Historial de Actividad y Mensajería Externa (WhatsApp / Slack)
 
 - **Historial de Actividad (*Activity Log*):** Todas las acciones realizadas sobre una OT (subida de archivos, cambios de etapa/estado/responsable, marcación de urgente, etc.) se registran automáticamente con **usuario + fecha y hora** dentro del **Inspector derecho** de la OT (no en el enlace público de Revisión Colaborativa para clientes).
-- **Sin chat intranet independiente:** En lugar de construir un chat general paralelo, Trafikeitor se conecta con **WhatsApp / Slack** en dos vías:
+- **Sin chat intranet independiente:** En lugar de construir un chat general paralelo, Trafigator se conecta con **WhatsApp / Slack** en dos vías:
   - **Salida:** Envío automático de notificaciones/alertas sobre una OT o pieza.
   - **Entrada:** Las respuestas y mensajes vinculados a una OT desde WhatsApp/Slack quedan guardados en orden cronológico junto al aviso enviado dentro del **Inspector** de esa OT.
 

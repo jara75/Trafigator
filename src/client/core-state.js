@@ -1,5 +1,5 @@
 /**
- * TRAFIKEITOR // CORE STATE, CONSTANTES Y EVENT BUS
+ * TRAFIGATOR // CORE STATE, CONSTANTES Y EVENT BUS
  * Módulo 1: Fuente de verdad del estado en memoria y desacoplamiento de eventos.
  */
 

@@ -4,7 +4,7 @@ R# PLAN MAESTRO: GESTIÓN DE EQUIPO COLABORATIVO Y GOBERNANZA OPERATIVA ("MI EQU
 **Fecha:** 2026-11-12  
 **Estado:** Listo para Implementación (Aprobado tras Dictamen de Auditoría EGM v2.0 con Precisiones Operativas)  
 **Estándar:** feature-spec-standard  
-**Aplicación:** Trafikeitor // Sistema de Control de Tráfico Publicitario & Strips  
+**Aplicación:** Trafigator // Sistema de Control de Tráfico Publicitario & Strips  
 **Benchmark:** Wrike (Agencies & Marketing Teams) & ClickUp Workspace Governance  
 
 ---

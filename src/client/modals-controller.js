@@ -1,5 +1,5 @@
 /**
- * TRAFIKEITOR // CONTROLADOR DE MODALES Y VISORES
+ * TRAFIGATOR // CONTROLADOR DE MODALES Y VISORES
  * Módulo 5: Gestión unificada de los 8 modales de la aplicación, visualizador multimedia fullscreen,
  * motor de previsualización inline, hoja de ruta, firmas retro y respaldos JSON.
  */
@@ -307,7 +307,7 @@ export function applyEnvelopeSectionCollapseState() {
     { key: 'mediapool', bodyId: 'envelope-mediapool-body', iconId: 'toggle-envelope-mediapool-icon' },
   ];
   sections.forEach(({ key, bodyId, iconId }) => {
-    const collapsed = localStorage.getItem(`trafikeitor_env_collapse_${key}`) === '1';
+    const collapsed = localStorage.getItem(`trafigator_env_collapse_${key}`) === '1';
     const body = document.getElementById(bodyId);
     const iconEl = document.getElementById(iconId);
     if (body) body.classList.toggle('hidden', collapsed);
@@ -317,7 +317,7 @@ export function applyEnvelopeSectionCollapseState() {
 
 export function toggleEnvelopeSection(section) {
   if (typeof document === 'undefined') return;
-  const storageKey = `trafikeitor_env_collapse_${section}`;
+  const storageKey = `trafigator_env_collapse_${section}`;
   const nextCollapsed = localStorage.getItem(storageKey) !== '1';
   localStorage.setItem(storageKey, nextCollapsed ? '1' : '0');
   applyEnvelopeSectionCollapseState();
@@ -424,8 +424,8 @@ export function handleRootResponsibleChange(val) {
   renderEnvelopeTaskTree();
 }
 
-let isEnvelopeTreeCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_env_tree_collapsed') === 'true');
-let isEnvelopeInspectorCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_env_inspector_collapsed') === 'true');
+let isEnvelopeTreeCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafigator_env_tree_collapsed') === 'true');
+let isEnvelopeInspectorCollapsed = (typeof localStorage !== 'undefined' && localStorage.getItem('trafigator_env_inspector_collapsed') === 'true');
 let activeInspectorRow = { otId: null, index: 0 };
 let activeInspectorTab = 'task';
 
@@ -452,7 +452,7 @@ export function applyEnvelopeInspectorSidebarState() {
     if (body) body.classList.add('hidden');
     if (btn) btn.innerHTML = '&lt;';
   } else {
-    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_inspector_width') || '', 10) : NaN;
+    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafigator_env_inspector_width') || '', 10) : NaN;
     sidebar.style.width = (!Number.isNaN(savedW) && savedW >= 180 && savedW <= 480) ? `${savedW}px` : '210px';
     if (resizer) resizer.classList.remove('hidden');
     if (label) label.classList.remove('hidden');
@@ -465,7 +465,7 @@ export function toggleEnvelopeInspectorSidebar() {
   isEnvelopeInspectorCollapsed = !isEnvelopeInspectorCollapsed;
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('trafikeitor_env_inspector_collapsed', String(isEnvelopeInspectorCollapsed));
+      localStorage.setItem('trafigator_env_inspector_collapsed', String(isEnvelopeInspectorCollapsed));
     }
   } catch {}
   applyEnvelopeInspectorSidebarState();
@@ -491,7 +491,7 @@ export function applyEnvelopeTreeSidebarState() {
     if (btn) btn.innerHTML = '&gt;';
   } else {
     sidebar.classList.remove('w-8');
-    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_tree_width') || '', 10) : NaN;
+    const savedW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafigator_env_tree_width') || '', 10) : NaN;
     sidebar.style.width = (!Number.isNaN(savedW) && savedW >= 150 && savedW <= 420) ? `${savedW}px` : '210px';
     if (resizer) resizer.classList.remove('hidden');
     if (label) label.classList.remove('hidden');
@@ -505,7 +505,7 @@ export function toggleEnvelopeTaskTreeSidebar() {
   isEnvelopeTreeCollapsed = !isEnvelopeTreeCollapsed;
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('trafikeitor_env_tree_collapsed', String(isEnvelopeTreeCollapsed));
+      localStorage.setItem('trafigator_env_tree_collapsed', String(isEnvelopeTreeCollapsed));
     }
   } catch {}
   applyEnvelopeTreeSidebarState();
@@ -562,7 +562,7 @@ export function initEnvelopeResizers() {
       'x',
       () => treeSidebar.getBoundingClientRect().width,
       (w) => { treeSidebar.style.width = `${w}px`; },
-      'trafikeitor_env_tree_width',
+      'trafigator_env_tree_width',
       150,
       420
     );
@@ -575,7 +575,7 @@ export function initEnvelopeResizers() {
       'x',
       () => inspectorSidebar.getBoundingClientRect().width,
       (w) => { inspectorSidebar.style.width = `${w}px`; },
-      'trafikeitor_env_inspector_width',
+      'trafigator_env_inspector_width',
       180,
       480,
       true
@@ -585,7 +585,7 @@ export function initEnvelopeResizers() {
   const bitacoraBody = document.getElementById('envelope-bitacora-body');
   if (bitacoraBody) {
     bitacoraBody.style.overflowY = 'auto';
-    const savedH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_bitacora_height') || '', 10) : NaN;
+    const savedH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafigator_env_bitacora_height') || '', 10) : NaN;
     if (!Number.isNaN(savedH) && savedH >= 110 && savedH <= 480) {
       bitacoraBody.style.maxHeight = `${savedH}px`;
     }
@@ -594,7 +594,7 @@ export function initEnvelopeResizers() {
       'y',
       () => bitacoraBody.getBoundingClientRect().height,
       (h) => { bitacoraBody.style.maxHeight = `${h}px`; },
-      'trafikeitor_env_bitacora_height',
+      'trafigator_env_bitacora_height',
       110,
       480
     );
@@ -603,7 +603,7 @@ export function initEnvelopeResizers() {
   const mpLeft = document.getElementById('envelope-mediapool-left');
   const mpViewer = document.getElementById('envelope-inline-viewer');
   if (mpLeft) {
-    const savedMpW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_mediapool_left_width') || '', 10) : NaN;
+    const savedMpW = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafigator_env_mediapool_left_width') || '', 10) : NaN;
     if (!Number.isNaN(savedMpW) && savedMpW >= 220 && savedMpW <= 680) {
       mpLeft.style.width = `${savedMpW}px`;
     }
@@ -612,12 +612,12 @@ export function initEnvelopeResizers() {
       'x',
       () => mpLeft.getBoundingClientRect().width,
       (w) => { mpLeft.style.width = `${w}px`; },
-      'trafikeitor_env_mediapool_left_width',
+      'trafigator_env_mediapool_left_width',
       220,
       680
     );
 
-    const savedMpH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafikeitor_env_mediapool_height') || '', 10) : NaN;
+    const savedMpH = typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('trafigator_env_mediapool_height') || '', 10) : NaN;
     if (!Number.isNaN(savedMpH) && savedMpH >= 220 && savedMpH <= 680) {
       mpLeft.style.height = `${savedMpH}px`;
       if (mpViewer) mpViewer.style.height = `${savedMpH}px`;
@@ -630,7 +630,7 @@ export function initEnvelopeResizers() {
         mpLeft.style.height = `${h}px`;
         if (mpViewer) mpViewer.style.height = `${h}px`;
       },
-      'trafikeitor_env_mediapool_height',
+      'trafigator_env_mediapool_height',
       220,
       680
     );
@@ -1965,7 +1965,7 @@ export function setMediaPoolView(mode) {
   if (ot) renderMediaPool(ot.mediaFiles || []);
 }
 
-let inlineEnvelopeViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('trafikeitor_inline_media_view') === 'grid') ? 'grid' : 'list';
+let inlineEnvelopeViewMode = (typeof localStorage !== 'undefined' && localStorage.getItem('trafigator_inline_media_view') === 'grid') ? 'grid' : 'list';
 
 function updateInlineViewToggleButtons() {
   if (typeof document === 'undefined') return;
@@ -1988,7 +1988,7 @@ export function setInlineEnvelopeMediaView(mode) {
   inlineEnvelopeViewMode = mode === 'grid' ? 'grid' : 'list';
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('trafikeitor_inline_media_view', inlineEnvelopeViewMode);
+      localStorage.setItem('trafigator_inline_media_view', inlineEnvelopeViewMode);
     }
   } catch {}
   updateInlineViewToggleButtons();
@@ -4775,7 +4775,7 @@ export function openSubscriptionPaywallModal(isBlocking = false) {
       daysTextEl.innerText = 'Suscripción Pro Activa';
       daysTextEl.className = 'font-bold text-cyan-400 text-xs';
     }
-    if (titleEl) titleEl.innerText = 'Trafikeitor Plan Pro';
+    if (titleEl) titleEl.innerText = 'Trafigator Plan Pro';
     if (subtitleEl) subtitleEl.innerText = 'Tu espacio cuenta con todas las funciones Pro habilitadas.';
     if (checkoutBtn) {
       checkoutBtn.innerHTML = `<span>Gestionar Suscripción con Bold</span><span class="text-sm font-black">→</span>`;
@@ -4803,7 +4803,7 @@ export function openSubscriptionPaywallModal(isBlocking = false) {
       daysTextEl.innerText = `${trialDaysLeft} ${trialDaysLeft === 1 ? 'día restante' : 'días restantes'}`;
       daysTextEl.className = 'font-bold text-sky-400 text-xs';
     }
-    if (titleEl) titleEl.innerText = 'Trafikeitor Plan Pro';
+    if (titleEl) titleEl.innerText = 'Trafigator Plan Pro';
     if (subtitleEl) subtitleEl.innerText = 'Impulsa el flujo de trabajo creativo de tu agencia con máxima capacidad.';
     if (checkoutBtn) {
       checkoutBtn.innerHTML = `<span>Activar Plan Pro con Bold ($49 USD)</span><span class="text-sm font-black">→</span>`;
@@ -4826,7 +4826,7 @@ export function closeSubscriptionPaywallModal() {
 export function handleBoldCheckoutClick() {
   const org = getCurrentOrganization();
   const orgId = org ? org.id : '';
-  const boldBaseUrl = (typeof window !== 'undefined' && window.BOLD_CHECKOUT_URL) || 'https://checkout.bold.co/payment/LNK_TRAFIKEITOR_PRO';
+  const boldBaseUrl = (typeof window !== 'undefined' && window.BOLD_CHECKOUT_URL) || 'https://checkout.bold.co/payment/LNK_TRAFIGATOR_PRO';
   const checkoutUrl = orgId ? `${boldBaseUrl}?reference=${encodeURIComponent(orgId)}` : boldBaseUrl;
   if (typeof window !== 'undefined') {
     window.open(checkoutUrl, '_blank');

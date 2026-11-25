@@ -1,4 +1,4 @@
-# Plan de Internacionalización (`i18n`) — Trafikeitor (`ES` / `EN` / `PT`)
+# Plan de Internacionalización (`i18n`) — Trafigator (`ES` / `EN` / `PT`)
 
 > **Idioma base:** Español (`es`) — fuente de verdad validada en `sketch-ot.html` y `src/sketch/`.  
 > **Idiomas objetivo:** Inglés (`en`) y Portugués (`pt`).  
@@ -88,7 +88,7 @@ import en from './en.json';
 import pt from './pt.json';
 
 const dictionaries = { es, en, pt };
-let currentLang = localStorage.getItem('trafikeitor_lang') || 'es';
+let currentLang = localStorage.getItem('trafigator_lang') || 'es';
 
 // 1. Traducción en plantillas dinámicas JS: ${t('nav.traffic')}
 export function t(key, vars = {}) {
@@ -119,10 +119,10 @@ export function applyTranslations(root = document) {
 export function setLanguage(lang) {
   if (!dictionaries[lang]) return;
   currentLang = lang;
-  localStorage.setItem('trafikeitor_lang', lang);
+  localStorage.setItem('trafigator_lang', lang);
   document.documentElement.lang = lang;
   applyTranslations(document);
-  window.dispatchEvent(new CustomEvent('trafikeitor:lang-changed', { detail: { lang } }));
+  window.dispatchEvent(new CustomEvent('trafigator:lang-changed', { detail: { lang } }));
 }
 ```
 
@@ -136,8 +136,8 @@ export function setLanguage(lang) {
    - Tooltips Obsidian: `<button data-i18n-tip="nav.settings" data-tip="Ajustes">`
 2. **Módulos JS (`traffic.js`, `ot-detail.js`, `stripboard.js`, `review-viewer.js`):**
    - Reemplazar cadenas literales dentro de template strings por `${t('clave')}`.
-   - Suscribir el re-render de las vistas activas al evento `trafikeitor:lang-changed`.
+   - Suscribir el re-render de las vistas activas al evento `trafigator:lang-changed`.
    - Usar `Intl.DateTimeFormat(currentLang)` para fechas cortas y relativas sin lógica manual.
 3. **Persistencia de Preferencia y Visor Público (`/review/:token`):**
-   - **Usuario interno:** Selector `ES` / `EN` / `PT` en **Ajustes → Preferencias**, guardado en `localStorage` (`trafikeitor_lang`) y sincronizado con la preferencia del usuario en SQLite.
+   - **Usuario interno:** Selector `ES` / `EN` / `PT` en **Ajustes → Preferencias**, guardado en `localStorage` (`trafigator_lang`) y sincronizado con la preferencia del usuario en SQLite.
    - **Cliente externo (`/review/:token`):** Soporta parámetro opcional `?lang=en|pt|es` al compartir el enlace o detección automática mediante `navigator.language`.

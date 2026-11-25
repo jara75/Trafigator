@@ -6,8 +6,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-const GUEST_STORAGE_KEY = 'trafikeitor_guest_name';
-const PIN_COLOR_STORAGE_KEY = 'trafikeitor_pin_color';
+const GUEST_STORAGE_KEY = 'trafigator_guest_name';
+const PIN_COLOR_STORAGE_KEY = 'trafigator_pin_color';
 
 const PIN_COLOR_PALETTE = [
   { id: 'teal', label: 'Turquesa', bg: 'bg-[#0BA2AC] border-white text-white', swatch: '#0BA2AC' },
@@ -26,7 +26,7 @@ const state = {
   threads: [],
   messages: [],
   viewerSession: { isAgency: false, name: null },
-  guestName: localStorage.getItem(GUEST_STORAGE_KEY) || '',
+  guestName: (localStorage.getItem(GUEST_STORAGE_KEY) ?? localStorage.getItem('trafikeitor_guest_name')) || '',
   pinColor: localStorage.getItem(PIN_COLOR_STORAGE_KEY) || 'teal',
   zoom: 1,
   panX: 0,
@@ -486,7 +486,7 @@ function setSidebarCollapsed(collapsed) {
   resizer.classList.toggle('hidden', collapsed);
   expandBtn.classList.toggle('hidden', !collapsed);
   expandBtn.classList.toggle('inline-flex', collapsed);
-  localStorage.setItem('trafikeitor_rv_sidebar_collapsed', collapsed ? '1' : '0');
+  localStorage.setItem('trafigator_rv_sidebar_collapsed', collapsed ? '1' : '0');
 }
 
 function selectThread(threadId) {
@@ -717,13 +717,13 @@ function setupSidebarResizer() {
   const expandBtn = el('rv-sidebar-expand-btn');
   if (!resizer || !sidebar) return;
 
-  const WIDTH_KEY = 'trafikeitor_rv_sidebar_width';
+  const WIDTH_KEY = 'trafigator_rv_sidebar_width';
   const savedWidth = parseInt(localStorage.getItem(WIDTH_KEY) || '', 10);
   if (Number.isFinite(savedWidth) && savedWidth >= 260 && savedWidth <= 680) {
     sidebar.style.width = `${savedWidth}px`;
   }
 
-  if (localStorage.getItem('trafikeitor_rv_sidebar_collapsed') === '1') {
+  if (localStorage.getItem('trafigator_rv_sidebar_collapsed') === '1') {
     setSidebarCollapsed(true);
   }
   if (collapseBtn) collapseBtn.addEventListener('click', () => setSidebarCollapsed(true));

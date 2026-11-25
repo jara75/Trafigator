@@ -1,5 +1,5 @@
 /**
- * TRAFIKEITOR // MOTOR DEL STRIPBOARD (PLAN DE RODAJE/TRABAJO DIARIO, SEMANAL, GANTT Y MENSUAL)
+ * TRAFIGATOR // MOTOR DEL STRIPBOARD (PLAN DE RODAJE/TRABAJO DIARIO, SEMANAL, GANTT Y MENSUAL)
  * Módulo 4: Motor Stripboard completo en sus 4 vistas operativas (Día, Semana Lun-Sáb, Timeline Gantt 08-19h
  * y Calendario Mensual), piscina de OTs pendientes, trim interactivo estilo DaVinci Resolve y Drag & Drop.
  */

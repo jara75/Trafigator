@@ -1,11 +1,11 @@
 ---
-name: trafikeitor-ui
-description: Sistema de diseño Obsidian, arquitectura de 3 columnas, convenciones visuales y reglas de dominio de Trafikeitor extraídas de sketch-ot.html y src/sketch/. Usar siempre que se creen, modifiquen o migren vistas, componentes o modales de la interfaz de Trafikeitor.
+name: trafigator-ui
+description: Sistema de diseño Obsidian, arquitectura de 3 columnas, convenciones visuales y reglas de dominio de Trafigator extraídas de sketch-ot.html y src/sketch/. Usar siempre que se creen, modifiquen o migren vistas, componentes o modales de la interfaz de Trafigator.
 ---
 
-# Trafikeitor UI — Frontend Design Skill (Obsidian)
+# Trafigator UI — Frontend Design Skill (Obsidian)
 
-Esta skill define la estética, estructura y reglas no negociables de la interfaz de **Trafikeitor**, basadas en la referencia validada en `sketch-ot.html` y `src/sketch/`.
+Esta skill define la estética, estructura y reglas no negociables de la interfaz de **Trafigator**, basadas en la referencia validada en `sketch-ot.html` y `src/sketch/`.
 
 ## 1. Reglas No Negociables
 
@@ -13,7 +13,7 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 2. **Terminología de dominio:**
    - Usar **Detalle de OT / Tarea** (`ot-detail.js`) — **nunca** usar *"Sobre abierto"* en código nuevo ni en textos de interfaz.
    - **Campanita inferior:** exclusiva para notificaciones de **suscripción**, no para notificaciones operativas del estudio.
-   - **Membresía y Facturación:** dentro de la app solo muestra resumen (plan actual, días de prueba, puestos usados) y redirige al sitio web externo (`trafikeitor.com/planes`) para comprar o cambiar de plan.
+   - **Membresía y Facturación:** dentro de la app solo muestra resumen (plan actual, días de prueba, puestos usados) y redirige al sitio web externo (`trafigator.com/planes`) para comprar o cambiar de plan.
 3. **Íconos y Tooltips:**
    - Usar siempre `<span data-icon="..." data-icon-size="w-3 h-3"></span>` e hidratar con `hydrateIcons(container)` de `/src/client/icons.js`.
    - Para tooltips compactos usar el atributo `data-tip="..."` (y `data-tip-pos="right"` si va hacia la derecha), estilizado en `src/sketch/sketch.css`.
@@ -77,7 +77,7 @@ Esta skill define la estética, estructura y reglas no negociables de la interfa
 
 ## 5. Reglas de Roles y Planes (para nuevas pantallas)
 
-- **Roles en Trafikeitor:** `Dueño` (`director`, **no** cuenta en el cupo de puestos) | `Miembro` (`member`, con cargo `role_title` y permiso `allowed_client_id`: `'*'` o cliente específico) | `Cliente` (revisor gratuito en todos los planes) | `Invitado` *(pendiente de implementar completamente en el Módulo Estudio / Miembros)*.
+- **Roles en Trafigator:** `Dueño` (`director`, **no** cuenta en el cupo de puestos) | `Miembro` (`member`, con cargo `role_title` y permiso `allowed_client_id`: `'*'` o cliente específico) | `Cliente` (revisor gratuito en todos los planes) | `Invitado` *(pendiente de implementar completamente en el Módulo Estudio / Miembros)*.
 - **Planes:** Prueba gratis `14 días` (5 puestos), Plan Solo `USD $12/mes` (1 puesto sin invitaciones internas), Plan Estudio `USD $49/mes` (5 puestos + `USD $5` por adicional hasta máximo `10`).
 - **Principio de Jerarquía de Filtros (estricto):** Un filtro hijo **nunca** contradice ni sobrescribe a su padre. Ejemplos obligatorios:
   - Si `#workspace-bar` ya fijó un Perfil, el filtro interno `Estudio / Perfil` queda bloqueado en ese Perfil.

@@ -48,7 +48,7 @@ export async function sendTeamInvitationEmail(payload: InvitationEmailPayload) {
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f3f4f6;color:#111827;padding:32px 20px;">
       <div style="max-width:520px;margin:0 auto;background-color:#ffffff;border:1px solid #d1d5db;border-radius:14px;padding:28px;">
         <div style="font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#0f766e;font-weight:700;margin-bottom:8px;">
-          Trafikeitor // Invitación de Equipo
+          Trafigator // Invitación de Equipo
         </div>
         <h1 style="font-size:20px;margin:0 0 12px;color:#111827;">
           Te invitaron a unirte a ${escapeHtml(orgName)}
@@ -73,8 +73,8 @@ export async function sendTeamInvitationEmail(payload: InvitationEmailPayload) {
     const info = await transporter.sendMail({
       from,
       to: payload.email,
-      subject: `Invitación a ${orgName} — Trafikeitor`,
-      text: `${inviter} te invitó a unirte a ${orgName} en Trafikeitor. Acepta aquí: ${inviteUrl}`,
+      subject: `Invitación a ${orgName} — Trafigator`,
+      text: `${inviter} te invitó a unirte a ${orgName} en Trafigator. Acepta aquí: ${inviteUrl}`,
       html,
     });
     console.log('[SMTP] Correo de invitación enviado a:', payload.email, 'messageId:', info.messageId);

@@ -1,4 +1,4 @@
-# Especificación Técnica: Refactorización Modular de Trafikeitor
+# Especificación Técnica: Refactorización Modular de Trafigator
 
 > **Documento de Arquitectura y Plan de Refactorización**  
 > **Estado**: Borrador técnico validado (Aprobación requerida antes de ejecución)  
