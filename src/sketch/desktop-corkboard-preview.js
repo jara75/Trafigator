@@ -656,14 +656,20 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
         const hl = (currentPin.highlights || []).find((item) => item.id === hlId);
         if (!hl) return;
 
-        const recipientVal = String(form.querySelector('[data-cork-share-recipient="1"]')?.value || '');
+        const targets = buildShareTargets({ pin: currentPin, roleCaps, userProfile, trafficOrders });
+        const recipientVal = String(form.querySelector('[data-cork-share-recipient="1"]')?.value || '').trim();
+        if (!recipientVal) return;
         const [rawType, ...restName] = recipientVal.split(':');
-        const recipientType = rawType === 'client' ? 'client' : 'member';
-        const recipientName = restName.join(':').trim() || 'Equipo';
+        if (rawType !== 'client' && rawType !== 'member') return;
+        const recipientType = rawType;
+        const recipientName = restName.join(':').trim();
+        if (!recipientName) return;
+        if (recipientType === 'member' && !targets.members.includes(recipientName)) return;
+        if (recipientType === 'client' && !targets.clients.includes(recipientName)) return;
         const recipientDisplay = recipientType === 'client' ? `Cliente · ${recipientName}` : recipientName;
         const optionalOtId = String(form.querySelector('[data-cork-share-ot="1"]')?.value || '').trim() || null;
         const targetOtId = currentPin.otId || optionalOtId || null;
-        const allowedOrders = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
+        const allowedOrders = targets.allowedOrders;
         const actorName = String(userProfile?.shortName || 'Equipo');
         const msgText = formatSharedHighlightMessage({
           pin: currentPin,
@@ -676,6 +682,7 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
         if (targetOtId) {
           const targetOt = allowedOrders.find((o) => o.id === targetOtId);
           if (!targetOt) return;
+          if (recipientType === 'client' && String(targetOt.client || '') !== recipientName) return;
           ensureOtData(targetOt);
           appendOtMessage(targetOt, {
             text: msgText,

@@ -47,6 +47,7 @@ import {
   DND_MIME_SLOT,
   bindCorkboardEvents,
   closeCorkPinPreview,
+  getCorkboardPermissions,
   hasOpenCorkPinPreview,
   loadCorkInternalMessages,
   renderCorkboardQuadrant,
@@ -351,7 +352,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   }
 
   // Idle Inspector streams & contextual OT/Task
-  const internalMessages = loadCorkInternalMessages({ studioSettings });
+  const canAccessCorkboard = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile }).canAccess;
+  const internalMessages = canAccessCorkboard ? loadCorkInternalMessages({ studioSettings }) : [];
   const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages });
 
   const selectedContextOt = selectedContextOtId
@@ -699,7 +701,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     const freshStreams = buildInspectorIdleStreams({
       scopedOrders,
       q4TraceFilter,
-      internalMessages: loadCorkInternalMessages({ studioSettings }),
+      internalMessages: canAccessCorkboard ? loadCorkInternalMessages({ studioSettings }) : [],
     });
     renderIdleInspectorInPlace(freshStreams);
     const slot = document.getElementById('insp-content-slot');

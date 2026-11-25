@@ -70,6 +70,7 @@ export {
   DND_MIME_PIN,
   DND_MIME_SLOT,
   closeCorkPinPreview,
+  getCorkboardPermissions,
   hasOpenCorkPinPreview,
   loadCorkInternalMessages,
 };
@@ -329,7 +330,7 @@ export function renderCorkboardQuadrant({
     `;
   }
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
-  const pins = ensureCorkPinsInitialized(storeOpts);
+  const pins = ensureCorkPinsInitialized(storeOpts, { readOnly: !perms.canEdit });
 
   // 1. Gráfico seleccionado desde Estadística (C02) -> se muestra en C04 con botón Pin
   if (lightboxChartIdx !== null && lastPillBoard && Array.isArray(lastPillBoard.cards) && lastPillBoard.cards[lightboxChartIdx]) {
@@ -901,7 +902,7 @@ export function bindCorkboardEvents(container, ctx = {}) {
     const footerSlot = corkRoot.querySelector('[data-dk-cork-footer="1"]');
     if (!bodySlot) return;
     const prevScrollTop = bodySlot.scrollTop;
-    const pins = ensureCorkPinsInitialized(storeOpts);
+    const pins = ensureCorkPinsInitialized(storeOpts, { readOnly: !perms.canEdit });
     const activePin = resolveActivePreviewPin(pins);
     const activeComposer = perms.canEdit && !activePin ? getActiveCorkComposer() : null;
 

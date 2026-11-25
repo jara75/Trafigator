@@ -345,9 +345,10 @@ export function buildOnboardingPins({ isPersonalScope = false, studioSettings = 
   ];
 }
 
-export function ensureCorkPinsInitialized(opts = {}) {
+export function ensureCorkPinsInitialized(opts = {}, { readOnly = false } = {}) {
   const loaded = loadCorkPins(opts);
   if (loaded !== null) return loaded;
+  if (readOnly) return [];
   const seeded = buildOnboardingPins(opts);
   const res = saveCorkPins(seeded, opts);
   return res.pins;
