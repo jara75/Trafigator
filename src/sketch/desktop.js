@@ -48,6 +48,7 @@ import {
   bindCorkboardEvents,
   closeCorkPinPreview,
   hasOpenCorkPinPreview,
+  loadCorkInternalMessages,
   renderCorkboardQuadrant,
 } from './desktop-corkboard.js';
 import {
@@ -349,7 +350,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   }
 
   // Idle Inspector streams & contextual OT/Task
-  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter });
+  const internalMessages = loadCorkInternalMessages({ studioSettings });
+  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages });
 
   const selectedContextOt = selectedContextOtId
     ? (scopedOrders.find((o) => o.id === selectedContextOtId) || trafficOrders.find((o) => o.id === selectedContextOtId) || null)
@@ -626,13 +628,15 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     ? `ot:${selectedContextOt.id}:${selectedContextTaskIdx ?? ''}`
     : `idle:${inspIdleTab}:${inspIdleTab === 'activity' ? q4TraceFilter : (inspIdleTab === 'drill' ? (selectedStatsDrillKey || '') : '')}`;
 
-  if (inspContentSlot && !selectedContextOt) {
+  const renderIdleInspectorInPlace = (streams = { visibleMessages, visibleTrace }) => {
+    const slot = document.getElementById('insp-content-slot');
+    if (!slot || selectedContextOt) return;
     renderDesktopIdleInspector({
-      inspContentSlot,
+      inspContentSlot: slot,
       activeStatsDrill,
       inspIdleTab,
-      visibleMessages,
-      visibleTrace,
+      visibleMessages: streams.visibleMessages,
+      visibleTrace: streams.visibleTrace,
       q4TraceFilter,
       todayKey,
       tomorrowKey,
@@ -677,6 +681,33 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
       },
     });
+  };
+
+  const refreshDesktopInspectorLive = ({ switchToMessages = false } = {}) => {
+    if (selectedContextOt) {
+      renderTrafficNotesInspector(
+        selectedContextOt.id,
+        selectedContextTaskIdx !== null && selectedContextTaskIdx !== undefined ? String(selectedContextTaskIdx) : '',
+        false,
+        { onOpenOt: (id) => openOt(id, selectedContextTaskIdx) }
+      );
+      return;
+    }
+    if (switchToMessages) {
+      inspIdleTab = 'messages';
+    }
+    const freshStreams = buildInspectorIdleStreams({
+      scopedOrders,
+      q4TraceFilter,
+      internalMessages: loadCorkInternalMessages({ studioSettings }),
+    });
+    renderIdleInspectorInPlace(freshStreams);
+    const slot = document.getElementById('insp-content-slot');
+    if (slot) slot.scrollTop = 0;
+  };
+
+  if (inspContentSlot && !selectedContextOt) {
+    renderIdleInspectorInPlace({ visibleMessages, visibleTrace });
   }
 
   // Restore scroll positions before binding events
@@ -1195,5 +1226,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     tomorrowKey,
     rerender,
     openOt,
+    onHighlightShared: () => refreshDesktopInspectorLive({ switchToMessages: true }),
   });
 }

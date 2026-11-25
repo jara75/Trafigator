@@ -143,6 +143,9 @@ export function createCorkPin({
           quote: String(h?.quote || ''),
           note: String(h?.note || ''),
           createdAt: String(h?.createdAt || nowIso),
+          sharedAt: h?.sharedAt ? String(h.sharedAt) : null,
+          sharedTo: h?.sharedTo ? String(h.sharedTo) : null,
+          sharedOtId: h?.sharedOtId ? String(h.sharedOtId) : null,
         }))
       : [],
     chartMeta: chartMeta && typeof chartMeta === 'object'
@@ -617,6 +620,118 @@ export function removeCorkPinHighlight(storageKey, pinId, highlightId) {
     return { ok: true, removed: true, pin: normalized[idx], pins: normalized };
   } catch (err) {
     return { ok: false, removed: false, error: err?.name || 'StorageError', pin: null, pins: [] };
+  }
+}
+
+export function markCorkPinHighlightShared(storageKey, pinId, highlightId, { sharedTo = '', sharedAt = '', sharedOtId = null } = {}) {
+  const key = resolveStorageKey(storageKey);
+  const targetId = String(pinId || '');
+  const hlId = String(highlightId || '');
+  if (!key || !targetId || !hlId) {
+    return { ok: false, updated: false, pin: null, pins: [] };
+  }
+  try {
+    const ordered = readNormalizedPinsByKey(key);
+    if (!ordered) return { ok: false, updated: false, pin: null, pins: [] };
+    const idx = ordered.findIndex((p) => p.id === targetId);
+    if (idx === -1) return { ok: false, updated: false, pin: null, pins: ordered };
+    const current = ordered[idx];
+    const prevHighlights = Array.isArray(current.highlights) ? current.highlights : [];
+    let matched = false;
+    const nextHighlights = prevHighlights.map((h) => {
+      if (h.id !== hlId) return h;
+      matched = true;
+      return {
+        ...h,
+        sharedAt: String(sharedAt || new Date().toISOString()),
+        sharedTo: String(sharedTo || ''),
+        sharedOtId: sharedOtId ? String(sharedOtId) : (h.sharedOtId || null),
+      };
+    });
+    if (!matched) return { ok: false, updated: false, pin: current, pins: ordered };
+    const updatedPin = createCorkPin({ ...current, highlights: nextHighlights, id: current.id, position: idx });
+    const nextList = ordered.slice();
+    nextList[idx] = updatedPin;
+    const normalized = writeNormalizedPinsByKey(key, nextList);
+    return { ok: true, updated: true, pin: normalized[idx], pins: normalized };
+  } catch (err) {
+    return { ok: false, updated: false, error: err?.name || 'StorageError', pin: null, pins: [] };
+  }
+}
+
+// --- RBAC para compartir resaltados/apuntes como mensaje (HU-06 · Sección 6) ---
+export function getAssignableOrdersForShare({ roleCaps = null, userProfile = null, trafficOrders = [] } = {}) {
+  const active = (trafficOrders || []).filter((o) => !o.archived);
+  const perms = getCorkboardPermissions({ isPersonalScope: true, roleCaps, userProfile });
+  if (!perms.canAccess) return [];
+  const hasGlobal = Boolean(roleCaps?.isOwner || roleCaps?.hasGlobalScope || perms.isOwnerOrAdmin);
+  if (hasGlobal) return active;
+  const myName = String(userProfile?.shortName || '');
+  if (!myName) return [];
+  return active.filter(
+    (o) => o.responsible === myName || (o.subtasks || []).some((st) => (st.responsible || o.responsible) === myName)
+  );
+}
+
+export function canShareCorkHighlight({ pin = null, roleCaps = null, userProfile = null, trafficOrders = [] } = {}) {
+  const perms = getCorkboardPermissions({ isPersonalScope: true, roleCaps, userProfile });
+  if (!perms.canAccess) return false;
+  const hasGlobal = Boolean(roleCaps?.isOwner || roleCaps?.hasGlobalScope || perms.isOwnerOrAdmin);
+  if (hasGlobal) return true;
+  if (!pin?.otId) return true;
+  const allowed = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
+  return allowed.some((o) => o.id === pin.otId);
+}
+
+// --- Canal interno de mensajes del Estudio desde Corcho (pines sueltos sin otId) ---
+export function getCorkInboxStorageKey({ studioSettings = null } = {}) {
+  const orgKey = slugKey(studioSettings?.initials || studioSettings?.name, 'studio');
+  return `trafigator_cork_inbox_v1_${orgKey}`;
+}
+
+export function loadCorkInternalMessages(opts = {}) {
+  const key = getCorkInboxStorageKey(opts);
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function appendCorkInternalMessage(msgInput = {}, opts = {}) {
+  const key = getCorkInboxStorageKey(opts);
+  const text = String(msgInput.text || '').trim();
+  if (!text) return { ok: false, message: null, messages: loadCorkInternalMessages(opts) };
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const entry = {
+    id: String(msgInput.id || `cmsg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`),
+    at: String(msgInput.at || `${dd}/${mm} ${hh}:${min}`),
+    createdAt: String(msgInput.createdAt || now.toISOString()),
+    actor: String(msgInput.actor || 'Estudio'),
+    recipientType: msgInput.recipientType === 'client' ? 'client' : 'member',
+    recipientLabel: String(msgInput.recipientLabel || ''),
+    channel: String(msgInput.channel || 'Corcho'),
+    text,
+    otId: null,
+    pinId: msgInput.pinId ? String(msgInput.pinId) : null,
+    pinTitle: String(msgInput.pinTitle || ''),
+    priority: null,
+    pinned: false,
+  };
+  const current = loadCorkInternalMessages(opts);
+  const next = [entry, ...current].slice(0, 50);
+  try {
+    localStorage.setItem(key, JSON.stringify(next));
+    return { ok: true, message: entry, messages: next };
+  } catch (err) {
+    return { ok: false, error: err?.name || 'StorageError', message: entry, messages: current };
   }
 }
 

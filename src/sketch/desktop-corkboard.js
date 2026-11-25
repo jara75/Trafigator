@@ -29,6 +29,7 @@ import {
   getCorkStorageKey,
   getCorkboardPermissions,
   hasOpenCorkPinPreview,
+  loadCorkInternalMessages,
   normalizeSafeWebUrl,
   removeCorkPin,
   reorderCorkPins,
@@ -58,6 +59,7 @@ export {
   DND_MIME_SLOT,
   closeCorkPinPreview,
   hasOpenCorkPinPreview,
+  loadCorkInternalMessages,
   renderOtGalleryOverlay,
 };
 
@@ -380,6 +382,8 @@ export function renderCorkboardQuadrant({
           ? renderCorkPinPreview({
               pin: activePin,
               canEdit: perms.canEdit,
+              roleCaps,
+              userProfile,
               trafficOrders,
             })
           : renderCorkBodyHtml({
@@ -793,6 +797,8 @@ export function bindCorkboardEvents(container, ctx = {}) {
       ? renderCorkPinPreview({
           pin: activePin,
           canEdit: perms.canEdit,
+          roleCaps,
+          userProfile,
           trafficOrders,
         })
       : renderCorkBodyHtml({

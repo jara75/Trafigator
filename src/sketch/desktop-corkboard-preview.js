@@ -6,13 +6,23 @@
  * - Panel derecho de resaltados y apuntes privados con formulario compacto accesible
  */
 
-import { escapeHtml } from './store.js';
+import {
+  appendOtMessage,
+  ensureOtData,
+  escapeHtml,
+  studioTeamList,
+  trafficMembers,
+} from './store.js';
 import {
   addCorkPinHighlight,
+  appendCorkInternalMessage,
+  canShareCorkHighlight,
+  getAssignableOrdersForShare,
   getCorkBlobObjectUrl,
   getCorkStorageKey,
   getCorkboardPermissions,
   getFileTypeTag,
+  markCorkPinHighlightShared,
   removeCorkPinHighlight,
   setActiveCorkPinId,
   updateCorkPinMeta,
@@ -250,7 +260,48 @@ function renderFileViewer(pin, { trafficOrders = [] }) {
   `;
 }
 
-export function renderCorkPinHighlightsList(pin, { canEdit = false } = {}) {
+function buildShareTargets({ pin = null, roleCaps = null, userProfile = null, trafficOrders = [] } = {}) {
+  const allowedOrders = getAssignableOrdersForShare({ roleCaps, userProfile, trafficOrders });
+  const memberSet = new Set();
+  (studioTeamList || []).forEach((m) => {
+    if (m?.name && m.status !== 'Inactivo') memberSet.add(String(m.name));
+  });
+  (trafficMembers || []).forEach((name) => {
+    if (name) memberSet.add(String(name));
+  });
+  const members = Array.from(memberSet);
+
+  const clientSet = new Set();
+  if (pin?.otId) {
+    const liveOt = (trafficOrders || []).find((o) => o.id === pin.otId);
+    if (liveOt?.client) clientSet.add(String(liveOt.client));
+  } else {
+    allowedOrders.forEach((o) => {
+      if (o?.client) clientSet.add(String(o.client));
+    });
+  }
+  const clients = Array.from(clientSet);
+
+  return { members, clients, allowedOrders };
+}
+
+function formatSharedHighlightMessage({ pin, highlight, recipientType, recipientName }) {
+  const targetPrefix = recipientType === 'client'
+    ? `[Para Cliente: ${recipientName}]`
+    : `@${recipientName}`;
+  const refLabel = pin?.title ? `[Corcho · ${pin.title}]` : '[Corcho]';
+  const parts = [`${targetPrefix} · ${refLabel}`];
+  if (highlight?.quote) parts.push(`«${highlight.quote}»`);
+  if (highlight?.note) parts.push(highlight.note);
+  return parts.join(' — ');
+}
+
+export function renderCorkPinHighlightsList(pin, {
+  canEdit = false,
+  canShare = false,
+  activeShareHlId = null,
+  shareTargets = null,
+} = {}) {
   const highlights = Array.isArray(pin?.highlights) ? pin.highlights : [];
   if (!highlights.length) {
     return `
@@ -260,8 +311,17 @@ export function renderCorkPinHighlightsList(pin, { canEdit = false } = {}) {
       </div>
     `;
   }
-  return highlights.map((h) => {
+  const targets = shareTargets || { members: [], clients: [], allowedOrders: [] };
+
+  return highlights.map((h, idx) => {
     const ts = formatHighlightTimestamp(h.createdAt);
+    const isShareOpen = canShare && activeShareHlId === h.id;
+    const sharedBadge = h.sharedAt
+      ? `<span data-cork-hl-shared="1" class="font-mono text-[8px] text-emerald-400/90 truncate" title="Enviado a ${escapeHtml(h.sharedTo || 'equipo')}">· Enviado${h.sharedTo ? ` (${escapeHtml(h.sharedTo)})` : ''}</span>`
+      : '';
+    const recipientSelectId = `cork-share-recipient-${idx}`;
+    const otSelectId = `cork-share-ot-${idx}`;
+
     return `
       <div data-cork-hl-id="${escapeHtml(h.id)}" class="p-2 rounded-lg bg-[#202020] border border-obsidian-border space-y-1.5">
         ${h.quote ? `
@@ -270,15 +330,65 @@ export function renderCorkPinHighlightsList(pin, { canEdit = false } = {}) {
         ${h.note ? `
           <p class="text-[10.5px] text-[#D4D4D4] leading-snug whitespace-pre-wrap break-words">${escapeHtml(h.note)}</p>
         ` : ''}
-        <div class="flex items-center justify-between gap-2 pt-0.5">
-          <span class="font-mono text-[8.5px] text-[#5A5A5A]">${escapeHtml(ts || 'Apunte privado')}</span>
-          ${canEdit ? `
-            <button type="button" data-cork-remove-hl="${escapeHtml(h.id)}" title="Eliminar apunte" aria-label="Eliminar apunte"
-              class="w-5 h-5 rounded text-[#737373] hover:text-rose-400 hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
-              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          ` : ''}
+        <div class="flex items-center justify-between gap-1.5 pt-0.5 min-w-0">
+          <div class="inline-flex items-center gap-1 min-w-0">
+            <span class="font-mono text-[8.5px] text-[#5A5A5A] shrink-0">${escapeHtml(ts || 'Apunte privado')}</span>
+            ${sharedBadge}
+          </div>
+          <div class="inline-flex items-center gap-1 shrink-0">
+            ${canShare ? `
+              <button type="button" data-cork-toggle-share="${escapeHtml(h.id)}"
+                class="px-1 py-0.5 rounded text-[8.5px] font-mono cursor-pointer transition-colors ${isShareOpen ? 'bg-obsidian-elevated text-obsidian-amber font-semibold' : 'text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated'}">
+                ${h.sharedAt ? 'Reenviar →' : 'Enviar como mensaje →'}
+              </button>
+            ` : ''}
+            ${canEdit ? `
+              <button type="button" data-cork-remove-hl="${escapeHtml(h.id)}" title="Eliminar apunte" aria-label="Eliminar apunte"
+                class="w-5 h-5 rounded text-[#737373] hover:text-rose-400 hover:bg-obsidian-elevated flex items-center justify-center cursor-pointer transition-colors">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            ` : ''}
+          </div>
         </div>
+        ${isShareOpen ? `
+          <form data-cork-share-form="${escapeHtml(h.id)}" class="mt-1.5 p-2 rounded-md bg-[#191919] border border-obsidian-border space-y-1.5">
+            <div>
+              <label for="${recipientSelectId}" class="block font-mono text-[8px] uppercase tracking-wider text-[#8C8C8C] mb-0.5">Destinatario</label>
+              <select id="${recipientSelectId}" name="share_recipient" data-cork-share-recipient="1"
+                class="w-full bg-[#222222] border border-obsidian-border rounded px-2 py-1 text-[10px] text-[#D4D4D4] focus:border-[#3f3f3f] focus:outline-none">
+                ${targets.members.length ? `
+                  <optgroup label="Miembro del equipo">
+                    ${targets.members.map((m) => `<option value="member:${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+                ${targets.clients.length ? `
+                  <optgroup label="Cliente">
+                    ${targets.clients.map((c) => `<option value="client:${escapeHtml(c)}">Cliente · ${escapeHtml(c)}</option>`).join('')}
+                  </optgroup>
+                ` : ''}
+              </select>
+            </div>
+            ${!pin.otId && targets.allowedOrders.length ? `
+              <div>
+                <label for="${otSelectId}" class="block font-mono text-[8px] uppercase tracking-wider text-[#8C8C8C] mb-0.5">Destino (opcional)</label>
+                <select id="${otSelectId}" name="share_ot_id" data-cork-share-ot="1"
+                  class="w-full bg-[#222222] border border-obsidian-border rounded px-2 py-1 text-[10px] font-mono text-[#D4D4D4] focus:border-[#3f3f3f] focus:outline-none">
+                  <option value="">Canal interno del Estudio (Corcho)</option>
+                  ${targets.allowedOrders.slice(0, 20).map((ot) => {
+                    const code = String(ot.id || '').replace(/^OT-/i, '');
+                    return `<option value="${escapeHtml(ot.id)}">${escapeHtml(code)} · ${escapeHtml(String(ot.title || '').slice(0, 34))}</option>`;
+                  }).join('')}
+                </select>
+              </div>
+            ` : ''}
+            <div class="flex items-center justify-end gap-1.5 pt-0.5">
+              <button type="button" data-cork-cancel-share="1"
+                class="px-2 py-0.5 rounded bg-obsidian-elevated hover:bg-[#323232] text-[9.5px] text-[#8C8C8C] hover:text-[#D4D4D4] cursor-pointer transition-colors">Cancelar</button>
+              <button type="submit"
+                class="px-2.5 py-0.5 rounded bg-obsidian-amber hover:bg-amber-400 text-[9.5px] text-[#191919] font-semibold cursor-pointer transition-colors">Enviar</button>
+            </div>
+          </form>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -287,11 +397,15 @@ export function renderCorkPinHighlightsList(pin, { canEdit = false } = {}) {
 export function renderCorkPinPreview({
   pin,
   canEdit = false,
+  roleCaps = null,
+  userProfile = null,
   trafficOrders = [],
   highlightError = '',
 }) {
   if (!pin) return '';
   const highlights = Array.isArray(pin.highlights) ? pin.highlights : [];
+  const canShare = canShareCorkHighlight({ pin, roleCaps, userProfile, trafficOrders });
+  const shareTargets = canShare ? buildShareTargets({ pin, roleCaps, userProfile, trafficOrders }) : null;
   let leftViewerHtml = '';
   if (pin.type === 'note') {
     leftViewerHtml = renderNoteViewer(pin, { canEdit });
@@ -313,12 +427,15 @@ export function renderCorkPinPreview({
       <div class="p-2.5 flex flex-col min-h-0 overflow-hidden">
         <div class="flex items-center justify-between gap-2 pb-1.5 mb-2 border-b border-obsidian-border/70 shrink-0">
           <span class="font-mono text-[9px] uppercase tracking-wider text-[#8C8C8C] font-semibold">Resaltados y apuntes</span>
-          <span data-cork-hl-count="1" class="font-mono text-[9px] text-[#737373]">${highlights.length}</span>
+          <div class="inline-flex items-center gap-2 shrink-0">
+            <span data-cork-share-status="1" role="status" class="hidden font-mono text-[8.5px] text-emerald-400"></span>
+            <span data-cork-hl-count="1" class="font-mono text-[9px] text-[#737373]">${highlights.length}</span>
+          </div>
         </div>
 
         <div data-cork-hl-list="1" data-dk-scroll-id="corkboard-preview-hl:${escapeHtml(pin.id)}"
           class="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-0.5 flex flex-col">
-          ${renderCorkPinHighlightsList(pin, { canEdit })}
+          ${renderCorkPinHighlightsList(pin, { canEdit, canShare, shareTargets })}
         </div>
 
         ${canEdit ? `
@@ -411,11 +528,38 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
     roleCaps = null,
     userProfile = null,
     studioSettings = null,
+    trafficOrders = [],
     rerenderLocal,
+    onHighlightShared,
   } = ctx;
   const perms = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile });
   const storeOpts = { isPersonalScope, studioSettings, userProfile };
   const storageKey = getCorkStorageKey(storeOpts);
+
+  const loadCurrentPin = () => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? (parsed.find((p) => p.id === pinId) || null) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  let activeShareHlId = null;
+  let shareStatusTimer = null;
+
+  const showShareStatus = (msg) => {
+    const statusEl = root.querySelector('[data-cork-share-status="1"]');
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.classList.remove('hidden');
+    if (shareStatusTimer) clearTimeout(shareStatusTimer);
+    shareStatusTimer = setTimeout(() => {
+      if (statusEl.isConnected) statusEl.classList.add('hidden');
+      shareStatusTimer = null;
+    }, 3000);
+  };
 
   // Cerrar Estado 2 (botón ‹ Corcho y botón × uniforme)
   root.querySelectorAll('[data-cork-close-preview="1"]').forEach((btn) => {
@@ -428,6 +572,145 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
 
   // Hidratar blob local en IndexedDB si aplica
   hydrateCorkPreviewMedia(root);
+
+  // Actualización in-place de la lista de resaltados (preserva visor izquierdo y foco)
+  const refreshHighlightsUi = (updatedPin, { scrollToBottom = false } = {}) => {
+    const pinObj = updatedPin || loadCurrentPin();
+    if (!pinObj) return;
+    const canShare = canShareCorkHighlight({ pin: pinObj, roleCaps, userProfile, trafficOrders });
+    const shareTargets = canShare ? buildShareTargets({ pin: pinObj, roleCaps, userProfile, trafficOrders }) : null;
+    const listSlot = root.querySelector('[data-cork-hl-list="1"]');
+    const countSlot = root.querySelector('[data-cork-hl-count="1"]');
+    const footerSlot = root.querySelector('[data-dk-cork-footer="1"]');
+    const prevTop = listSlot ? listSlot.scrollTop : 0;
+    if (listSlot) {
+      listSlot.innerHTML = renderCorkPinHighlightsList(pinObj, {
+        canEdit: perms.canEdit,
+        canShare,
+        activeShareHlId,
+        shareTargets,
+      });
+      listSlot.scrollTop = scrollToBottom ? listSlot.scrollHeight : prevTop;
+    }
+    if (countSlot) {
+      countSlot.textContent = String(Array.isArray(pinObj?.highlights) ? pinObj.highlights.length : 0);
+    }
+    if (footerSlot) {
+      footerSlot.innerHTML = renderCorkPinPreviewFooter(pinObj, { canEdit: perms.canEdit, isPersonalScope });
+    }
+    bindHighlightItemActions();
+  };
+
+  const bindHighlightItemActions = () => {
+    // Desplegar/cerrar selector inline "Enviar como mensaje →"
+    root.querySelectorAll('[data-cork-toggle-share]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const hlId = btn.dataset.corkToggleShare;
+        if (!hlId) return;
+        activeShareHlId = activeShareHlId === hlId ? null : hlId;
+        refreshHighlightsUi();
+        if (activeShareHlId) {
+          root.querySelector('[data-cork-share-recipient="1"]')?.focus();
+        }
+      });
+    });
+
+    // Cancelar despacho inline
+    root.querySelectorAll('[data-cork-cancel-share="1"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        activeShareHlId = null;
+        refreshHighlightsUi();
+      });
+    });
+
+    // Confirmar envío de apunte/resaltado como mensaje (HU-06)
+    root.querySelectorAll('[data-cork-share-form]').forEach((form) => {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const hlId = form.dataset.corkShareForm;
+        const currentPin = loadCurrentPin();
+        if (!currentPin || !hlId) return;
+        if (!canShareCorkHighlight({ pin: currentPin, roleCaps, userProfile, trafficOrders })) return;
+        const hl = (currentPin.highlights || []).find((item) => item.id === hlId);
+        if (!hl) return;
+
+        const recipientVal = String(form.querySelector('[data-cork-share-recipient="1"]')?.value || '');
+        const [rawType, ...restName] = recipientVal.split(':');
+        const recipientType = rawType === 'client' ? 'client' : 'member';
+        const recipientName = restName.join(':').trim() || 'Equipo';
+        const recipientDisplay = recipientType === 'client' ? `Cliente · ${recipientName}` : recipientName;
+        const optionalOtId = String(form.querySelector('[data-cork-share-ot="1"]')?.value || '').trim() || null;
+        const targetOtId = currentPin.otId || optionalOtId || null;
+        const actorName = String(userProfile?.shortName || 'Andrés');
+        const msgText = formatSharedHighlightMessage({
+          pin: currentPin,
+          highlight: hl,
+          recipientType,
+          recipientName,
+        });
+        const nowIso = new Date().toISOString();
+
+        if (targetOtId) {
+          const targetOt = (trafficOrders || []).find((o) => o.id === targetOtId);
+          if (targetOt) {
+            ensureOtData(targetOt);
+            appendOtMessage(targetOt, {
+              text: msgText,
+              channel: recipientType === 'client' ? 'Cliente' : 'App',
+              actor: actorName,
+              priority: null,
+              pinned: false,
+            });
+            const lastMsg = targetOt.messages?.[targetOt.messages.length - 1];
+            if (lastMsg) lastMsg.createdAt = nowIso;
+          }
+        } else {
+          appendCorkInternalMessage({
+            text: msgText,
+            actor: actorName,
+            recipientType,
+            recipientLabel: recipientDisplay,
+            channel: 'Corcho',
+            pinId: currentPin.id,
+            pinTitle: currentPin.title || 'Ficha',
+            createdAt: nowIso,
+          }, { studioSettings });
+        }
+
+        const marked = markCorkPinHighlightShared(storageKey, pinId, hlId, {
+          sharedTo: recipientDisplay,
+          sharedAt: nowIso,
+          sharedOtId: targetOtId,
+        });
+        activeShareHlId = null;
+        refreshHighlightsUi(marked.pin || currentPin);
+        showShareStatus(`Enviado a ${recipientDisplay}`);
+        onHighlightShared?.({
+          otId: targetOtId,
+          recipientType,
+          recipientLabel: recipientDisplay,
+        });
+      });
+    });
+
+    if (perms.canEdit) {
+      root.querySelectorAll('[data-cork-remove-hl]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const hlId = btn.dataset.corkRemoveHl;
+          if (!hlId) return;
+          if (activeShareHlId === hlId) activeShareHlId = null;
+          const res = removeCorkPinHighlight(storageKey, pinId, hlId);
+          if (res.removed && res.pin) {
+            refreshHighlightsUi(res.pin);
+          }
+        });
+      });
+    }
+  };
+  bindHighlightItemActions();
 
   if (!perms.canEdit) return;
 
@@ -505,39 +788,6 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
     noteInput?.focus();
   });
 
-  // Actualización in-place de la lista de resaltados (preserva visor izquierdo y foco)
-  const refreshHighlightsUi = (updatedPin) => {
-    const listSlot = root.querySelector('[data-cork-hl-list="1"]');
-    const countSlot = root.querySelector('[data-cork-hl-count="1"]');
-    const footerSlot = root.querySelector('[data-dk-cork-footer="1"]');
-    if (listSlot) {
-      listSlot.innerHTML = renderCorkPinHighlightsList(updatedPin, { canEdit: perms.canEdit });
-      listSlot.scrollTop = listSlot.scrollHeight;
-    }
-    if (countSlot) {
-      countSlot.textContent = String(Array.isArray(updatedPin?.highlights) ? updatedPin.highlights.length : 0);
-    }
-    if (footerSlot) {
-      footerSlot.innerHTML = renderCorkPinPreviewFooter(updatedPin, { canEdit: perms.canEdit, isPersonalScope });
-    }
-    bindRemoveHighlightButtons();
-  };
-
-  const bindRemoveHighlightButtons = () => {
-    root.querySelectorAll('[data-cork-remove-hl]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const hlId = btn.dataset.corkRemoveHl;
-        if (!hlId) return;
-        const res = removeCorkPinHighlight(storageKey, pinId, hlId);
-        if (res.removed && res.pin) {
-          refreshHighlightsUi(res.pin);
-        }
-      });
-    });
-  };
-  bindRemoveHighlightButtons();
-
   // Formulario de nuevo resaltado / apunte privado
   root.querySelector('[data-cork-hl-form="1"]')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -556,7 +806,7 @@ export function bindCorkPreviewEvents(root, ctx = {}) {
       if (quoteInput) quoteInput.value = '';
       if (noteInput) noteInput.value = '';
       if (errorSlot) errorSlot.textContent = '';
-      refreshHighlightsUi(res.pin);
+      refreshHighlightsUi(res.pin, { scrollToBottom: true });
       noteInput?.focus();
     }
   });
