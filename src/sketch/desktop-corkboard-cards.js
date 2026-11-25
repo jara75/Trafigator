@@ -11,7 +11,10 @@ import {
   getPriorityDotHtml,
 } from './store.js';
 import { renderStatsPillChartsGrid } from './ot-en-proceso-charts.js';
-import { getFileTypeTag } from './desktop-corkboard-store.js';
+import {
+  formatTimerClock,
+  getFileTypeTag,
+} from './desktop-corkboard-store.js';
 
 export function buildSnapshotSummary(chartMeta) {
   if (!chartMeta) return '';
@@ -261,6 +264,87 @@ export function renderCorkPinCard(pin, idx, {
       <div class="flex items-center justify-between text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50">
         <span>${escapeHtml(sizeLabel || (pin.demoPackId ? 'DEMO' : 'LOCAL'))}</span>
         <span>${notesCount ? `${notesCount} ap.` : (blobId ? 'IDB' : 'REF')}</span>
+      </div>
+    </article>
+  `;
+}
+
+export function renderCorkPluginCard(pluginId, {
+  canEdit = false,
+  timerState = { running: false, elapsedSeconds: 0 },
+  demoPinsCount = 0,
+} = {}) {
+  if (pluginId === 'egomaker') {
+    const isRunning = Boolean(timerState?.running);
+    const clockStr = formatTimerClock(timerState?.elapsedSeconds || 0);
+    return `
+      <article draggable="false" data-cork-plugin-id="egomaker"
+        class="p-2.5 rounded-lg bg-[#202020] border border-obsidian-border flex flex-col justify-between gap-1.5 min-w-0">
+        <div class="space-y-1.5 min-w-0">
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="font-mono text-[8.5px] uppercase tracking-wider text-cyan-400 font-semibold">PLUGIN</span>
+            <span class="font-mono text-[8.5px] text-[#737373] truncate">EgoMaker</span>
+          </div>
+          <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug truncate">Cronómetro de sesión</h4>
+          <div data-cork-timer-display="1"
+            class="py-1.5 px-2 rounded bg-[#141414] border border-obsidian-border/70 font-mono text-[15px] font-semibold tracking-wider text-center ${isRunning ? 'text-obsidian-amber' : 'text-[#D4D4D4]'} select-none">${escapeHtml(clockStr)}</div>
+        </div>
+        <div class="flex items-center justify-between gap-1.5 text-[9px] font-mono pt-1 border-t border-obsidian-border/50">
+          <button type="button" data-cork-timer-toggle="1"
+            class="px-1.5 py-0.5 rounded hover:bg-obsidian-elevated cursor-pointer transition-colors ${isRunning ? 'text-obsidian-amber font-semibold' : 'text-[#D4D4D4]'}">${isRunning ? 'Pausar' : 'Iniciar'}</button>
+          <button type="button" data-cork-timer-reset="1"
+            class="px-1.5 py-0.5 rounded text-[#737373] hover:text-[#D4D4D4] hover:bg-obsidian-elevated cursor-pointer transition-colors">Reiniciar</button>
+        </div>
+      </article>
+    `;
+  }
+
+  if (pluginId === 'demo-pack') {
+    const hasDemo = demoPinsCount > 0;
+    return `
+      <article draggable="false" data-cork-plugin-id="demo-pack"
+        class="p-2.5 rounded-lg bg-[#202020] border border-obsidian-border flex flex-col justify-between gap-1.5 min-w-0">
+        <div class="space-y-1 min-w-0">
+          <div class="flex items-center justify-between gap-1.5">
+            <span class="font-mono text-[8.5px] uppercase tracking-wider text-cyan-400 font-semibold">PLUGIN</span>
+            <span class="font-mono text-[8.5px] text-[#737373] truncate">Pack Demo</span>
+          </div>
+          <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug truncate">Guía y Brief de ejemplo</h4>
+          <p class="text-[9.5px] text-[#8C8C8C] leading-snug">${hasDemo ? `${demoPinsCount} ${demoPinsCount === 1 ? 'ficha demo activa' : 'fichas demo activas'}. Limpiar solo retira fichas demo.` : 'Sin fichas demo activas en este Corcho.'}</p>
+        </div>
+        <div class="flex items-center justify-between gap-1.5 text-[9px] font-mono pt-1 border-t border-obsidian-border/50">
+          ${canEdit
+            ? (hasDemo
+                ? `<button type="button" data-cork-demo-clear="1"
+                     class="px-1.5 py-0.5 rounded text-rose-400 hover:bg-obsidian-elevated cursor-pointer transition-colors">Limpiar Pack Demo</button>`
+                : `<button type="button" data-cork-demo-install="1"
+                     class="px-1.5 py-0.5 rounded text-obsidian-amber hover:bg-obsidian-elevated cursor-pointer transition-colors">Instalar Pack Demo</button>`)
+            : `<span class="text-[#5A5A5A]">Solo lectura</span>`}
+          <span class="text-[#5A5A5A] shrink-0">${hasDemo ? 'Activo' : 'Limpio'}</span>
+        </div>
+      </article>
+    `;
+  }
+
+  return '';
+}
+
+export function renderCorkAdCard() {
+  return `
+    <article draggable="false" data-cork-ad-card="1"
+      class="p-2.5 rounded-lg bg-[#1c1c1c] border border-obsidian-border/80 flex flex-col justify-between gap-1.5 min-w-0">
+      <div class="space-y-1 min-w-0">
+        <div class="flex items-center justify-between gap-1.5">
+          <span class="font-mono text-[8.5px] uppercase tracking-wider text-[#737373] font-semibold">PATROCINADO</span>
+          <span class="font-mono text-[8px] text-[#5A5A5A] shrink-0">Plan Gratis</span>
+        </div>
+        <h4 class="text-[10.5px] font-medium text-[#D4D4D4] leading-snug truncate">Trafigator Estudio</h4>
+        <p class="text-[9.5px] text-[#8C8C8C] leading-snug line-clamp-3">Activa un plan pago para ampliar puestos del estudio y trabajar sin esta ficha discreta.</p>
+      </div>
+      <div class="flex items-center justify-between gap-1.5 text-[8.5px] font-mono text-[#5A5A5A] pt-1 border-t border-obsidian-border/50">
+        <span>Sin anuncios en pago</span>
+        <a href="https://trafikeitor.com/planes" target="_blank" rel="noopener noreferrer"
+          class="text-obsidian-amber hover:underline shrink-0">Ver planes ↗</a>
       </div>
     </article>
   `;

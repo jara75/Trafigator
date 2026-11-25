@@ -735,6 +735,102 @@ export function appendCorkInternalMessage(msgInput = {}, opts = {}) {
   }
 }
 
+// --- HU-07: Plan gratuito, Widgets de Plugins activos y limpieza selectiva de Pack Demo ---
+export function isStudioFreePlan(studioSettings = null) {
+  const plan = String(studioSettings?.planName || '').trim();
+  if (!plan) return true;
+  const hasFreeKeyword = /\b(gratis|gratuita|gratuito|free|prueba|trial)\b/i.test(plan);
+  if (hasFreeKeyword) return true;
+  const hasPaidKeyword = /\b(plan\s+solo|plan\s+estudio|solo|estudio|pro|enterprise|pago|pagado|mensual|anual)\b/i.test(plan);
+  return !hasPaidKeyword;
+}
+
+export function getActiveCorkPlugins(studioSettings = null) {
+  if (Array.isArray(studioSettings?.activePlugins)) {
+    return studioSettings.activePlugins.filter((id) => typeof id === 'string' && id.trim());
+  }
+  return ['egomaker', 'demo-pack'];
+}
+
+export function countDemoPackPins(pins = []) {
+  return (Array.isArray(pins) ? pins : []).filter((p) => Boolean(p?.demoPackId)).length;
+}
+
+export function clearDemoPackPins(opts = {}) {
+  const current = ensureCorkPinsInitialized(opts);
+  const removed = current.filter((p) => Boolean(p?.demoPackId));
+  if (!removed.length) {
+    return { ok: true, removedCount: 0, pins: current };
+  }
+  const next = current.filter((p) => !p?.demoPackId);
+  const saved = saveCorkPins(next, opts);
+  removed.forEach((p) => {
+    if (p?.fileMeta?.blobId) {
+      deleteCorkBlob(p.fileMeta.blobId).catch(() => {});
+    }
+    if (corkUiState.activePinId === p.id) corkUiState.activePinId = null;
+    if (corkUiState.activePinnedChartId === p.id) corkUiState.activePinnedChartId = null;
+  });
+  return { ...saved, removedCount: removed.length };
+}
+
+export function installDemoPackPins(opts = {}) {
+  const current = ensureCorkPinsInitialized(opts);
+  const existingIds = new Set(current.map((p) => p.id));
+  const toAdd = buildOnboardingPins(opts).filter((p) => !existingIds.has(p.id));
+  if (!toAdd.length) {
+    return { ok: true, addedCount: 0, pins: current };
+  }
+  const next = [...current, ...toAdd];
+  const saved = saveCorkPins(next, opts);
+  return { ...saved, addedCount: toAdd.length };
+}
+
+// Estado en memoria del cronómetro compacto EgoMaker (sin drift y sin acumular intervalos)
+const egoMakerTimer = {
+  running: false,
+  baseSeconds: 0,
+  startedAtMs: null,
+};
+
+export function getEgoMakerTimerState() {
+  const extra = egoMakerTimer.running && egoMakerTimer.startedAtMs
+    ? Math.max(0, Math.floor((Date.now() - egoMakerTimer.startedAtMs) / 1000))
+    : 0;
+  return {
+    running: egoMakerTimer.running,
+    elapsedSeconds: egoMakerTimer.baseSeconds + extra,
+  };
+}
+
+export function toggleEgoMakerTimer() {
+  if (egoMakerTimer.running) {
+    const snap = getEgoMakerTimerState();
+    egoMakerTimer.baseSeconds = snap.elapsedSeconds;
+    egoMakerTimer.startedAtMs = null;
+    egoMakerTimer.running = false;
+  } else {
+    egoMakerTimer.startedAtMs = Date.now();
+    egoMakerTimer.running = true;
+  }
+  return getEgoMakerTimerState();
+}
+
+export function resetEgoMakerTimer() {
+  egoMakerTimer.running = false;
+  egoMakerTimer.baseSeconds = 0;
+  egoMakerTimer.startedAtMs = null;
+  return getEgoMakerTimerState();
+}
+
+export function formatTimerClock(totalSeconds = 0) {
+  const safe = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const hh = String(Math.floor(safe / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((safe % 3600) / 60)).padStart(2, '0');
+  const ss = String(safe % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
 // --- Almacenamiento de blobs locales en IndexedDB (evita QuotaExceededError en localStorage) ---
 const CORK_BLOB_DB_NAME = 'trafigator_cork_blobs_v1';
 const CORK_BLOB_STORE = 'blobs';

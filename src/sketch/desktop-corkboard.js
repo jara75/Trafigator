@@ -16,26 +16,35 @@ import {
   addLocalFilesToCorkboard,
   addOtMediaCorkPin,
   addOtOrTaskCorkPin,
+  clearDemoPackPins,
   closeCorkPinPreview,
   closePinnedChart,
+  countDemoPackPins,
   ensureCorkPinsInitialized,
   findDuplicateChartPin,
   findDuplicateOtMediaPin,
   findDuplicateOtOrTaskPin,
+  formatTimerClock,
   getActiveCorkComposer,
   getActiveCorkPinId,
+  getActiveCorkPlugins,
   getActivePinnedChartId,
   getCorkBlobObjectUrl,
   getCorkStorageKey,
   getCorkboardPermissions,
+  getEgoMakerTimerState,
   hasOpenCorkPinPreview,
+  installDemoPackPins,
+  isStudioFreePlan,
   loadCorkInternalMessages,
   normalizeSafeWebUrl,
   removeCorkPin,
   reorderCorkPins,
+  resetEgoMakerTimer,
   setActiveCorkComposer,
   setActiveCorkPinId,
   setActivePinnedChartId,
+  toggleEgoMakerTimer,
 } from './desktop-corkboard-store.js';
 import {
   renderChartOverlay,
@@ -43,7 +52,9 @@ import {
 } from './desktop-corkboard-overlays.js';
 import {
   buildPinnedChartBoard,
+  renderCorkAdCard,
   renderCorkPinCard,
+  renderCorkPluginCard,
 } from './desktop-corkboard-cards.js';
 import {
   bindCorkPreviewEvents,
@@ -66,6 +77,29 @@ export {
 let composerErrorMsg = '';
 let corkNoticeMsg = '';
 let corkNoticeTimer = null;
+let egoMakerTickInterval = null;
+
+function clearEgoMakerInterval() {
+  if (egoMakerTickInterval !== null) {
+    clearInterval(egoMakerTickInterval);
+    egoMakerTickInterval = null;
+  }
+}
+
+function syncEgoMakerInterval(corkRoot) {
+  clearEgoMakerInterval();
+  if (!corkRoot || !getEgoMakerTimerState().running) return;
+  egoMakerTickInterval = setInterval(() => {
+    const display = corkRoot.querySelector('[data-cork-timer-display="1"]');
+    if (!corkRoot.isConnected || !display || !display.isConnected || corkRoot.closest('#view-desktop.hidden')) {
+      clearEgoMakerInterval();
+      return;
+    }
+    const state = getEgoMakerTimerState();
+    display.textContent = formatTimerClock(state.elapsedSeconds);
+    if (!state.running) clearEgoMakerInterval();
+  }, 500);
+}
 
 function renderCorkHeaderActions(canEdit, activeComposer) {
   if (!canEdit) {
@@ -161,6 +195,7 @@ function renderCorkBodyHtml({
   activeComposer,
   errorMsg,
   noticeMsg = '',
+  studioSettings = null,
   trafficOrders = [],
   todayKey = '',
   tomorrowKey = '',
@@ -173,8 +208,32 @@ function renderCorkBodyHtml({
     ? `<div data-dk-cork-notice="1" role="status" class="mb-2 px-2.5 py-1 rounded-md bg-[#202020] border border-obsidian-border font-mono text-[9.5px] text-obsidian-amber shrink-0">${escapeHtml(noticeMsg)}</div>`
     : '';
   const composerHtml = canEdit ? renderCorkComposerHtml(activeComposer, errorMsg) : '';
-  const listHtml = pins.length
-    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pins.map((p, idx) => renderCorkPinCard(p, idx, { canEdit, trafficOrders, todayKey, tomorrowKey, dailyHours, canSeeFinancial, myMember })).join('')}</div>`
+
+  const activePlugins = getActiveCorkPlugins(studioSettings);
+  const timerState = getEgoMakerTimerState();
+  const demoPinsCount = countDemoPackPins(pins);
+  const pluginCardsHtml = activePlugins
+    .map((pid) => renderCorkPluginCard(pid, { canEdit, timerState, demoPinsCount }))
+    .filter(Boolean)
+    .join('');
+  const adCardHtml = isStudioFreePlan(studioSettings) ? renderCorkAdCard() : '';
+
+  const pinCardsHtml = pins.map((p, idx) =>
+    renderCorkPinCard(p, idx, { canEdit, trafficOrders, todayKey, tomorrowKey, dailyHours, canSeeFinancial, myMember })
+  ).join('');
+
+  const emptyHintHtml = !pins.length
+    ? `
+      <div class="mb-2 px-3 py-2 rounded-lg border border-dashed border-obsidian-border bg-[#191919]/70 flex items-center justify-between gap-2 shrink-0">
+        <span class="text-[10px] text-[#8C8C8C] font-medium">Sin fichas personales fijadas</span>
+        <span class="text-[8.5px] text-[#5A5A5A] font-mono truncate">${canEdit ? 'Crea una nota, enlace o archivo arriba, o arrastra una OT' : 'Solo lectura'}</span>
+      </div>
+    `
+    : '';
+
+  const hasAnyCard = Boolean(pinCardsHtml || pluginCardsHtml || adCardHtml);
+  const listHtml = hasAnyCard
+    ? `<div class="grid ${gridColsCls} gap-2 content-start">${pinCardsHtml}${pluginCardsHtml}${adCardHtml}</div>`
     : `
       <div class="flex flex-col items-center justify-center flex-1 py-6 gap-1.5 text-center">
         <div class="w-8 h-8 rounded-lg border border-dashed border-obsidian-border flex items-center justify-center text-[#5A5A5A]">
@@ -189,6 +248,7 @@ function renderCorkBodyHtml({
   return `
     ${noticeHtml}
     ${composerHtml}
+    ${emptyHintHtml}
     ${listHtml}
   `;
 }
@@ -393,6 +453,7 @@ export function renderCorkboardQuadrant({
               activeComposer,
               errorMsg: composerErrorMsg,
               noticeMsg: corkNoticeMsg,
+              studioSettings,
               trafficOrders,
               todayKey,
               tomorrowKey,
@@ -616,6 +677,55 @@ function bindCorkboardLocalContentEvents(corkRoot, ctx, rerenderLocal) {
     });
   });
 
+  // Widgets de Plugins activos (HU-07): cronómetro EgoMaker (actualiza solo [data-cork-timer-display]) y Pack Demo
+  const timerToggleBtn = corkRoot.querySelector('[data-cork-timer-toggle="1"]');
+  const timerResetBtn = corkRoot.querySelector('[data-cork-timer-reset="1"]');
+  const updateTimerDom = (state) => {
+    const display = corkRoot.querySelector('[data-cork-timer-display="1"]');
+    if (display) {
+      display.textContent = formatTimerClock(state.elapsedSeconds);
+      display.classList.toggle('text-obsidian-amber', state.running);
+      display.classList.toggle('text-[#D4D4D4]', !state.running);
+    }
+    if (timerToggleBtn) {
+      timerToggleBtn.textContent = state.running ? 'Pausar' : 'Iniciar';
+      timerToggleBtn.classList.toggle('text-obsidian-amber', state.running);
+      timerToggleBtn.classList.toggle('font-semibold', state.running);
+      timerToggleBtn.classList.toggle('text-[#D4D4D4]', !state.running);
+    }
+  };
+  timerToggleBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const state = toggleEgoMakerTimer();
+    updateTimerDom(state);
+    syncEgoMakerInterval(corkRoot);
+  });
+  timerResetBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const state = resetEgoMakerTimer();
+    updateTimerDom(state);
+    clearEgoMakerInterval();
+  });
+  if (corkRoot.dataset.dkCorkMode === 'grid') {
+    syncEgoMakerInterval(corkRoot);
+  } else {
+    clearEgoMakerInterval();
+  }
+
+  corkRoot.querySelector('[data-cork-demo-clear="1"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!perms.canEdit) return;
+    clearDemoPackPins(storeOpts);
+    rerenderLocal();
+  });
+
+  corkRoot.querySelector('[data-cork-demo-install="1"]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!perms.canEdit) return;
+    installDemoPackPins(storeOpts);
+    rerenderLocal();
+  });
+
   hydrateCorkThumbnails(corkRoot);
   if (corkRoot.dataset.dkCorkMode === 'preview') {
     bindCorkPreviewEvents(corkRoot, { ...ctx, rerenderLocal });
@@ -808,6 +918,7 @@ export function bindCorkboardEvents(container, ctx = {}) {
           activeComposer,
           errorMsg: composerErrorMsg,
           noticeMsg: corkNoticeMsg,
+          studioSettings,
           trafficOrders,
           todayKey,
           tomorrowKey,
