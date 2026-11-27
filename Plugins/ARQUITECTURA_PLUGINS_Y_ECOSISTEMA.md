@@ -95,7 +95,7 @@ La arquitectura desacoplada habilita un catálogo limpio dentro de **`Ajustes �
 No se construye un motor abstracto de plugins antes de validar el producto en producción:
 
 1. **Fase Actual (Cierre de Prototipo → Beta):**
-   - Cerrar **Escritorio** (Scopes y métricas del Core).
+   - Cerrar **Tablero** (Scopes y métricas del Core).
    - Conectar la UI Obsidian al backend real SQLite/Hono (`src/server/`).
    - Lanzar la **Beta** con los 5 Espacios base en el Core.
 2. **Fase 2 (Primer Plugin Piloto):**

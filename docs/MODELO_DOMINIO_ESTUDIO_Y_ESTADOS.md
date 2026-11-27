@@ -187,7 +187,7 @@ Pertenece al Estudio completo (nunca se duplica por Espacio):
 - **Tu jornada diaria (ej. 8h/día) es una sola**, aunque tus OTs se separen por Espacio.
 - En el **Stripboard** (`Mis Tareas`), el cálculo de horas diarias (`Día: Xh / 8h`) siempre suma la carga real total entre todos los Espacios para impedir la ceguera de sobrecarga.
 - Dentro de un Espacio puntual (ej. `Web`), las tareas de otros Espacios permanecen visibles pero atenuadas (`opacity-45`), acompañadas del desglose `Día: Xh / 8h (Nh Web + Mh otros)`.
-- **Filosofía de presupuesto de tiempo:** El usuario asigna horas *hacia adelante* desde el inicio de semana/día como presupuesto de enfoque (en lugar de llenar planillas de memoria al final de la semana). El tracking competitivo en tiempo real (`Asignado vs. Real`) se documenta como plugin desacoplado en [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./Plugins/ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md).
+- **Filosofía de presupuesto de tiempo:** El usuario asigna horas *hacia adelante* desde el inicio de semana/día como presupuesto de enfoque (en lugar de llenar planillas de memoria al final de la semana). El tracking competitivo en tiempo real (`Asignado vs. Real`) se documenta como plugin desacoplado en [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](../Plugins/ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md).
 
 ---
 

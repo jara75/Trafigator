@@ -2,20 +2,20 @@
 
 > **Estado:** Especificación funcional, visual y técnica vigente (rama `ui/escritorio-estadistica`).
 > **Documentos relacionados:**
-> - [`EXPLICACION_MODULO_ESCRITORIO.md`](./EXPLICACION_MODULO_ESCRITORIO.md)
-> - [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)
-> - [`MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md`](./MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md)
-> - [`definici_n_funcional_y_roles_de_trafigator.md`](./definici_n_funcional_y_roles_de_trafigator.md)
+> - [`EXPLICACION_MODULO_ESCRITORIO.md`](../../docs/EXPLICACION_MODULO_ESCRITORIO.md)
+> - [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](../ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)
+> - [`MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md`](../../docs/MODELO_DOMINIO_ESTUDIO_Y_ESTADOS.md)
+> - [`definici_n_funcional_y_roles_de_trafigator.md`](../../docs/definici_n_funcional_y_roles_de_trafigator.md)
 
 ---
 
 ## 1. Concepto Rector
 
-El **Tablero de Corcho (`C04`)**, inspirado en el *Corkboard* de **Scrivener**, es la mesa de referencia espacial permanente del Escritorio de Trafigator:
+El **Tablero de Corcho (`C04`)**, inspirado en el *Corkboard* de **Scrivener**, es la mesa de referencia espacial permanente del Tablero de Trafigator:
 
 - Opera tanto en **`Global`** (corcho compartido del Estudio) como en **`Personal`** (corcho privado de cada integrante).
-- Tiene la **misma altura base (`50% / 50%`)** que los demás cuadrantes del Escritorio, línea superior de acento cian (`border-t-2 border-t-cyan-500/70`), manija de intercambio por arrastre (`⋮⋮`), colapsado vertical (`▾`) y expansión en 1 clic a **Escritorio Completo (`⤢`)** — ocupando el 100% de la columna central sin ocultar nunca el menú izquierdo, la barra superior de Perfiles ni el **Inspector derecho**.
-- Cumple además el rol de **visor contextual temporal** del Escritorio:
+- Tiene la **misma altura base (`50% / 50%`)** que los demás cuadrantes del Tablero, línea superior de acento cian (`border-t-2 border-t-cyan-500/70`), manija de intercambio por arrastre (`⋮⋮`), colapsado vertical (`▾`) y expansión en 1 clic a **Tablero Completo (`⤢`)** — ocupando el 100% de la columna central sin ocultar nunca el menú izquierdo, la barra superior de Perfiles ni el **Inspector derecho**.
+- Cumple además el rol de **visor contextual temporal** del Tablero:
   - Al seleccionar una **OT o Tarea** en `Prioridades (C01)` o `Calendario (C03)`, abre la **Galería + Vista previa** sobre `C04` (manteniendo intacto el Calendario en `C03`).
   - Al hacer clic sobre la tarjeta de un **gráfico** en `Estadística (C02)`, abre el **gráfico ampliado** sobre `C04` (sin modales flotantes).
   - Al cerrar (`×` o `Esc`), regresa siempre al estado base del **Tablero de Corcho**.
@@ -29,20 +29,20 @@ Para evitar solapamientos entre cuadrantes y paneles globales, Trafigator separa
 | Dimensión | **Tablero de Corcho (`C04`)** | **Inspector Derecho (`#pane-right`)** |
 | :--- | :--- | :--- |
 | **Naturaleza** | **Espacial y estático** (mesa de fichas estilo Scrivener). | **Temporal y vivo** (avisos, conversación, trazabilidad y agenda). |
-| **Visibilidad** | Exclusivo de la vista **`Escritorio`**. | **Transversal y permanente** en toda la app (`Tráfico`, `Nueva OT`, `Stripboard`, `Documentos`, etc.). |
+| **Visibilidad** | Exclusivo de la vista **`Tablero`**. | **Transversal y permanente** en toda la app (`Tráfico`, `Nueva OT`, `Stripboard`, `Documentos`, etc.). |
 | **Qué aloja** | Pines de trabajo (Brief PDF, imágenes, notas largas, enlaces web, OTs/gráficos clavados), **Widgets de Plugins** y **pauta discreta** (plan gratis). | Cabecera de usuario (campana `#btn-work-notifications`, mensajes, reloj), pestañas `Mensajes \| Actividad \| Lista`, **Recordatorios / Alarmas** (estilo Apple Recordatorios: check + texto de 1 línea + disparo en `5m / 15m / 1h / hora`) y **Mini-calendario** fijo inferior. |
 
-> **Regla de oro:** Ninguna alarma o recordatorio con cuenta regresiva vive en el Tablero de Corcho, porque el usuario debe poder crearlo, consultarlo y recibir su disparo aunque esté fuera del Escritorio.
+> **Regla de oro:** Ninguna alarma o recordatorio con cuenta regresiva vive en el Tablero de Corcho, porque el usuario debe poder crearlo, consultarlo y recibir su disparo aunque esté fuera del Tablero.
 
 ---
 
 ## 3. Historias de Usuario
 
-- **HU-01 · Fijar arrastrando desde el Escritorio o el computador:** Como usuario, arrastro una tarjeta de OT o Tarea desde `Prioridades (C01)` o `Calendario (C03)` y la suelto sobre `C04` para dejarla clavada como ficha de acceso rápido (sin alterar su etapa, responsable ni fecha de entrega); o arrastro un PDF, imagen o video desde el Finder/explorador para subirlo directo a mi Corcho.
+- **HU-01 · Fijar arrastrando desde el Tablero o el computador:** Como usuario, arrastro una tarjeta de OT o Tarea desde `Prioridades (C01)` o `Calendario (C03)` y la suelto sobre `C04` para dejarla clavada como ficha de acceso rápido (sin alterar su etapa, responsable ni fecha de entrega); o arrastro un PDF, imagen o video desde el Finder/explorador para subirlo directo a mi Corcho.
 - **HU-02 · Fijar un archivo de OT (ej. Brief PDF) o un gráfico:** Como usuario, cuando inspecciono la Galería de una OT o un gráfico ampliado en `C04`, pulso el ícono de **Pin** en su cabecera para dejar ese Brief PDF, pieza o gráfico clavado permanentemente en mi Corcho en 1 clic.
 - **HU-03 · Crear fichas rápidas propias (`+ Nota` · `+ Enlace` · `+ Archivo`):** Como usuario, creo desde la cabecera del Corcho una ficha de texto estilo Scrivener (título + apuntes), guardo un enlace web de referencia o adjunto un archivo suelto de apoyo sin abrir una OT.
 - **HU-04 · Reordenar y despinar sin riesgo:** Como usuario, arrastro las fichas dentro de la cuadrícula del Corcho para organizarlas a mi gusto y las retiro con `×` cuando termino, con la garantía de que quitar un pin jamás elimina la OT ni el archivo original del Estudio.
-- **HU-05 · Previsualizar, resaltar y comentar en privado:** Como usuario, hago clic en un pin (ej. el PDF del Brief, una imagen o una nota) para abrirlo en **Vista Previa** (dentro de `C04` o expandido a **Escritorio Completo** con `⤢`), resaltar fragmentos clave y registrar mis propios apuntes reutilizando la mecánica de Revisión Colaborativa.
+- **HU-05 · Previsualizar, resaltar y comentar en privado:** Como usuario, hago clic en un pin (ej. el PDF del Brief, una imagen o una nota) para abrirlo en **Vista Previa** (dentro de `C04` o expandido a **Tablero Completo** con `⤢`), resaltar fragmentos clave y registrar mis propios apuntes reutilizando la mecánica de Revisión Colaborativa.
 - **HU-06 · Compartir una anotación como mensaje en 1 clic:** Como usuario, selecciono cualquier nota o resaltado hecho sobre un pin y lo envío directamente como **mensaje** a otro integrante del equipo o al cliente (vinculado automáticamente a `ot.messages` si el archivo proviene de una OT).
 - **HU-07 · Convivencia con Plugins y versión gratuita:** Como Estudio, visualizo en el Corcho los widgets compactos de los **Plugins activos** (ej. cronómetro EgoMaker o instaladores de Packs Demo por Perfil) y, únicamente cuando el estudio opera en **versión gratuita**, una tarjeta discreta de publicidad que desaparece al pasar a un plan pago.
 
@@ -65,12 +65,12 @@ Para evitar solapamientos entre cuadrantes y paneles globales, Trafigator separa
 ### 4.2. Los 3 Estados Internos de `C04`
 
 1. **Estado 1 — Cuadrícula de Corcho (estado base):**
-   - **Cabecera:** `⋮⋮` · `TABLERO DE CORCHO` · acciones rápidas en texto limpio (`+ Nota` · `+ Enlace` · `+ Archivo`, sin cajas ni pastillas) · indicador `Estudio` / `Personal` · `⤢` (Escritorio Completo) · `▾` (Colapsar).
-   - **Cuerpo:** cuadrícula responsiva de **`2 columnas`** en vista de 4 cuadrantes y **`4 columnas`** en **Escritorio Completo**, con *dropzone* activo (borde punteado cian al detectar arrastre de tarjeta `ot`/`task` desde `C01`/`C03` o archivos desde el sistema operativo).
+   - **Cabecera:** `⋮⋮` · `TABLERO DE CORCHO` · acciones rápidas en texto limpio (`+ Nota` · `+ Enlace` · `+ Archivo`, sin cajas ni pastillas) · indicador `Estudio` / `Personal` · `⤢` (Tablero Completo) · `▾` (Colapsar).
+   - **Cuerpo:** cuadrícula responsiva de **`2 columnas`** en vista de 4 cuadrantes y **`4 columnas`** en **Tablero Completo**, con *dropzone* activo (borde punteado cian al detectar arrastre de tarjeta `ot`/`task` desde `C01`/`C03` o archivos desde el sistema operativo).
    - **Onboarding / *Horror vacui*:** en estudios recién creados o con Pack Demo activo, incluye de fábrica 1 ficha de bienvenida / guía de 3 pasos y 1 Brief PDF de ejemplo despinables en 1 clic.
 2. **Estado 2 — Vista Previa y Anotación de Pin:**
    - Se activa al hacer clic sobre una ficha `file`, `note` o `link`.
-   - **Cabecera:** `‹ Corcho` · etiqueta de tipo + título de la ficha · código ámbar de OT (si aplica) · `⤢` (Escritorio Completo) · `×` (volver a cuadrícula).
+   - **Cabecera:** `‹ Corcho` · etiqueta de tipo + título de la ficha · código ámbar de OT (si aplica) · `⤢` (Tablero Completo) · `×` (volver a cuadrícula).
    - **División interna (`1/2` + `1/2`):**
      - **Izquierda (Visor):** previsualización de PDF, imagen, video o editor limpio de nota, con soporte de resaltado/marcador puntual.
      - **Derecha (Apuntes y Despacho):** listado cronológico de notas privadas/resaltados sobre ese pin + input para agregar apunte + botón **`Enviar como mensaje →`** (selector `Destinatario: Miembro del equipo / Cliente`, que publica en el hilo de mensajes de la OT o bandeja interna).
@@ -82,7 +82,7 @@ Para evitar solapamientos entre cuadrantes y paneles globales, Trafigator separa
 - **Cero pastillas en acciones en línea:** los disparadores `+ Nota`, `+ Enlace`, `+ Archivo` y selectores internos van en texto plano (`text-[#737373] hover:text-[#D4D4D4]`), resaltando únicamente la opción activa cuando sea un conmutador.
 - **Exclusividad de puntos de color:** las fichas `note`, `file`, `link`, `chart` y `plugin` usan etiquetas tipográficas monoespaciadas (`PDF`, `NOTA`, `WEB`); **jamás** puntos redondos de color (reservados al semáforo `Urgente / Hoy / Mañana` en fichas de `OT` / `Tarea`).
 - **Coexistencia limpia de Drag & Drop:**
-  - Manija `⋮⋮` (`data-dk-drag-slot`) intercambia cuadrantes del Escritorio.
+  - Manija `⋮⋮` (`data-dk-drag-slot`) intercambia cuadrantes del Tablero.
   - Tarjetas de OT/Tarea (`data-dk-pin-drag`) arrastran referencias hacia `C04`.
   - Fichas internas de `C04` (`data-cork-card-idx`) reordenan su posición dentro del propio Corcho.
 
@@ -147,4 +147,4 @@ Los prerequisitos técnicos de C04 están **implementados** y el módulo del Tab
 3. **`desktop-corkboard-cards.js`** *(render puro de fichas)*: renderiza las fichas `file`, `note`, `link`, `ot`/`task`, `chart` (con reconstrucción viva de `filtersSnapshot`), widgets de plugins (`EgoMaker`, `Pack Demo`) y la tarjeta discreta `PATROCINADO` en plan gratuito.
 4. **`desktop-corkboard-overlays.js`** *(visores contextuales temporales)*: renderiza sobre C04 la Galería + Vista previa de OT/Tarea seleccionada en C01/C03 y el Gráfico ampliado desde C02 (o desde un gráfico clavado), con botones `Pin` y cierre uniforme con SVG `×`.
 5. **`desktop-corkboard-preview.js`** *(Estado 2: Vista Previa 1/2 + 1/2 y despacho)*: renderiza el visor por tipo (`note`, `link`, `file`) junto al panel de resaltados/apuntes privados, e incluye `bindCorkPreviewEvents`, hidratación de blobs desde `IndexedDB`, auto-guardado y despacho de apuntes como mensajes a `ot.messages` o canal interno del Estudio.
-6. **Integración en `desktop.js`, `desktop-cards.js` y `desktop-calendar.js`:** aislamiento de Drag & Drop con MIME dedicado (`DND_MIME_SLOT` vs. `DND_MIME_PIN`), atributos de arrastre (`data-dk-pin-type`, `data-dk-pin-ot-id`, `data-dk-pin-task-idx`) en C01/C03 y prioridad de `Escape` para cerrar la Vista Previa de Pin antes de salir de Escritorio Completo (`panelLightboxModId`).
+6. **Integración en `desktop.js`, `desktop-cards.js` y `desktop-calendar.js`:** aislamiento de Drag & Drop con MIME dedicado (`DND_MIME_SLOT` vs. `DND_MIME_PIN`), atributos de arrastre (`data-dk-pin-type`, `data-dk-pin-ot-id`, `data-dk-pin-task-idx`) en C01/C03 y prioridad de `Escape` para cerrar la Vista Previa de Pin antes de salir de Tablero Completo (`panelLightboxModId`).

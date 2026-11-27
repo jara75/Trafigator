@@ -4,8 +4,8 @@
 >
 > **Documentos complementarios:**
 > - Motor estadístico: [`arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md`](./arquitectura_del_m_dulo_estad_sticas_cuaternio_y_trialidades-3.md)
-> - Especificación de `C04`: [`DEFINICION_TABLERO_DE_CORCHO.md`](./Plugins/Tablero%20de%20Corcho/DEFINICION_TABLERO_DE_CORCHO.md)
-> - Ecosistema y Packs Demo: [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](./Plugins/ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)
+> - Especificación de `C04`: [`DEFINICION_TABLERO_DE_CORCHO.md`](../Plugins/Tablero%20de%20Corcho/DEFINICION_TABLERO_DE_CORCHO.md)
+> - Ecosistema y Packs Demo: [`ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md`](../Plugins/ARQUITECTURA_PLUGINS_Y_ECOSISTEMA.md)
 
 ---
 
@@ -33,7 +33,7 @@ Los 4 cuadrantes comparten altura simétrica (`grid-rows-2` en ambas mitades), m
 | **C01** | **Prioridades** | Rojo / Ámbar / Celeste | 3 columnas (`Urgentes`, `Para Hoy`, `Para Mañana`) con switch `OTs \| Tareas` independiente por columna. |
 | **C02** | **Estadística** | Violeta | Cabecera superior con controles del panel, **Vistas Rápidas** en 2 filas (1 fila en Tablero Completo), gráficos **Masonry** a la izquierda (`4/5`) y **Filtros jerárquicos** a la derecha (`1/5`). |
 | **C03** | **Calendario** | Esmeralda | Dedicado permanentemente a `Semana` (`Esta Semana` con `(Hoy)` marcado + `Semana Próxima` navegable) y `Mes` (`24 (Hoy)`), sin ser reemplazado al seleccionar una OT. |
-| **C04** | **Tablero de Corcho** | Cian (Ámbar en Galería / Violeta en Gráfico) | Mesa de fichas estilo Scrivener (`Global` y `Personal`) para pines de archivos/Briefs PDF, notas, enlaces, plugins y publicidad en plan gratis; actúa además como **visor contextual temporal** para la **Galería + Vista previa** (al tocar una OT en `C01`/`C03`) y para el **Gráfico ampliado** (al tocar una tarjeta en `C02`). Ver [`DEFINICION_TABLERO_DE_CORCHO.md`](./Plugins/Tablero%20de%20Corcho/DEFINICION_TABLERO_DE_CORCHO.md). |
+| **C04** | **Tablero de Corcho** | Cian (Ámbar en Galería / Violeta en Gráfico) | Mesa de fichas estilo Scrivener (`Global` y `Personal`) para pines de archivos/Briefs PDF, notas, enlaces, plugins y publicidad en plan gratis; actúa además como **visor contextual temporal** para la **Galería + Vista previa** (al tocar una OT en `C01`/`C03`) y para el **Gráfico ampliado** (al tocar una tarjeta en `C02`). Ver [`DEFINICION_TABLERO_DE_CORCHO.md`](../Plugins/Tablero%20de%20Corcho/DEFINICION_TABLERO_DE_CORCHO.md). |
 
 ---
 
