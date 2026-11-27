@@ -1,6 +1,6 @@
 /**
  * Orquestador del Escritorio (#view-desktop):
- * - Estado de cuadrantes 2×2 (Prioridades, Calendario, Estadística, Tablero de Corcho) y Escritorio Completo
+ * - Estado de cuadrantes 2×2 (Prioridades, Calendario, Estadística, Visor contextual C04) y Escritorio Completo
  * - Persistencia de alcance (Global | Personal) y orden de cuadrantes en localStorage
  * - Preservación de scroll en re-renderizados
  * - Enlace con el Inspector derecho (mini-calendario, Mensajes, Actividad, Lista y detalle OT/Tarea)
@@ -43,16 +43,9 @@ import {
 } from './desktop-calendar.js';
 import { renderStatsQuadrant } from './desktop-stats-panel.js';
 import {
-  DND_MIME_PIN,
   DND_MIME_SLOT,
-  bindCorkboardEvents,
-  closeCorkPinPreview,
-  getCorkboardPermissions,
-  hasOpenCorkPinPreview,
-  loadCorkInternalMessages,
-  renderCorkboardQuadrant,
-  resetCorkComposerState,
-} from './desktop-corkboard.js';
+  renderViewerQuadrant,
+} from './desktop-viewer.js';
 import {
   buildInspectorIdleStreams,
   renderDesktopIdleInspector,
@@ -352,9 +345,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   }
 
   // Idle Inspector streams & contextual OT/Task
-  const canAccessCorkboard = getCorkboardPermissions({ isPersonalScope, roleCaps, userProfile }).canAccess;
-  const internalMessages = canAccessCorkboard ? loadCorkInternalMessages({ studioSettings }) : [];
-  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages });
+  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages: [] });
 
   const selectedContextOt = selectedContextOtId
     ? (scopedOrders.find((o) => o.id === selectedContextOtId) || trafficOrders.find((o) => o.id === selectedContextOtId) || null)
@@ -371,12 +362,12 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     }
     if (modId === 'stats') return `Estadística · ${escapeHtml(statsChartTitle)}`;
     if (lightboxChartIdx !== null && lastPillBoard?.cards?.[lightboxChartIdx]) {
-      return `Tablero de Corcho · ${escapeHtml(lastPillBoard.cards[lightboxChartIdx].title)}`;
+      return `Gráfico · ${escapeHtml(lastPillBoard.cards[lightboxChartIdx].title)}`;
     }
     if (selectedContextOt) {
       return `Galería · ${escapeHtml(String(selectedContextOt.id || '').replace(/^OT-/i, ''))}`;
     }
-    return 'Tablero de Corcho';
+    return 'Visor';
   };
 
   const renderQuadrantModule = (modId, slotIdx, { collapseTarget = '', borderBottomClass = '', slotClass = 'flex-1', isFullDesktop = false } = {}) => {
@@ -455,28 +446,13 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         rightActionBtns,
       });
     } else {
-      innerHtml = renderCorkboardQuadrant({
+      innerHtml = renderViewerQuadrant({
         lightboxChartIdx,
         lastPillBoard,
         selectedContextOt,
         selectedContextTask,
         selectedContextTaskIdx,
         selectedMediaIndex,
-        isPersonalScope,
-        isFullDesktop,
-        roleCaps,
-        userProfile,
-        studioSettings,
-        effectiveStatsPill,
-        statsEffectiveState: statsQuery.effectiveState,
-        activeWsId,
-        deptChartPageWsId,
-        dailyHours,
-        myMember,
-        canSeeFinancial: statsQuery.rbac.canSeeFinancial,
-        trafficOrders,
-        todayKey,
-        tomorrowKey,
         dragHandleHtml,
         rightActionBtns,
       });
@@ -666,7 +642,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextTaskIdx = taskIdx;
         selectedMediaIndex = null;
         lightboxChartIdx = null;
-        closeCorkPinPreview();
         ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
         renderTrafficNotesInspector(otId, taskIdx !== null ? String(taskIdx) : '', false, { onOpenOt: (id) => openOt(id, taskIdx) });
@@ -677,35 +652,11 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextTaskIdx = null;
         selectedMediaIndex = null;
         lightboxChartIdx = null;
-        closeCorkPinPreview();
         ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
         renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
       },
     });
-  };
-
-  const refreshDesktopInspectorLive = ({ switchToMessages = false } = {}) => {
-    if (selectedContextOt) {
-      renderTrafficNotesInspector(
-        selectedContextOt.id,
-        selectedContextTaskIdx !== null && selectedContextTaskIdx !== undefined ? String(selectedContextTaskIdx) : '',
-        false,
-        { onOpenOt: (id) => openOt(id, selectedContextTaskIdx) }
-      );
-      return;
-    }
-    if (switchToMessages) {
-      inspIdleTab = 'messages';
-    }
-    const freshStreams = buildInspectorIdleStreams({
-      scopedOrders,
-      q4TraceFilter,
-      internalMessages: canAccessCorkboard ? loadCorkInternalMessages({ studioSettings }) : [],
-    });
-    renderIdleInspectorInPlace(freshStreams);
-    const slot = document.getElementById('insp-content-slot');
-    if (slot) slot.scrollTop = 0;
   };
 
   if (inspContentSlot && !selectedContextOt) {
@@ -758,7 +709,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     });
   });
 
-  // Chart click -> open enlarged chart inside C04 (Tablero de Corcho)
+  // Chart click -> open enlarged chart inside C04 (Visor contextual)
   container.querySelectorAll('[data-dk-chart-zoom]').forEach((cardEl) => {
     const openZoom = (e) => {
       if (e && e.target && e.target.closest('button, [data-dk-chart-drill]')) return;
@@ -768,7 +719,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextOtId = null;
         selectedContextTaskIdx = null;
         panelLightboxModId = null;
-        closeCorkPinPreview();
         ensureQuadrantVisible('empty', quadrantOrder);
         rerender();
       }
@@ -961,26 +911,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     });
   });
 
-  // OT / Task cards dragstart -> MIME dedicado para fijar en Tablero de Corcho (C04)
-  container.querySelectorAll('[data-dk-pin-type]').forEach((cardEl) => {
-    cardEl.addEventListener('dragstart', (e) => {
-      const type = cardEl.dataset.dkPinType;
-      const otId = cardEl.dataset.dkPinOtId;
-      if (!type || !otId) return;
-      e.stopPropagation();
-      const rawTaskIdx = cardEl.dataset.dkPinTaskIdx;
-      const taskIndex = rawTaskIdx !== undefined && rawTaskIdx !== '' ? Number(rawTaskIdx) : null;
-      if (e.dataTransfer) {
-        e.dataTransfer.effectAllowed = 'copy';
-        e.dataTransfer.setData(DND_MIME_PIN, JSON.stringify({
-          type,
-          otId,
-          taskIndex: Number.isInteger(taskIndex) ? taskIndex : null,
-        }));
-      }
-    });
-  });
-
   // Global | Personal scope switcher
   container.querySelectorAll('[data-dk-scope-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -988,7 +918,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       if ((next === 'global' || next === 'personal') && next !== desktopScopePref) {
         desktopScopePref = next;
         saveDesktopScope(next);
-        resetCorkComposerState();
         rerender();
       }
     });
@@ -1062,16 +991,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       const tag = (document.activeElement?.tagName || '').toLowerCase();
-
-      // Prioridad 1: cerrar Vista Previa de Pin dentro de C04 antes de salir de Escritorio Completo
-      if (e.key === 'Escape' && hasOpenCorkPinPreview()) {
-        if (['input', 'textarea', 'select'].includes(tag)) {
-          document.activeElement?.blur?.();
-        }
-        closeCorkPinPreview();
-        rerender();
-        return;
-      }
 
       if (['input', 'textarea', 'select'].includes(tag)) return;
 
@@ -1168,7 +1087,6 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextTaskIdx = null;
       selectedMediaIndex = null;
       lightboxChartIdx = null;
-      closeCorkPinPreview();
       ensureQuadrantVisible('empty', quadrantOrder);
       rerender();
       renderTrafficNotesInspector(otId, '', false, { onOpenOt: (id) => openOt(id, null) });
@@ -1199,38 +1117,10 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       selectedContextTaskIdx = taskIdx;
       selectedMediaIndex = null;
       lightboxChartIdx = null;
-      closeCorkPinPreview();
       ensureQuadrantVisible('empty', quadrantOrder);
       rerender();
       renderTrafficNotesInspector(otId, String(taskIdx), false, { onOpenOt: (id) => openOt(id, taskIdx) });
     });
     row.addEventListener('dblclick', () => openOt(row.dataset.desktopSelectTaskOt, Number(row.dataset.desktopSelectTaskIdx)));
-  });
-
-  // Capa propia de eventos del Tablero de Corcho (C04) — confinada a container
-  bindCorkboardEvents(container, {
-    isPersonalScope,
-    isFullDesktop: panelLightboxModId === 'empty',
-    roleCaps,
-    userProfile,
-    studioSettings,
-    selectedContextOt,
-    selectedContextTask,
-    selectedContextTaskIdx,
-    lightboxChartIdx,
-    lastPillBoard,
-    effectiveStatsPill,
-    statsEffectiveState: statsQuery.effectiveState,
-    activeWsId,
-    deptChartPageWsId,
-    dailyHours,
-    myMember,
-    canSeeFinancial: statsQuery.rbac.canSeeFinancial,
-    trafficOrders,
-    todayKey,
-    tomorrowKey,
-    rerender,
-    openOt,
-    onHighlightShared: () => refreshDesktopInspectorLive({ switchToMessages: true }),
   });
 }
