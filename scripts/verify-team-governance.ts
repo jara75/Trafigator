@@ -1,8 +1,14 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
-import { auth } from '../src/server/auth';
-import { app } from '../src/server';
-import { sqlite } from '../src/server/db';
+
+const dbPath = process.env.TRAFICO_DB_PATH || '/tmp/trafico_test_team_governance.db';
+if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+process.env.TRAFICO_DB_PATH = dbPath;
+process.env.IS_TEST = 'true';
+
+const { auth } = await import('../src/server/auth');
+const { app } = await import('../src/server');
+const { sqlite } = await import('../src/server/db');
 
 async function run() {
   console.log('================================================================');
@@ -226,29 +232,55 @@ async function run() {
   assert.strictEqual(reactivateOk.status, 200, 'Debe reactivar a B tras liberar 1 cupo');
   console.log('   ✔ Reactivación de Miembro B validada');
 
+  // 5.1 Reactivación de miembro con rol 'client' NO debe bloquearse cuando los 6 asientos internos están llenos
+  const clientUser = await signUpAndLogin(`client_seat_${ts}@estudio.test`, 'Cliente Externo');
+  const clientMemberId = `mem-client-seat-${ts}`;
+  sqlite
+    .prepare(
+      `INSERT INTO members (id, organization_id, user_id, role, status, role_title, allowed_client_id, created_at)
+       VALUES (?, ?, ?, 'client', 'deactivated', 'Cliente', '*', ?)`
+    )
+    .run(clientMemberId, orgId, clientUser.user.id, Date.now());
+
+  const reactivateClientRes = await app.fetch(
+    new Request('http://localhost:3000/api/studio/team/member/status', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: owner.cookie,
+        Origin: 'http://localhost:3000',
+      },
+      body: JSON.stringify({ memberId: clientMemberId, status: 'active' }),
+    })
+  );
+  const reactivateClientJson = await reactivateClientRes.json();
+  assert.strictEqual(reactivateClientRes.status, 200, 'Reactivar rol client no debe bloquearse aunque los 6 asientos internos estén llenos');
+  assert.strictEqual(reactivateClientJson.activeMembersCount, 6, 'activeMembersCount debe contar solo owner/member (6)');
+  console.log('   ✔ Reactivación de rol client con 6 asientos internos llenos permitida (activeMembersCount = 6)');
+
   // 6. Preservación de Firmas Históricas y Bloqueo Cero Huérfanas (Estados Terminales)
   console.log('\n[5] Preservación de firmas históricas y protocolo Cero Huérfanas:');
   const nowIso = new Date().toISOString();
   // OT cerrada histórica (debe conservar firma de Beatriz C.)
   sqlite
     .prepare(
-      `INSERT INTO work_orders (id, organization_id, ref, discipline, client, brand, product, title, media, status, responsible, urgent, brief, legal_text, created_at, updated_at)
-       VALUES (?, ?, 'HIST-01', 'advertising', 'Cliente H', 'Marca H', '', 'Campaña Pasada', 'TV', 'Cerrado', 'Beatriz C.', 0, '', '', ?, ?)`
+      `INSERT INTO work_orders (id, organization_id, ref, discipline, client, brand, product, title, media, ot_status, responsible_dept, sign, urgent, brief, legal_text, created_at, updated_at)
+       VALUES (?, ?, 'HIST-01', 'advertising', 'Cliente H', 'Marca H', '', 'Campaña Pasada', 'TV', 'Cerrado', 'Tráfico', 'Beatriz C.', 0, '', '', ?, ?)`
     )
     .run(`OT-HIST-${ts}`, orgId, nowIso, nowIso);
 
-  // OT activa en tránsito (status = 'Tráfico', NO terminal -> debe exigirse reasignación)
+  // OT activa en tránsito (ot_status = 'Abierta', NO terminal -> debe exigirse reasignación)
   sqlite
     .prepare(
-      `INSERT INTO work_orders (id, organization_id, ref, discipline, client, brand, product, title, media, status, responsible, urgent, brief, legal_text, created_at, updated_at)
-       VALUES (?, ?, 'ACT-01', 'advertising', 'Cliente A', 'Marca A', '', 'Campaña Activa', 'Digital', 'Tráfico', 'Beatriz C.', 1, '', '', ?, ?)`
+      `INSERT INTO work_orders (id, organization_id, ref, discipline, client, brand, product, title, media, ot_status, responsible_dept, sign, urgent, brief, legal_text, created_at, updated_at)
+       VALUES (?, ?, 'ACT-01', 'advertising', 'Cliente A', 'Marca A', '', 'Campaña Activa', 'Digital', 'Abierta', 'Tráfico', 'Beatriz C.', 1, '', '', ?, ?)`
     )
     .run(`OT-ACT-${ts}`, orgId, nowIso, nowIso);
 
   // Paso de ruta incompleto firmado por Beatriz C.
   sqlite
     .prepare(
-      `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, completed, created_at)
+      `INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_at)
        VALUES (?, ?, 1, 'Cuentas', 'Creativos', 'Diseñar KV', '12/11/2026 10:00', '', 'Beatriz C.', '', NULL, 0, ?)`
     )
     .run(orgId, `OT-ACT-${ts}`, nowIso);
@@ -305,14 +337,14 @@ async function run() {
   assert.strictEqual(reassignJson.reassignedStripsCount, 1);
 
   // Comprobar estado final en SQLite
-  const histOt = sqlite.prepare('SELECT responsible FROM work_orders WHERE id = ?').get(`OT-HIST-${ts}`) as { responsible: string };
-  const actOt = sqlite.prepare('SELECT responsible FROM work_orders WHERE id = ?').get(`OT-ACT-${ts}`) as { responsible: string };
+  const histOt = sqlite.prepare('SELECT sign FROM work_orders WHERE id = ?').get(`OT-HIST-${ts}`) as { sign: string };
+  const actOt = sqlite.prepare('SELECT sign FROM work_orders WHERE id = ?').get(`OT-ACT-${ts}`) as { sign: string };
   const strip = sqlite.prepare('SELECT assignee FROM stripboard_strips WHERE id = ?').get(`STR-${ts}`) as { assignee: string };
   const relevoNote = sqlite.prepare("SELECT stamp, sign FROM route_entries WHERE ot_id = ? AND stamp = 'RELEVO'").get(`OT-ACT-${ts}`) as any;
   const memBAfter = sqlite.prepare('SELECT id FROM members WHERE id = ?').get(memberB.memberId);
 
-  assert.strictEqual(histOt.responsible, 'Beatriz C.', 'La OT cerrada histórica DEBE conservar la firma original de Beatriz C.');
-  assert.strictEqual(actOt.responsible, 'Carlos A.', 'La OT activa debe haber sido transferida a Carlos A.');
+  assert.strictEqual(histOt.sign, 'Beatriz C.', 'La OT cerrada histórica DEBE conservar la firma original de Beatriz C.');
+  assert.strictEqual(actOt.sign, 'Carlos A.', 'La OT activa debe haber sido transferida a Carlos A.');
   assert.strictEqual(strip.assignee, 'Carlos A.', 'La tira del stripboard debe haber sido transferida a Carlos A.');
   assert.ok(relevoNote && relevoNote.sign === 'Carlos A.', 'Debe existir la nota de RELEVO en la Hoja de Ruta');
   assert.strictEqual(memBAfter, undefined, 'La membresía de Miembro B debe haber sido eliminada');

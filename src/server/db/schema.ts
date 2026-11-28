@@ -18,7 +18,7 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(false),
   image: text('image'),
-  role: text('role').notNull().default('director'),
+  role: text('role').notNull().default('user'),
   shortName: text('short_name'),
   color: text('color').notNull().default('cyan'),
   avatarMode: text('avatar_mode').notNull().default('initials'),

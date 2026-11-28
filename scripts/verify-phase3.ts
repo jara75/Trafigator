@@ -1,8 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { auth } from '../src/server/auth';
-import { app } from '../src/server';
-import { sqlite } from '../src/server/db';
+
+const dbPath = process.env.TRAFICO_DB_PATH || '/tmp/trafico_test_phase3.db';
+if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+process.env.TRAFICO_DB_PATH = dbPath;
+process.env.IS_TEST = 'true';
+
+const { auth } = await import('../src/server/auth');
+const { app } = await import('../src/server');
+const { sqlite } = await import('../src/server/db');
 
 async function testPhase3() {
   console.log('=== VERIFICANDO FASE 3: HEADER BADGE Y MODAL PAYWALL BOLD ===');

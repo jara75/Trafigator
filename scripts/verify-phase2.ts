@@ -1,6 +1,13 @@
-import { auth } from '../src/server/auth';
-import { app } from '../src/server';
-import { sqlite } from '../src/server/db';
+import fs from 'node:fs';
+
+const dbPath = process.env.TRAFICO_DB_PATH || '/tmp/trafico_test_phase2.db';
+if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+process.env.TRAFICO_DB_PATH = dbPath;
+process.env.IS_TEST = 'true';
+
+const { auth } = await import('../src/server/auth');
+const { app } = await import('../src/server');
+const { sqlite } = await import('../src/server/db');
 
 async function testPhase2() {
   console.log('=== VERIFICANDO FASE 2: ONBOARDING "NOMBRA TU ESTUDIO" ===');

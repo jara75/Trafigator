@@ -1205,18 +1205,23 @@ app.delete('/api/studio/orders/:id', async (c) => {
       .all(organizationId, otId) as Array<{ id: string }>;
     const idsToDelete = [otId, ...childRows.map((r) => r.id)];
 
+    let deletedOrders = 0;
     for (const targetId of idsToDelete) {
       sqlite.prepare('DELETE FROM route_entries WHERE ot_id = ? AND organization_id = ?').run(targetId, organizationId);
       sqlite.prepare('DELETE FROM media_files WHERE ot_id = ? AND organization_id = ?').run(targetId, organizationId);
       sqlite.prepare('DELETE FROM shared_reviews WHERE ot_id = ? AND organization_id = ?').run(targetId, organizationId);
       sqlite.prepare('DELETE FROM stripboard_strips WHERE ot_id = ? AND organization_id = ?').run(targetId, organizationId);
-      sqlite.prepare('DELETE FROM work_orders WHERE id = ? AND organization_id = ?').run(targetId, organizationId);
+      const res = sqlite.prepare('DELETE FROM work_orders WHERE id = ? AND organization_id = ?').run(targetId, organizationId);
+      deletedOrders += res.changes;
     }
-    return idsToDelete;
+    return { idsToDelete, deletedOrders };
   });
 
-  const deletedIds = deleteTx();
-  return c.json({ ok: true, deletedIds });
+  const { idsToDelete, deletedOrders } = deleteTx();
+  if (deletedOrders === 0) {
+    return c.json({ ok: false, error: 'not_found' }, 404);
+  }
+  return c.json({ ok: true, deletedIds: idsToDelete });
 });
 
 app.delete('/api/studio/clients/:id', async (c) => {
@@ -1228,7 +1233,10 @@ app.delete('/api/studio/clients/:id', async (c) => {
     return c.json({ ok: false, error: 'forbidden', message: 'Solo el Dueño puede eliminar clientes.' }, 403);
   }
 
-  sqlite.prepare('DELETE FROM clients WHERE id = ? AND organization_id = ?').run(clientId, organizationId);
+  const result = sqlite.prepare('DELETE FROM clients WHERE id = ? AND organization_id = ?').run(clientId, organizationId);
+  if (result.changes === 0) {
+    return c.json({ ok: false, error: 'not_found' }, 404);
+  }
   return c.json({ ok: true, deletedId: clientId });
 });
 
@@ -1238,14 +1246,16 @@ app.delete('/api/studio/stripboard/:id', async (c) => {
   const user = c.get('user');
   const stripId = c.req.param('id');
 
-  if (memberRole === 'owner') {
-    sqlite
-      .prepare('DELETE FROM stripboard_strips WHERE id = ? AND organization_id = ? AND (user_id = ? OR user_id IS NULL)')
-      .run(stripId, organizationId, user.id);
-  } else {
-    sqlite
-      .prepare('DELETE FROM stripboard_strips WHERE id = ? AND organization_id = ? AND user_id = ?')
-      .run(stripId, organizationId, user.id);
+  const result = memberRole === 'owner'
+    ? sqlite
+        .prepare('DELETE FROM stripboard_strips WHERE id = ? AND organization_id = ? AND (user_id = ? OR user_id IS NULL)')
+        .run(stripId, organizationId, user.id)
+    : sqlite
+        .prepare('DELETE FROM stripboard_strips WHERE id = ? AND organization_id = ? AND user_id = ?')
+        .run(stripId, organizationId, user.id);
+
+  if (result.changes === 0) {
+    return c.json({ ok: false, error: 'not_found' }, 404);
   }
   return c.json({ ok: true, deletedId: stripId });
 });
@@ -1481,9 +1491,9 @@ app.post('/api/studio/team/member/status', async (c) => {
     return c.json({ ok: false, error: 'cannot_deactivate_self', message: 'No puedes desactivar tu propia cuenta.' }, 400);
   }
 
-  if (nextStatus === 'active' && target.status !== 'active') {
+  if (nextStatus === 'active' && target.status !== 'active' && target.role !== 'client') {
     const row = sqlite
-      .prepare("SELECT COUNT(*) as c FROM members WHERE organization_id = ? AND status != 'deactivated'")
+      .prepare("SELECT COUNT(*) as c FROM members WHERE organization_id = ? AND status != 'deactivated' AND role IN ('owner', 'member')")
       .get(organizationId) as { c: number } | undefined;
     if ((row?.c || 0) >= MAX_ACTIVE_SEATS) {
       return c.json({ ok: false, error: 'seat_limit_reached', message: `Límite de ${MAX_ACTIVE_SEATS} miembros activos alcanzado.` }, 400);
@@ -1503,7 +1513,7 @@ app.post('/api/studio/team/member/status', async (c) => {
   }
 
   const activeRow = sqlite
-    .prepare("SELECT COUNT(*) as c FROM members WHERE organization_id = ? AND status != 'deactivated'")
+    .prepare("SELECT COUNT(*) as c FROM members WHERE organization_id = ? AND status != 'deactivated' AND role IN ('owner', 'member')")
     .get(organizationId) as { c: number } | undefined;
 
   return c.json({
