@@ -18,8 +18,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html'),
-        review: resolve(__dirname, 'review.html'),
+        main: resolve(import.meta.dirname, 'index.html'),
+        review: resolve(import.meta.dirname, 'review.html'),
       },
     },
   },

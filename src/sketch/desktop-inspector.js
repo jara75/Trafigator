@@ -11,7 +11,7 @@ import {
   getPriorityDotHtml,
 } from './store.js';
 
-export function buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages = [] }) {
+export function buildInspectorIdleStreams({ scopedOrders, q4TraceFilter }) {
   const traceEvents = [];
   const globalMessages = [];
 
@@ -70,21 +70,6 @@ export function buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, interna
         priority: msg.priority || null,
         sortKey,
       });
-    });
-  });
-
-  (internalMessages || []).forEach((msg, idx) => {
-    globalMessages.push({
-      otId: null,
-      shortCode: 'CORCHO',
-      client: 'Estudio',
-      clientColor: '#38bdf8',
-      actor: msg.actor || 'Equipo',
-      channel: msg.channel || 'Corcho',
-      at: msg.at || '',
-      text: msg.text || '',
-      priority: msg.priority || null,
-      sortKey: `3-${msg.createdAt || String(999 - idx).padStart(3, '0')}`,
     });
   });
 
@@ -252,23 +237,17 @@ export function renderDesktopIdleInspector({
                         : 'hover:bg-[#222222]');
                   const chLabel = msg.channel === 'WhatsApp'
                     ? 'WA'
-                    : (msg.channel === 'Cliente' ? 'Cli' : (msg.channel === 'Corcho' ? 'Estudio' : 'App'));
-                  const hasOt = Boolean(msg.otId);
-                  const rowAttrs = hasOt
-                    ? `data-dk-insp-select-ot="${escapeHtml(msg.otId)}" data-dk-insp-key="msg:${escapeHtml(msg.otId)}:${idx}"`
-                    : `data-dk-insp-internal-msg="${idx}"`;
+                    : (msg.channel === 'Cliente' ? 'Cli' : 'App');
                   return `
-                    <div ${rowAttrs}
-                      class="px-1.5 py-1.5 rounded-md ${accentCls} transition-colors ${hasOt ? 'cursor-pointer' : ''} flex items-start gap-1.5">
+                    <div data-dk-insp-select-ot="${escapeHtml(msg.otId)}" data-dk-insp-key="msg:${escapeHtml(msg.otId)}:${idx}"
+                      class="px-1.5 py-1.5 rounded-md ${accentCls} transition-colors cursor-pointer flex items-start gap-1.5">
                       <span class="w-4 h-4 rounded-full bg-[#242424] border border-obsidian-border text-[7.5px] font-mono font-semibold text-[#D4D4D4] flex items-center justify-center shrink-0 mt-0.5">${escapeHtml(getInitials(msg.actor))}</span>
                       <div class="min-w-0 flex-1 leading-snug">
                         <div class="flex items-center justify-between gap-1">
                           <span class="inline-flex items-center gap-1 min-w-0">
                             <span class="text-[9.5px] font-semibold text-[#D4D4D4] truncate">${escapeHtml(msg.actor)}</span>
-                            ${hasOt
-                              ? `<button type="button" data-dk-insp-open-ot="${escapeHtml(msg.otId)}" title="Abrir OT"
-                                   class="font-mono text-[8.5px] text-obsidian-amber hover:underline cursor-pointer shrink-0">${escapeHtml(msg.shortCode)}</button>`
-                              : `<span class="font-mono text-[8px] text-cyan-400 shrink-0">Corcho</span>`}
+                            <button type="button" data-dk-insp-open-ot="${escapeHtml(msg.otId)}" title="Abrir OT"
+                              class="font-mono text-[8.5px] text-obsidian-amber hover:underline cursor-pointer shrink-0">${escapeHtml(msg.shortCode)}</button>
                             <span class="px-1 rounded bg-[#141414] font-mono text-[7px] text-[#737373] shrink-0">${chLabel}</span>
                           </span>
                           <span class="font-mono text-[7.5px] text-[#5A5A5A] shrink-0">${escapeHtml(msg.at)}</span>

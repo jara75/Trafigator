@@ -176,7 +176,7 @@ function renderOtGalleryOverlay({
   };
 
   return `
-    <div id="dk-q2-gallery-root" class="border-t-2 border-t-amber-500/75 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-obsidian-border min-h-0 flex-1 bg-[#171717]">
+    <div id="dk-viewer-gallery-root" class="border-t-2 border-t-amber-500/75 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-obsidian-border min-h-0 flex-1 bg-[#171717]">
       <!-- 04.1: Galería de la OT / Tarea -->
       <div class="p-3 flex flex-col min-h-0">
         <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-obsidian-border/70 shrink-0">
