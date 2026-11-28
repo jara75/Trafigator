@@ -1,13 +1,17 @@
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { Hono } from 'hono';
 import { sqlite } from '../db';
 import { auth } from '../auth';
-import { saveUploadedFileForOt } from '../services/upload-helper';
+import { getDirectorySizeBytes, saveUploadedFileForOt, uploadsDir } from '../services/upload-helper';
+import { isOrderRowAuthorizedForUser } from '../services/rbac';
 
 type StudioVars = {
   user: typeof auth.$Infer.Session.user;
   session: typeof auth.$Infer.Session.session;
   organizationId: string;
+  memberRole: 'owner' | 'member' | 'client';
+  allowedClientId: string;
 };
 
 type SseListener = (event: string, data: Record<string, unknown>) => void;
@@ -33,13 +37,27 @@ function formatDisplayDateNow(): string {
   return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
 }
 
-async function resolveHybridAuthor(headers: Headers, rawAuthorName?: unknown): Promise<{
+function isAgencyMemberOfOrg(userId: string, organizationId: string | null | undefined): boolean {
+  if (!userId || !organizationId) return false;
+  const row = sqlite
+    .prepare(
+      "SELECT role FROM members WHERE user_id = ? AND organization_id = ? AND status != 'deactivated' LIMIT 1"
+    )
+    .get(userId, organizationId) as { role?: string } | undefined;
+  return Boolean(row && (row.role === 'owner' || row.role === 'member'));
+}
+
+async function resolveHybridAuthor(
+  headers: Headers,
+  reviewOrgId: string | null | undefined,
+  rawAuthorName?: unknown
+): Promise<{
   authorUserId: string | null;
   authorName: string;
   authorRole: 'agency' | 'client';
 } | null> {
   const session = await auth.api.getSession({ headers }).catch(() => null);
-  if (session?.user) {
+  if (session?.user && isAgencyMemberOfOrg(session.user.id, reviewOrgId)) {
     const u = session.user as any;
     return {
       authorUserId: u.id,
@@ -48,9 +66,19 @@ async function resolveHybridAuthor(headers: Headers, rawAuthorName?: unknown): P
     };
   }
   const guestName = typeof rawAuthorName === 'string' ? rawAuthorName.trim() : '';
-  if (!guestName) return null;
+  if (!guestName) {
+    if (session?.user) {
+      const u = session.user as any;
+      return {
+        authorUserId: u.id,
+        authorName: (u.shortName || u.name || 'Cliente').slice(0, 80),
+        authorRole: 'client',
+      };
+    }
+    return null;
+  }
   return {
-    authorUserId: null,
+    authorUserId: session?.user?.id || null,
     authorName: guestName.slice(0, 80),
     authorRole: 'client',
   };
@@ -149,6 +177,14 @@ export const studioReviewRoutes = new Hono<{ Variables: StudioVars }>();
 
 studioReviewRoutes.post('/share', async (c) => {
   const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+  const allowedClientId = c.get('allowedClientId');
+  const user = c.get('user');
+
+  if (memberRole === 'client') {
+    return c.json({ ok: false, error: 'forbidden', message: 'Solo integrantes del estudio pueden compartir enlaces de revisión.' }, 403);
+  }
+
   const body = await c.req.json().catch(() => ({}));
   const otId = String(body.otId || '').trim();
   const mediaFileId = String(body.mediaFileId || '').trim();
@@ -161,10 +197,14 @@ studioReviewRoutes.post('/share', async (c) => {
   }
 
   const order = sqlite
-    .prepare('SELECT id FROM work_orders WHERE id = ? AND organization_id = ?')
-    .get(otId, organizationId) as any;
+    .prepare('SELECT id, client, sign FROM work_orders WHERE id = ? AND organization_id = ?')
+    .get(otId, organizationId) as { id: string; client?: string; sign?: string } | undefined;
   if (!order) {
     return c.json({ ok: false, error: 'Orden de Trabajo no encontrada.' }, 404);
+  }
+
+  if (!isOrderRowAuthorizedForUser({ organizationId, memberRole, allowedClientId, user, otId, clientName: order.client, sign: order.sign })) {
+    return c.json({ ok: false, error: 'forbidden', message: 'No autorizado para compartir piezas de esta orden.' }, 403);
   }
 
   const media = sqlite
@@ -220,6 +260,14 @@ studioReviewRoutes.post('/share', async (c) => {
 
 studioReviewRoutes.post('/version', async (c) => {
   const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+  const allowedClientId = c.get('allowedClientId');
+  const user = c.get('user');
+
+  if (memberRole === 'client') {
+    return c.json({ ok: false, error: 'forbidden', message: 'Solo integrantes del estudio pueden subir nuevas versiones.' }, 403);
+  }
+
   const body = await c.req.parseBody();
   const otId = String(body['ot_id'] || '').trim();
   const parentMediaId = String(body['parent_media_id'] || '').trim();
@@ -229,11 +277,31 @@ studioReviewRoutes.post('/version', async (c) => {
     return c.json({ ok: false, error: 'Se requieren ot_id, parent_media_id y file.' }, 400);
   }
 
+  const order = sqlite
+    .prepare('SELECT id, client, sign FROM work_orders WHERE id = ? AND organization_id = ?')
+    .get(otId, organizationId) as { id: string; client?: string; sign?: string } | undefined;
+  if (!order) {
+    return c.json({ ok: false, error: 'Orden de Trabajo no encontrada.' }, 404);
+  }
+  if (!isOrderRowAuthorizedForUser({ organizationId, memberRole, allowedClientId, user, otId, clientName: order.client, sign: order.sign })) {
+    return c.json({ ok: false, error: 'forbidden', message: 'No autorizado para subir versiones en esta orden.' }, 403);
+  }
+
   const parentMedia = sqlite
     .prepare('SELECT * FROM media_files WHERE id = ? AND ot_id = ? AND organization_id = ?')
     .get(parentMediaId, otId, organizationId) as any;
   if (!parentMedia) {
     return c.json({ ok: false, error: 'Pieza base no encontrada.' }, 404);
+  }
+
+  const maxOrgBytes = Number(process.env.MAX_ORG_UPLOAD_BYTES || 500 * 1024 * 1024);
+  const orgUploadsDir = path.join(uploadsDir, organizationId);
+  const currentOrgBytes = getDirectorySizeBytes(orgUploadsDir);
+  if (currentOrgBytes + (file.size || 0) > maxOrgBytes) {
+    return c.json(
+      { ok: false, error: 'storage_quota_exceeded', message: 'Cuota de almacenamiento del estudio excedida.' },
+      413
+    );
   }
 
   const versionGroupId = parentMedia.version_group_id || ('vg-' + crypto.randomUUID().slice(0, 8));
@@ -247,6 +315,7 @@ studioReviewRoutes.post('/version', async (c) => {
   const nextVersion = (maxRow?.max_ver || 1) + 1;
 
   const saved = await saveUploadedFileForOt(otId, file, {
+    organizationId,
     versionGroupId,
     versionNumber: nextVersion,
     reviewStatus: 'in_review',
@@ -294,7 +363,20 @@ studioReviewRoutes.post('/version', async (c) => {
 
 studioReviewRoutes.get('/ot/:otId', async (c) => {
   const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+  const allowedClientId = c.get('allowedClientId');
+  const user = c.get('user');
   const otId = c.req.param('otId');
+
+  const order = sqlite
+    .prepare('SELECT id, client, sign FROM work_orders WHERE id = ? AND organization_id = ?')
+    .get(otId, organizationId) as { id: string; client?: string; sign?: string } | undefined;
+  if (!order) {
+    return c.json({ ok: false, error: 'Orden de Trabajo no encontrada.' }, 404);
+  }
+  if (!isOrderRowAuthorizedForUser({ organizationId, memberRole, allowedClientId, user, otId, clientName: order.client, sign: order.sign })) {
+    return c.json({ ok: false, error: 'forbidden', message: 'No autorizado para ver revisiones de esta orden.' }, 403);
+  }
 
   const shares = sqlite
     .prepare('SELECT * FROM shared_reviews WHERE organization_id = ? AND ot_id = ? AND revoked = 0 ORDER BY created_at DESC')
@@ -320,14 +402,33 @@ studioReviewRoutes.get('/ot/:otId', async (c) => {
 
 studioReviewRoutes.patch('/share/:token/revoke', async (c) => {
   const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+  const allowedClientId = c.get('allowedClientId');
+  const user = c.get('user');
+
+  if (memberRole === 'client') {
+    return c.json({ ok: false, error: 'forbidden', message: 'Solo integrantes del estudio pueden revocar enlaces de revisión.' }, 403);
+  }
+
   const token = c.req.param('token');
-  const info = sqlite
+  const shareRow = sqlite
+    .prepare('SELECT token, ot_id FROM shared_reviews WHERE token = ? AND organization_id = ?')
+    .get(token, organizationId) as { token: string; ot_id: string } | undefined;
+  if (!shareRow) {
+    return c.json({ ok: false, error: 'Enlace no encontrado.' }, 404);
+  }
+
+  const order = sqlite
+    .prepare('SELECT id, client, sign FROM work_orders WHERE id = ? AND organization_id = ?')
+    .get(shareRow.ot_id, organizationId) as { id: string; client?: string; sign?: string } | undefined;
+  if (order && !isOrderRowAuthorizedForUser({ organizationId, memberRole, allowedClientId, user, otId: order.id, clientName: order.client, sign: order.sign })) {
+    return c.json({ ok: false, error: 'forbidden', message: 'No autorizado para revocar enlaces de esta orden.' }, 403);
+  }
+
+  sqlite
     .prepare('UPDATE shared_reviews SET revoked = 1 WHERE token = ? AND organization_id = ?')
     .run(token, organizationId);
 
-  if (info.changes === 0) {
-    return c.json({ ok: false, error: 'Enlace no encontrado.' }, 404);
-  }
   return c.json({ ok: true, token, revoked: true });
 });
 
@@ -353,12 +454,30 @@ publicReviewRoutes.get('/:token', async (c) => {
   } catch (_) {}
 
   const allRoutes = sqlite
-    .prepare('SELECT * FROM route_entries WHERE ot_id = ? ORDER BY line_number ASC')
+    .prepare('SELECT id, line_number, from_dept, to_dept, task, entry_date, delivery_date, stamp FROM route_entries WHERE ot_id = ? ORDER BY line_number ASC')
     .all(review.ot_id) as any[];
   const visibleRoutes = review.allow_full_ot
     ? allRoutes
     : allRoutes.filter((r) => allowedLineIds.includes(r.id));
-  const allMedia = sqlite.prepare('SELECT * FROM media_files WHERE ot_id = ?').all(review.ot_id) as any[];
+
+  const appendReviewToken = (rawUrl: string | null | undefined): string | null => {
+    if (!rawUrl) return null;
+    if (!rawUrl.startsWith('/uploads/')) return rawUrl;
+    const sep = rawUrl.includes('?') ? '&' : '?';
+    return `${rawUrl}${sep}reviewToken=${encodeURIComponent(token)}`;
+  };
+  const mapPublicMediaRow = (row: any) => {
+    const mapped = mapMediaRow(row);
+    if (!mapped) return null;
+    return {
+      ...mapped,
+      url: appendReviewToken(mapped.url) || mapped.url,
+      previewUrl: appendReviewToken(mapped.previewUrl),
+    };
+  };
+
+  const sharedMediaList = (versions.length > 0 ? versions : (activeMedia ? [activeMedia] : []))
+    .filter((m: any) => m && m.review_status !== 'draft');
 
   const threads = activeMedia
     ? sqlite
@@ -371,13 +490,27 @@ publicReviewRoutes.get('/:token', async (c) => {
         .all(activeMedia.id)
     : [];
 
+  const reviewOrgId = review.organization_id || order.organization_id;
   const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
-  const viewerSession = session?.user
+  const viewerIsAgency = Boolean(session?.user && isAgencyMemberOfOrg(session.user.id, reviewOrgId));
+  const viewerSession = viewerIsAgency && session?.user
     ? {
         isAgency: true,
         name: (session.user as any).shortName || session.user.name || 'Agencia',
       }
     : { isAgency: false, name: null };
+
+  const publicOrder = {
+    id: order.id,
+    ref: order.ref || '',
+    client: order.client || '',
+    brand: order.brand || '',
+    product: order.product || '',
+    title: order.title || '',
+    media: order.media || '',
+    ot_status: order.ot_status || 'Abierta',
+    created_at: order.created_at || null,
+  };
 
   return c.json({
     ok: true,
@@ -388,9 +521,9 @@ publicReviewRoutes.get('/:token', async (c) => {
       allowedLineIds,
       mediaFileId: review.media_file_id || activeMedia?.id || null,
     },
-    order,
-    activeMedia: mapMediaRow(activeMedia),
-    versions: versions.map(mapMediaRow),
+    order: publicOrder,
+    activeMedia: mapPublicMediaRow(activeMedia),
+    versions: sharedMediaList.map(mapPublicMediaRow),
     threads: (threads as any[]).map((t) => ({
       id: t.id,
       mediaFileId: t.media_file_id,
@@ -416,7 +549,7 @@ publicReviewRoutes.get('/:token', async (c) => {
     viewerSession,
     routes: visibleRoutes,
     allRoutes: review.allow_full_ot ? allRoutes : undefined,
-    mediaFiles: allMedia.map(mapMediaRow),
+    mediaFiles: sharedMediaList.map(mapPublicMediaRow),
   });
 });
 
@@ -428,7 +561,8 @@ publicReviewRoutes.post('/:token/threads', async (c) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
-  const author = await resolveHybridAuthor(c.req.raw.headers, body.authorName);
+  const reviewOrgId = lookup.review.organization_id || lookup.order.organization_id;
+  const author = await resolveHybridAuthor(c.req.raw.headers, reviewOrgId, body.authorName);
   if (!author) {
     return c.json({ ok: false, error: 'Se requiere tu nombre para firmar el comentario.' }, 400);
   }
@@ -527,7 +661,8 @@ publicReviewRoutes.post('/:token/messages', async (c) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
-  const author = await resolveHybridAuthor(c.req.raw.headers, body.authorName);
+  const reviewOrgId = lookup.review.organization_id || lookup.order.organization_id;
+  const author = await resolveHybridAuthor(c.req.raw.headers, reviewOrgId, body.authorName);
   if (!author) {
     return c.json({ ok: false, error: 'Se requiere tu nombre para enviar mensajes.' }, 400);
   }
@@ -674,7 +809,8 @@ publicReviewRoutes.patch('/:token/threads/:threadId/resolve', async (c) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
-  const author = await resolveHybridAuthor(c.req.raw.headers, body.authorName || lookup.review.reviewer_label || 'Cliente');
+  const reviewOrgId = lookup.review.organization_id || lookup.order.organization_id;
+  const author = await resolveHybridAuthor(c.req.raw.headers, reviewOrgId, body.authorName || lookup.review.reviewer_label || 'Cliente');
 
   const thread = sqlite
     .prepare(
@@ -726,7 +862,8 @@ publicReviewRoutes.post('/:token/decision', async (c) => {
     return c.json({ ok: false, error: "Decisión inválida. Use 'approved' o 'changes_requested'." }, 400);
   }
 
-  const author = await resolveHybridAuthor(c.req.raw.headers, body.authorName);
+  const reviewOrgId = lookup.review.organization_id || lookup.order.organization_id;
+  const author = await resolveHybridAuthor(c.req.raw.headers, reviewOrgId, body.authorName);
   if (!author) {
     return c.json({ ok: false, error: 'Se requiere tu nombre para registrar la decisión.' }, 400);
   }
