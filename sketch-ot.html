@@ -335,6 +335,10 @@
           class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center transition-colors cursor-pointer">
           <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/></svg>
         </button>
+        <button type="button" id="btn-global-corcho" data-tip="Corcho" aria-label="Corcho" aria-expanded="false"
+          class="w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] flex items-center justify-center transition-colors cursor-pointer">
+          <span data-icon="pin" data-icon-size="w-3.5 h-3.5"></span>
+        </button>
         <button type="button" id="btn-right-expand" title="Mostrar Inspector"
           class="hidden w-7 h-7 rounded hover:bg-obsidian-elevated hover:text-[#D4D4D4] items-center justify-center transition-colors cursor-pointer">
           <span data-icon="panel-right-open" data-icon-size="w-3.5 h-3.5"></span>
@@ -342,7 +346,8 @@
       </div>
     </div>
 
-    <!-- Contenido del centro -->
+    <!-- Contenido del centro (contenedor no scrolleable para #corcho-overlay hermano de #center-body) -->
+    <div id="center-stage" class="relative flex-1 min-h-0 flex flex-col">
     <div id="center-body" class="flex-1 min-h-0 overflow-y-auto px-3 py-2">
       <div id="view-desktop" class="h-full flex flex-col gap-2.5"></div>
       <div id="view-new-ot" class="hidden max-w-lg mx-auto">
@@ -671,6 +676,10 @@
         </div>
         <div id="settings-tab-body" class="flex-1 min-h-0 overflow-y-auto pr-1 space-y-4"></div>
       </div>
+    </div>
+    <!-- Capa ampliada del Módulo Corcho (hermana de #center-body, preserva scroll y contexto) -->
+    <div id="corcho-overlay" role="region" aria-label="Corcho"
+      class="hidden absolute inset-0 z-[45] bg-[#191919] flex flex-col min-h-0 overflow-hidden"></div>
     </div>
   </main>
 

@@ -22,6 +22,7 @@ let activeGalleryCtx = null;
 
 function isAnyOverlayOpen() {
   const overlayIds = [
+    'corcho-overlay',
     'new-client-modal',
     'settings-modal',
     'user-menu-popover',

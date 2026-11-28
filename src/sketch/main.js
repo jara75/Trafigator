@@ -14,13 +14,14 @@ import { initClientModal } from './client-modal.js';
 import { initSettingsModal } from './settings.js';
 import { initTraffic, renderTrafficGrid, renderTrafficTree } from './traffic.js';
 import { renderDesktopOverview } from './desktop.js';
-import { initNewOt } from './new-ot.js';
+import { initNewOt, prefillNewOt } from './new-ot.js';
 import { initGallery, renderStandaloneGallery } from './gallery.js';
 import { initOtDetail, renderMyOts } from './ot-detail.js';
 import { initStripboard, renderStripboard } from './stripboard.js';
 import { initUserMenu } from './user-menu.js';
 import { initNotifications } from './notifications.js';
 import { initWorkspaceBar } from './workspace-bar.js';
+import { closeCorcho, initCorcho, isCorchoOpen } from './corcho.js';
 
 window.hydrateIcons = hydrateIcons;
 hydrateIcons();
@@ -130,6 +131,12 @@ initSettingsModal();
 initUserMenu();
 initNotifications();
 initWorkspaceBar();
+initCorcho({
+  onNewOtFromCorcho: ({ title, notes, onCreated }) => {
+    jumpToSubView('new-ot');
+    prefillNewOt({ title, notes, onCreated });
+  },
+});
 
 initTraffic({
   onOpenOt: (payload) => openOtInDetail(payload)
@@ -156,6 +163,7 @@ document.querySelectorAll('.ot-sub-btn').forEach((btn) => {
 
 ['btn-settings-menu', 'btn-studio-footer', 'btn-trial-badge'].forEach((id) => {
   document.getElementById(id)?.addEventListener('click', () => {
+    closeCorcho();
     recordNavEntry({ type: 'settings' });
   });
 });
@@ -165,6 +173,7 @@ document.getElementById('btn-desktop-menu')?.addEventListener('click', () => {
 });
 
 document.getElementById('btn-center-back-traffic')?.addEventListener('click', () => {
+  closeCorcho();
   goBackInHistory();
 });
 
@@ -211,6 +220,7 @@ const refreshDesktopIfVisible = () => {
 };
 
 initNavigation({
+  onCloseCorcho: () => closeCorcho(),
   onDesktop: () => {
     renderDesktopOverview(desktopCallbacks.onGoToTraffic, desktopCallbacks);
   },
@@ -239,6 +249,7 @@ onSketchChange('workspace', refreshDesktopIfVisible);
 
 onSketchChange('open-ot', (payload) => {
   if (payload?.otId) {
+    closeCorcho();
     openOtInDetail(payload.otId, payload.taskIndex ?? null, payload.scope);
   }
 });
@@ -276,6 +287,7 @@ function openReviewInCenter(piece) {
 }
 
 onSketchChange('open-review', (payload) => {
+  closeCorcho();
   openReviewInCenter(payload?.piece || null);
 });
 
@@ -292,6 +304,7 @@ onSketchChange('history', syncHistoryButtons);
 syncHistoryButtons();
 
 document.addEventListener('keydown', (e) => {
+  if (isCorchoOpen()) return;
   const mod = e.metaKey || e.ctrlKey;
   if (!mod || e.key.toLowerCase() !== 'z') {
     if (mod && e.key.toLowerCase() === 'y' && !e.target.closest('input, textarea, [contenteditable="true"]')) {

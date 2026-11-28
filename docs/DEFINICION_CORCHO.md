@@ -20,6 +20,11 @@ Existe para resolver una necesidad concreta del día a día: **tener un espacio 
 - **No es Revisión Colaborativa:** Revisión Colaborativa (en sus dos instancias: **Revisión Interna** y **Revisión del Cliente**) es un módulo distinto con su propio propósito. El Corcho no intenta replicarlo ni reemplazarlo.
 - **No es un gestor de Recordatorios:** las alarmas y recordatorios con hora de disparo son un tema aparte y no pertenecen al Corcho.
 
+### Acceso y comportamiento de capa ampliada
+- **Punto de acceso global:** botón toggle **Corcho** (`#btn-global-corcho`, ícono `pin`) en la esquina superior derecha de la barra del lienzo central (`#pane-center`), accesible desde cualquier vista u OT en 1 clic.
+- **Capa ampliada sobre `#pane-center`:** al abrirse, el Corcho se monta sobre el área central manteniendo visibles las columnas laterales (`#pane-left` y `#pane-right`) y preservando intacto el estado y scroll de la vista u OT abierta debajo.
+- **Cierre sin pérdida de contexto:** un segundo clic en el botón `Corcho`, el botón `×` o la tecla `Esc` cierran la capa y devuelven exactamente a la vista u OT previa. Navegar a otro módulo desde `#pane-left`, Ajustes o abrir una OT/Revisión cierra el Corcho automáticamente.
+
 ---
 
 ## 2. Qué se puede poner en el Corcho

@@ -1001,6 +1001,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   if (!dismissListenersBound) {
     dismissListenersBound = true;
     document.addEventListener('keydown', (e) => {
+      const corchoEl = document.getElementById('corcho-overlay');
+      if (corchoEl && !corchoEl.classList.contains('hidden')) return;
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       const tag = (document.activeElement?.tagName || '').toLowerCase();
@@ -1035,6 +1037,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
 
     document.addEventListener('click', (e) => {
       if (!selectedContextOtId) return;
+      const corchoEl = document.getElementById('corcho-overlay');
+      if (corchoEl && !corchoEl.classList.contains('hidden')) return;
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       if (!e.target.closest('#center-body')) return;
