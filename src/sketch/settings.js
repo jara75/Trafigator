@@ -978,6 +978,8 @@ export function initSettingsModal() {
   });
 
   document.addEventListener('keydown', (e) => {
+    const corchoEl = document.getElementById('corcho-overlay');
+    if (corchoEl && !corchoEl.classList.contains('hidden')) return;
     if (e.key === 'Escape' && settingsModal && !settingsModal.classList.contains('hidden')) {
       closeSettingsModal();
     }

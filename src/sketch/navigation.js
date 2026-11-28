@@ -173,6 +173,7 @@ export function initNavigation(handlers = {}) {
 
   document.querySelectorAll('.ot-sub-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
+      handlers.onCloseCorcho?.();
       const otView = btn.dataset.otView;
       const isDrillDown = otView !== 'new-ot';
       resetSubNavButtons();
@@ -267,6 +268,7 @@ export function initNavigation(handlers = {}) {
   });
 
   document.getElementById('btn-desktop-menu')?.addEventListener('click', () => {
+    handlers.onCloseCorcho?.();
     const centerTitle = document.getElementById('center-page-title');
     if (centerTitle) centerTitle.textContent = 'Tablero';
     resetSubNavButtons();
@@ -277,6 +279,7 @@ export function initNavigation(handlers = {}) {
   });
 
   document.getElementById('btn-left-back')?.addEventListener('click', () => {
+    handlers.onCloseCorcho?.();
     const centerTitle = document.getElementById('center-page-title');
     if (centerTitle) centerTitle.textContent = 'Tablero';
     resetSubNavButtons();
