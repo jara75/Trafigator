@@ -110,7 +110,7 @@ export function renderOtRow(ot, colKey, { compact = false, todayKey, tomorrowKey
   const key = `${colKey}:ot:${ot.id}`;
   const isSelected = selectedCardKey === key;
   return `
-    <div draggable="true" data-dk-pin-type="ot" data-dk-pin-ot-id="${escapeHtml(ot.id)}" data-desktop-select-ot="${escapeHtml(ot.id)}" data-dk-key="${escapeHtml(key)}"
+    <div data-desktop-select-ot="${escapeHtml(ot.id)}" data-dk-key="${escapeHtml(key)}"
       class="bg-[#202020] hover:bg-[#262626] border ${isSelected ? 'border-obsidian-amber/70 bg-[#242424]' : 'border-obsidian-border'} rounded-lg ${compact ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} cursor-pointer transition-colors">
       <div class="flex items-center justify-between gap-1">
         <span class="inline-flex items-center gap-1 min-w-0">
@@ -140,7 +140,7 @@ export function renderTaskRow(task, colKey, { compact = false, todayKey, tomorro
   const key = `${colKey}:task:${task.otId}:${task.taskIndex}`;
   const isSelected = selectedCardKey === key;
   return `
-    <div draggable="true" data-dk-pin-type="task" data-dk-pin-ot-id="${escapeHtml(task.otId)}" data-dk-pin-task-idx="${task.taskIndex}" data-desktop-select-task-ot="${escapeHtml(task.otId)}" data-desktop-select-task-idx="${task.taskIndex}" data-dk-key="${escapeHtml(key)}"
+    <div data-desktop-select-task-ot="${escapeHtml(task.otId)}" data-desktop-select-task-idx="${task.taskIndex}" data-dk-key="${escapeHtml(key)}"
       class="bg-[#202020] hover:bg-[#262626] border ${isSelected ? 'border-obsidian-amber/70 bg-[#242424]' : 'border-obsidian-border'} rounded-lg ${compact ? 'p-1.5 space-y-0.5' : 'p-2 space-y-1'} cursor-pointer transition-colors">
       <div class="flex items-center justify-between gap-1">
         <span class="inline-flex items-center gap-1 min-w-0">

@@ -264,7 +264,7 @@ function renderQ2MonthView({
                     const key = `month:${c.iso}:ot:${it.id}`;
                     const isSel = selectedCardKey === key;
                     return `
-                      <div draggable="true" data-dk-pin-type="ot" data-dk-pin-ot-id="${escapeHtml(it.id)}" data-desktop-select-ot="${escapeHtml(it.id)}" data-dk-key="${escapeHtml(key)}" title="${escapeHtml(`${shortCode} · ${it.client} — ${it.title}`)}"
+                      <div data-desktop-select-ot="${escapeHtml(it.id)}" data-dk-key="${escapeHtml(key)}" title="${escapeHtml(`${shortCode} · ${it.client} — ${it.title}`)}"
                         class="px-1 py-0.5 rounded bg-[#242424] hover:bg-[#2c2c2c] border ${isSel ? 'border-obsidian-amber/80' : 'border-obsidian-border/60'} cursor-pointer flex items-center gap-1 min-w-0 leading-tight">
                         <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
                         <span class="font-mono text-[8px] text-obsidian-amber shrink-0">${escapeHtml(shortCode)}</span>
@@ -277,7 +277,7 @@ function renderQ2MonthView({
                   const key = `month:${c.iso}:task:${it.otId}:${it.taskIndex}`;
                   const isSel = selectedCardKey === key;
                   return `
-                    <div draggable="true" data-dk-pin-type="task" data-dk-pin-ot-id="${escapeHtml(it.otId)}" data-dk-pin-task-idx="${it.taskIndex}" data-desktop-select-task-ot="${escapeHtml(it.otId)}" data-desktop-select-task-idx="${it.taskIndex}" data-dk-key="${escapeHtml(key)}" title="${escapeHtml(`${shortCode} · ${it.client} — ${it.title}`)}"
+                    <div data-desktop-select-task-ot="${escapeHtml(it.otId)}" data-desktop-select-task-idx="${it.taskIndex}" data-dk-key="${escapeHtml(key)}" title="${escapeHtml(`${shortCode} · ${it.client} — ${it.title}`)}"
                       class="px-1 py-0.5 rounded bg-[#242424] hover:bg-[#2c2c2c] border ${isSel ? 'border-obsidian-amber/80' : 'border-obsidian-border/60'} cursor-pointer flex items-center gap-1 min-w-0 leading-tight">
                       <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${escapeHtml(cColor)}"></span>
                       <span class="font-mono text-[8px] text-obsidian-amber shrink-0">${escapeHtml(shortCode)}</span>

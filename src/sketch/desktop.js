@@ -345,7 +345,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   }
 
   // Idle Inspector streams & contextual OT/Task
-  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter, internalMessages: [] });
+  const { visibleTrace, visibleMessages } = buildInspectorIdleStreams({ scopedOrders, q4TraceFilter });
 
   const selectedContextOt = selectedContextOtId
     ? (scopedOrders.find((o) => o.id === selectedContextOtId) || trafficOrders.find((o) => o.id === selectedContextOtId) || null)
@@ -1025,7 +1025,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       const desktopEl = document.getElementById('view-desktop');
       if (!desktopEl || desktopEl.classList.contains('hidden')) return;
       if (!e.target.closest('#center-body')) return;
-      if (e.target.closest('#dk-q2-gallery-root')) return;
+      if (e.target.closest('#dk-viewer-gallery-root')) return;
       if (e.target.closest('[data-desktop-select-ot], [data-desktop-select-task-ot]')) return;
       if (e.target.closest('button, a, input, select')) return;
       closeQ4Context();
@@ -1051,6 +1051,12 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-select-media]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
+      selectedMediaIndex = Number(btn.dataset.dkSelectMedia);
+      rerender();
+    });
+    btn.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
       selectedMediaIndex = Number(btn.dataset.dkSelectMedia);
       rerender();
     });
