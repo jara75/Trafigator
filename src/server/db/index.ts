@@ -35,12 +35,13 @@ export function initDatabaseAndSeed() {
       email TEXT NOT NULL UNIQUE,
       email_verified INTEGER NOT NULL DEFAULT 0,
       image TEXT,
-      role TEXT NOT NULL DEFAULT 'director',
+      role TEXT NOT NULL DEFAULT 'user',
       short_name TEXT,
-      color TEXT DEFAULT 'cyan',
-      avatar_mode TEXT DEFAULT 'initials',
-      avatar_icon TEXT DEFAULT 'pen',
-      departments TEXT DEFAULT '["Cuentas","Tráfico","Creativos"]',
+      color TEXT NOT NULL DEFAULT 'cyan',
+      avatar_mode TEXT NOT NULL DEFAULT 'initials',
+      avatar_icon TEXT NOT NULL DEFAULT 'pen',
+      departments TEXT NOT NULL DEFAULT '["Cuentas","Tráfico","Creativos"]',
+      phone TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -207,6 +208,7 @@ export function initDatabaseAndSeed() {
       x_percent REAL NOT NULL,
       y_percent REAL NOT NULL,
       page_number INTEGER NOT NULL DEFAULT 1,
+      pin_color TEXT NOT NULL DEFAULT 'amber',
       is_resolved INTEGER NOT NULL DEFAULT 0,
       resolved_by_name TEXT,
       created_at TEXT NOT NULL
