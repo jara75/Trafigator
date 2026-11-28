@@ -478,3 +478,52 @@ export function buildCorchoMarkdownExport(item) {
     content: lines.join('\n'),
   };
 }
+
+export function markCorchoItemPromoted(id, otId, { archive = true } = {}) {
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  const nowIso = new Date().toISOString();
+  const prevRefs = Array.isArray(items[idx].promotedOtIds) ? items[idx].promotedOtIds : [];
+  const nextRefs = otId && !prevRefs.includes(otId) ? [...prevRefs, otId] : prevRefs;
+
+  items[idx] = {
+    ...items[idx],
+    promotedOtIds: nextRefs,
+    status: archive ? 'archived' : items[idx].status,
+    archivedAt: archive ? nowIso : items[idx].archivedAt,
+    updatedAt: nowIso,
+  };
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: items[idx] };
+}
+
+export function buildCorchoShareText(item, { recipientName = '', purpose = 'inform' } = {}) {
+  if (!item) return '';
+  const purposeLabel = purpose === 'review' ? 'Para revisar' : 'Para dar a conocer';
+  const header = recipientName
+    ? `Para ${recipientName} (${purposeLabel}):`
+    : `${purposeLabel}:`;
+  const lines = [header, item.title || 'Sin título'];
+  if (item.type === 'link' && item.url) {
+    lines.push(item.url);
+  }
+  if (item.content && item.content.trim() !== (item.title || '').trim()) {
+    lines.push(item.content.trim());
+  }
+  if (item.type === 'file') {
+    lines.push(`Archivo: ${item.fileMeta?.name || item.title}${item.fileMeta?.sizeLabel ? ` (${item.fileMeta.sizeLabel})` : ''}`);
+  }
+  return lines.join('\n');
+}
+
+export function buildCorchoMailtoUrl(item, { email = '', recipientName = '', purpose = 'inform' } = {}) {
+  const purposeLabel = purpose === 'review' ? 'Para revisar' : 'Para dar a conocer';
+  const subject = `[Trafigator · ${purposeLabel}] ${item?.title || 'Ficha del Corcho'}`;
+  const body = buildCorchoShareText(item, { recipientName, purpose }) +
+    (item?.type === 'file' ? '\n\n(Nota: adjunta el archivo exportado manualmente a este correo.)' : '');
+  const cleanEmail = String(email || '').trim();
+  return `mailto:${encodeURIComponent(cleanEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}

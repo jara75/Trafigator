@@ -16,6 +16,23 @@ import {
 } from './store.js';
 
 let newOtInitialized = false;
+let pendingOnCreated = null;
+
+/**
+ * Prefill #view-new-ot from an external trigger (e.g. Corcho -> Nueva OT).
+ * `onCreated(newOt)` runs ONLY on a successful submit; canceling clears it.
+ */
+export function prefillNewOt({ title = '', notes = '', onCreated = null } = {}) {
+  const titleInput = document.getElementById('ot-header-title');
+  const descInput = document.getElementById('ot-desc-input');
+  if (titleInput) titleInput.value = String(title || '');
+  if (descInput) {
+    descInput.value = String(notes || '');
+    descInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  pendingOnCreated = typeof onCreated === 'function' ? onCreated : null;
+  titleInput?.focus();
+}
 
 /**
  * Compute the next sequential OT code (`OT-26-XXX`) from existing `trafficOrders`.
@@ -154,6 +171,7 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
   onSketchChange('team', syncResponsibleSelect);
 
   cancelBtn?.addEventListener('click', () => {
+    pendingOnCreated = null;
     resetForm();
     if (typeof onCancel === 'function') {
       onCancel();
@@ -215,7 +233,13 @@ export function initNewOt({ onCreatedOt, onCancel } = {}) {
 
     ensureOtData(newOt);
     trafficOrders.unshift(newOt);
+    const createdCallback = pendingOnCreated;
+    pendingOnCreated = null;
     resetForm();
+
+    if (typeof createdCallback === 'function') {
+      createdCallback(newOt);
+    }
 
     notifySketchChange('orders', { action: 'create', otId: newOt.id });
 

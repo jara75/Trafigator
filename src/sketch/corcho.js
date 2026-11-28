@@ -6,13 +6,24 @@
  */
 
 import { hydrateIcons } from '../client/icons.js';
-import { escapeHtml } from './store.js';
+import {
+  appendOtMessage,
+  ensureOtData,
+  escapeHtml,
+  notifySketchChange,
+  relDate,
+  studioTeamList,
+  trafficOrders,
+  userProfile,
+} from './store.js';
 import {
   addCorchoFile,
   addCorchoPrivateNote,
   addCorchoTextOrLink,
   archiveCorchoItem,
+  buildCorchoMailtoUrl,
   buildCorchoMarkdownExport,
+  buildCorchoShareText,
   deleteCorchoItem,
   deleteCorchoPrivateNote,
   getBlob,
@@ -20,18 +31,23 @@ import {
   getCorchoItemById,
   isSafeMediaSrc,
   loadCorchoItems,
+  markCorchoItemPromoted,
   restoreCorchoItem,
   updateCorchoItem,
 } from './corcho-store.js';
-import { renderCorchoPreviewHtml } from './corcho-preview.js';
+import { renderCorchoActionDrawerHtml, renderCorchoPreviewHtml } from './corcho-preview.js';
 
 let corchoOpen = false;
 let initialized = false;
+let corchoCallbacks = {};
 let dragDepth = 0;
 let activeTab = 'active'; // 'active' | 'archived'
 let historyQuery = '';
 let selectedItemId = null;
 let notesExpanded = true;
+let actionDrawer = null; // null | { itemId: string, mode: 'share' | 'move' }
+let sharePurpose = 'inform'; // 'inform' | 'review'
+let selectedMoveOtId = '';
 let renderSeq = 0;
 let feedbackMsg = '';
 let feedbackKind = 'info';
@@ -98,12 +114,174 @@ function handleDocumentKeydown(e) {
   if (isSuperiorOverlayOpen()) return;
   e.preventDefault();
   e.stopPropagation();
+  if (actionDrawer) {
+    actionDrawer = null;
+    renderCorcho();
+    return;
+  }
   if (selectedItemId) {
     selectedItemId = null;
     renderCorcho();
     return;
   }
   closeCorcho();
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fallback below
+    }
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function getActiveOrdersList() {
+  return (trafficOrders || []).filter((ot) => ot && !ot.archived);
+}
+
+function buildCurrentDrawerHtml(allItems) {
+  if (!actionDrawer) return '';
+  const target = allItems.find((it) => it.id === actionDrawer.itemId);
+  if (!target) {
+    actionDrawer = null;
+    return '';
+  }
+  return renderCorchoActionDrawerHtml(target, {
+    mode: actionDrawer.mode,
+    sharePurpose,
+    selectedMoveOtId,
+    teamMembers: studioTeamList || [],
+    activeOrders: getActiveOrdersList(),
+  });
+}
+
+function moveItemToExistingOt(itemId, otId) {
+  const item = getCorchoItemById(itemId);
+  const ot = (trafficOrders || []).find((o) => o.id === otId);
+  if (!item || !ot) {
+    setFeedback('Selecciona una OT válida.', 'error');
+    renderCorcho();
+    return;
+  }
+  ensureOtData(ot);
+  const actor = userProfile?.shortName || userProfile?.name || 'Equipo';
+
+  if (item.type === 'file') {
+    ot.mediaFiles.push({
+      name: item.fileMeta?.name || item.title,
+      meta: item.fileMeta?.sizeLabel || 'Archivo',
+      status: 'En Revisión',
+      taskTitle: 'OT',
+      dateOrder: Date.now(),
+      corchoBlobId: item.fileMeta?.blobId || null,
+    });
+  } else {
+    const body = item.type === 'link'
+      ? `${item.title}${item.url ? ` — ${item.url}` : ''}${item.content ? `\n${item.content}` : ''}`
+      : (item.content || item.title);
+    appendOtMessage(ot, { text: body, channel: 'App', actor });
+  }
+
+  markCorchoItemPromoted(item.id, ot.id, { archive: true });
+  actionDrawer = null;
+  if (selectedItemId === item.id) selectedItemId = null;
+  notifySketchChange('orders', { action: 'corcho-move-ot', otId: ot.id });
+  setFeedback(`Movido a ${ot.id} y archivado en Historial.`, 'info');
+  renderCorcho();
+}
+
+function moveItemToTask(itemId, otId) {
+  const item = getCorchoItemById(itemId);
+  const ot = (trafficOrders || []).find((o) => o.id === otId);
+  if (!item || !ot) {
+    setFeedback('Selecciona una OT válida.', 'error');
+    renderCorcho();
+    return;
+  }
+  ensureOtData(ot);
+  const actor = userProfile?.shortName || userProfile?.name || 'Equipo';
+  const taskMedia = item.type === 'file'
+    ? [{
+        name: item.fileMeta?.name || item.title,
+        meta: item.fileMeta?.sizeLabel || 'Archivo',
+        status: 'En Revisión',
+        taskTitle: item.title,
+        dateOrder: Date.now(),
+        corchoBlobId: item.fileMeta?.blobId || null,
+      }]
+    : [];
+
+  ot.subtasks.push({
+    title: item.title || 'Nueva tarea',
+    responsible: actor,
+    department: ot.department || 'Tráfico',
+    status: 'Pendiente',
+    entryDate: relDate(0),
+    deliveryDate: ot.deliveryDate || relDate(3),
+    scheduledDate: null,
+    estimatedHours: 1,
+    notes: item.content || item.url || item.fileMeta?.name || '',
+    routes: [],
+    mediaFiles: taskMedia,
+  });
+
+  if (taskMedia.length) {
+    ot.mediaFiles.push(...taskMedia);
+  }
+
+  markCorchoItemPromoted(item.id, ot.id, { archive: true });
+  actionDrawer = null;
+  if (selectedItemId === item.id) selectedItemId = null;
+  notifySketchChange('orders', { action: 'corcho-move-task', otId: ot.id });
+  notifySketchChange('stripboard', { action: 'corcho-move-task', otId: ot.id });
+  setFeedback(`Convertido en Tarea dentro de ${ot.id} y archivado en Historial.`, 'info');
+  renderCorcho();
+}
+
+function moveItemToNewOt(itemId) {
+  const item = getCorchoItemById(itemId);
+  if (!item) return;
+  const notes = item.type === 'link'
+    ? `${item.url || ''}${item.content ? `\n${item.content}` : ''}`.trim()
+    : (item.content || item.fileMeta?.name || '');
+
+  actionDrawer = null;
+  closeCorcho();
+  corchoCallbacks.onNewOtFromCorcho?.({
+    title: item.title || '',
+    notes,
+    onCreated: (newOt) => {
+      if (item.type === 'file' && newOt) {
+        ensureOtData(newOt);
+        newOt.mediaFiles.push({
+          name: item.fileMeta?.name || item.title,
+          meta: item.fileMeta?.sizeLabel || 'Archivo',
+          status: 'En Revisión',
+          taskTitle: 'OT',
+          dateOrder: Date.now(),
+          corchoBlobId: item.fileMeta?.blobId || null,
+        });
+      }
+      markCorchoItemPromoted(item.id, newOt?.id || 'NEW', { archive: true });
+    },
+  });
 }
 
 function formatShortTimestamp(iso) {
@@ -212,6 +390,14 @@ function renderCardHtml(item) {
       <div class="mt-auto pt-1.5 border-t border-obsidian-border/60 flex items-center justify-between gap-1">
         <span class="font-mono text-[8.5px] text-[#6d6d6d]">${notesCount ? `${notesCount} ${notesCount === 1 ? 'apunte' : 'apuntes'}` : ''}</span>
         <div class="inline-flex items-center gap-0.5 shrink-0">
+          <button type="button" data-corcho-open-share="${escapeHtml(item.id)}" data-tip="Compartir" aria-label="Compartir ficha"
+            class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
+            <span data-icon="share-2" data-icon-size="w-3 h-3"></span>
+          </button>
+          <button type="button" data-corcho-open-move="${escapeHtml(item.id)}" data-tip="Mover a OT o Tarea" aria-label="Mover ficha a OT o Tarea"
+            class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
+            <span data-icon="folder-input" data-icon-size="w-3 h-3"></span>
+          </button>
           ${isArchived
             ? `<button type="button" data-corcho-restore="${escapeHtml(item.id)}" data-tip="Restaurar" aria-label="Restaurar ficha"
                  class="w-6 h-6 rounded-md text-emerald-400 hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
@@ -361,6 +547,7 @@ function renderCorcho() {
   revokeAllObjectUrls();
 
   const allItems = loadCorchoItems();
+  const drawerHtml = buildCurrentDrawerHtml(allItems);
   if (selectedItemId) {
     const selected = allItems.find((it) => it.id === selectedItemId);
     if (selected) {
@@ -368,6 +555,7 @@ function renderCorcho() {
         notesExpanded,
         feedbackMsg,
         feedbackKind,
+        drawerHtml,
       });
       hydrateIcons(overlay);
       hydrateCorchoBlobs(overlay, seq);
@@ -448,6 +636,8 @@ function renderCorcho() {
         </div>
       ` : ''}
 
+      ${drawerHtml}
+
       <!-- Zona de cuadrícula y dropzone -->
       <div id="corcho-dropzone" class="relative flex-1 min-h-0 overflow-y-auto pr-0.5 rounded-xl border ${dragDepth > 0 ? 'border-obsidian-amber bg-amber-500/5' : 'border-transparent'} transition-colors">
         <div id="corcho-grid-slot" class="h-full">
@@ -508,6 +698,7 @@ export function closeCorcho() {
   corchoOpen = false;
   dragDepth = 0;
   selectedItemId = null;
+  actionDrawer = null;
   revokeAllObjectUrls();
   document.removeEventListener('keydown', handleDocumentKeydown, true);
   if (overlay) {
@@ -522,7 +713,8 @@ export function toggleCorcho() {
   else openCorcho();
 }
 
-export function initCorcho() {
+export function initCorcho(callbacks = {}) {
+  corchoCallbacks = callbacks || {};
   if (initialized) return;
   initialized = true;
 
@@ -542,7 +734,80 @@ export function initCorcho() {
     }
     if (e.target.closest('[data-corcho-back]')) {
       selectedItemId = null;
+      actionDrawer = null;
       renderCorcho();
+      return;
+    }
+    if (e.target.closest('[data-corcho-close-drawer]')) {
+      actionDrawer = null;
+      renderCorcho();
+      return;
+    }
+    const openShareBtn = e.target.closest('[data-corcho-open-share]');
+    if (openShareBtn) {
+      e.stopPropagation();
+      const id = openShareBtn.dataset.corchoOpenShare;
+      if (actionDrawer?.itemId === id && actionDrawer?.mode === 'share') {
+        actionDrawer = null;
+      } else {
+        actionDrawer = { itemId: id, mode: 'share' };
+        sharePurpose = 'inform';
+      }
+      renderCorcho();
+      return;
+    }
+    const openMoveBtn = e.target.closest('[data-corcho-open-move]');
+    if (openMoveBtn) {
+      e.stopPropagation();
+      const id = openMoveBtn.dataset.corchoOpenMove;
+      if (actionDrawer?.itemId === id && actionDrawer?.mode === 'move') {
+        actionDrawer = null;
+      } else {
+        actionDrawer = { itemId: id, mode: 'move' };
+        if (!selectedMoveOtId) selectedMoveOtId = getActiveOrdersList()[0]?.id || '';
+      }
+      renderCorcho();
+      return;
+    }
+    const purposeBtn = e.target.closest('[data-corcho-share-purpose]');
+    if (purposeBtn) {
+      sharePurpose = purposeBtn.dataset.corchoSharePurpose === 'review' ? 'review' : 'inform';
+      renderCorcho();
+      return;
+    }
+    const copyMemberBtn = e.target.closest('[data-corcho-share-copy-member]');
+    if (copyMemberBtn && actionDrawer?.itemId) {
+      const recipientName = copyMemberBtn.dataset.corchoShareCopyMember || '';
+      const item = getCorchoItemById(actionDrawer.itemId);
+      if (item) {
+        const text = buildCorchoShareText(item, { recipientName, purpose: sharePurpose });
+        const copied = await copyTextToClipboard(text);
+        setFeedback(
+          copied
+            ? `Copiado para enviar a ${recipientName}.`
+            : 'No se pudo copiar al portapapeles.',
+          copied ? 'info' : 'error'
+        );
+        actionDrawer = null;
+        renderCorcho();
+      }
+      return;
+    }
+    const moveOtBtn = e.target.closest('[data-corcho-move-to-ot]');
+    if (moveOtBtn) {
+      const otId = overlay.querySelector('#corcho-move-ot-select')?.value || selectedMoveOtId;
+      moveItemToExistingOt(moveOtBtn.dataset.corchoMoveToOt, otId);
+      return;
+    }
+    const moveTaskBtn = e.target.closest('[data-corcho-move-to-task]');
+    if (moveTaskBtn) {
+      const otId = overlay.querySelector('#corcho-move-ot-select')?.value || selectedMoveOtId;
+      moveItemToTask(moveTaskBtn.dataset.corchoMoveToTask, otId);
+      return;
+    }
+    const moveNewOtBtn = e.target.closest('[data-corcho-move-to-new-ot]');
+    if (moveNewOtBtn) {
+      moveItemToNewOt(moveNewOtBtn.dataset.corchoMoveToNewOt);
       return;
     }
     if (e.target.closest('[data-corcho-pick-file]')) {
@@ -714,10 +979,38 @@ export function initCorcho() {
       }
       renderCorcho();
       overlay.querySelector('#corcho-private-note-input')?.focus();
+      return;
+    }
+
+    const shareEmailForm = e.target.closest('#corcho-share-email-form');
+    if (shareEmailForm) {
+      e.preventDefault();
+      const emailInput = shareEmailForm.querySelector('#corcho-share-email-input');
+      const email = (emailInput?.value || '').trim();
+      if (!email) {
+        setFeedback('Escribe un correo electrónico para abrir el borrador.', 'error');
+        renderCorcho();
+        return;
+      }
+      const item = getCorchoItemById(shareEmailForm.dataset.corchoShareItem);
+      if (item) {
+        const mailtoUrl = buildCorchoMailtoUrl(item, { email, purpose: sharePurpose });
+        const a = document.createElement('a');
+        a.href = mailtoUrl;
+        a.click();
+        setFeedback(`Correo listo para ${email}.`, 'info');
+        actionDrawer = null;
+        renderCorcho();
+      }
     }
   });
 
   overlay.addEventListener('change', (e) => {
+    const moveSelect = e.target.closest('#corcho-move-ot-select');
+    if (moveSelect) {
+      selectedMoveOtId = moveSelect.value || '';
+      return;
+    }
     const fileInput = e.target.closest('#corcho-file-input');
     if (!fileInput || !fileInput.files?.length) return;
     handleIncomingFiles(fileInput.files);

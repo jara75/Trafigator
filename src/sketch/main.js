@@ -14,7 +14,7 @@ import { initClientModal } from './client-modal.js';
 import { initSettingsModal } from './settings.js';
 import { initTraffic, renderTrafficGrid, renderTrafficTree } from './traffic.js';
 import { renderDesktopOverview } from './desktop.js';
-import { initNewOt } from './new-ot.js';
+import { initNewOt, prefillNewOt } from './new-ot.js';
 import { initGallery, renderStandaloneGallery } from './gallery.js';
 import { initOtDetail, renderMyOts } from './ot-detail.js';
 import { initStripboard, renderStripboard } from './stripboard.js';
@@ -131,7 +131,12 @@ initSettingsModal();
 initUserMenu();
 initNotifications();
 initWorkspaceBar();
-initCorcho();
+initCorcho({
+  onNewOtFromCorcho: ({ title, notes, onCreated }) => {
+    jumpToSubView('new-ot');
+    prefillNewOt({ title, notes, onCreated });
+  },
+});
 
 initTraffic({
   onOpenOt: (payload) => openOtInDetail(payload)

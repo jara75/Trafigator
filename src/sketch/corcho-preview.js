@@ -164,7 +164,123 @@ function renderPrivateNotesPanel(item, { notesExpanded }) {
   `;
 }
 
-export function renderCorchoPreviewHtml(item, { notesExpanded = true, feedbackMsg = '', feedbackKind = 'info' } = {}) {
+export function renderCorchoActionDrawerHtml(item, {
+  mode = 'share',
+  sharePurpose = 'inform',
+  selectedMoveOtId = '',
+  teamMembers = [],
+  activeOrders = [],
+} = {}) {
+  if (!item) return '';
+
+  if (mode === 'share') {
+    const isFile = item.type === 'file';
+    return `
+      <section aria-label="Compartir ficha" class="p-3 rounded-xl bg-[#202020] border border-obsidian-border flex flex-col gap-2.5 shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-obsidian-border">
+          <div class="flex items-center gap-2 min-w-0">
+            <span data-icon="share-2" data-icon-size="w-3.5 h-3.5" data-icon-class="text-obsidian-amber"></span>
+            <span class="font-mono text-[10px] uppercase tracking-wider text-[#D4D4D4] font-semibold truncate">Compartir: ${escapeHtml(item.title)}</span>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="inline-flex items-center gap-1 text-[10px] font-mono">
+              <button type="button" data-corcho-share-purpose="inform"
+                class="px-2 py-0.5 rounded-md transition-colors cursor-pointer ${sharePurpose === 'inform' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">
+                Para dar a conocer
+              </button>
+              <button type="button" data-corcho-share-purpose="review"
+                class="px-2 py-0.5 rounded-md transition-colors cursor-pointer ${sharePurpose === 'review' ? 'bg-obsidian-elevated text-[#D4D4D4] font-semibold' : 'text-[#737373] hover:text-[#D4D4D4]'}">
+                Para revisar
+              </button>
+            </div>
+            <button type="button" data-corcho-close-drawer="1" data-tip="Cerrar panel (Esc)" aria-label="Cerrar panel de compartir"
+              class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-[#D4D4D4] hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
+              <span data-icon="x" data-icon-size="w-3 h-3"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="font-mono text-[9.5px] text-[#8C8C8C] mr-1">Mensaje (1 clic):</span>
+            ${teamMembers.map((m) => `
+              <button type="button" data-corcho-share-copy-member="${escapeHtml(m.name)}"
+                class="px-2 py-1 rounded-lg bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-[#D4D4D4] inline-flex items-center gap-1 transition-colors cursor-pointer">
+                <span data-icon="send" data-icon-size="w-3 h-3" data-icon-class="text-obsidian-amber"></span>
+                <span>${escapeHtml(m.name)}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <form id="corcho-share-email-form" data-corcho-share-item="${escapeHtml(item.id)}" class="flex flex-wrap items-center gap-2" autocomplete="off">
+            <label for="corcho-share-email-input" class="font-mono text-[9.5px] text-[#8C8C8C] shrink-0">Correo:</label>
+            <input id="corcho-share-email-input" name="corcho_share_email" type="email"
+              placeholder="persona@estudio.com (o elige integrante)"
+              class="flex-1 min-w-[200px] bg-[#191919] border border-obsidian-border rounded-lg px-2.5 py-1 text-[11px] text-[#D4D4D4] placeholder-[#5a6169] focus:border-[#3f3f3f] focus:outline-none" />
+            <button type="submit"
+              class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] text-[10.5px] text-[#D4D4D4] inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0">
+              <span data-icon="send" data-icon-size="w-3 h-3"></span>
+              <span>Abrir correo</span>
+            </button>
+          </form>
+
+          ${isFile ? `
+            <p class="font-mono text-[9.5px] text-obsidian-amber/90">
+              Archivo local: expórtalo con Descargar para adjuntarlo manualmente al correo o mensaje.
+            </p>
+          ` : ''}
+        </div>
+      </section>
+    `;
+  }
+
+  // mode === 'move'
+  const effectiveOtId = selectedMoveOtId || activeOrders[0]?.id || '';
+  return `
+    <section aria-label="Mover ficha a OT o Tarea" class="p-3 rounded-xl bg-[#202020] border border-obsidian-border flex flex-col gap-2.5 shrink-0">
+      <div class="flex items-center justify-between gap-2 pb-2 border-b border-obsidian-border">
+        <div class="flex items-center gap-2 min-w-0">
+          <span data-icon="folder-input" data-icon-size="w-3.5 h-3.5" data-icon-class="text-obsidian-amber"></span>
+          <span class="font-mono text-[10px] uppercase tracking-wider text-[#D4D4D4] font-semibold truncate">Mover: ${escapeHtml(item.title)}</span>
+        </div>
+        <button type="button" data-corcho-close-drawer="1" data-tip="Cerrar panel (Esc)" aria-label="Cerrar panel de mover"
+          class="w-6 h-6 rounded-md text-[#8C8C8C] hover:text-[#D4D4D4] hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer shrink-0">
+          <span data-icon="x" data-icon-size="w-3 h-3"></span>
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <label for="corcho-move-ot-select" class="font-mono text-[9.5px] text-[#8C8C8C] shrink-0">OT destino:</label>
+        <select id="corcho-move-ot-select" name="corcho_move_ot_select"
+          class="flex-1 min-w-[200px] bg-[#191919] border border-obsidian-border rounded-lg px-2.5 py-1 text-[11px] text-[#D4D4D4] focus:border-[#3f3f3f] focus:outline-none cursor-pointer">
+          ${activeOrders.length
+            ? activeOrders.map((ot) => `
+                <option value="${escapeHtml(ot.id)}" ${ot.id === effectiveOtId ? 'selected' : ''}>
+                  ${escapeHtml(ot.id)} · ${escapeHtml(ot.client || '')} — ${escapeHtml(ot.title || '')}
+                </option>
+              `).join('')
+            : '<option value="">Sin OTs activas</option>'
+          }
+        </select>
+        <button type="button" data-corcho-move-to-ot="${escapeHtml(item.id)}" ${!activeOrders.length ? 'disabled' : ''}
+          class="px-2.5 py-1 rounded-lg bg-obsidian-amber hover:bg-amber-400 disabled:opacity-40 text-[#191919] text-[10.5px] font-semibold transition-colors cursor-pointer shrink-0">
+          A OT
+        </button>
+        <button type="button" data-corcho-move-to-task="${escapeHtml(item.id)}" ${!activeOrders.length ? 'disabled' : ''}
+          class="px-2.5 py-1 rounded-lg bg-obsidian-elevated hover:bg-[#323232] disabled:opacity-40 text-[#D4D4D4] text-[10.5px] transition-colors cursor-pointer shrink-0">
+          A Tarea
+        </button>
+        <button type="button" data-corcho-move-to-new-ot="${escapeHtml(item.id)}"
+          class="px-2.5 py-1 rounded-lg bg-[#191919] hover:bg-obsidian-elevated border border-obsidian-border text-[#D4D4D4] text-[10.5px] inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0">
+          <span data-icon="plus" data-icon-size="w-3 h-3"></span>
+          <span>Nueva OT</span>
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+export function renderCorchoPreviewHtml(item, { notesExpanded = true, feedbackMsg = '', feedbackKind = 'info', drawerHtml = '' } = {}) {
   const badge = getPreviewBadge(item);
   const isArchived = item.status === 'archived';
   const splitLayout = notesExpanded;
@@ -190,6 +306,14 @@ export function renderCorchoPreviewHtml(item, { notesExpanded = true, feedbackMs
         </div>
 
         <div class="flex items-center gap-1 shrink-0">
+          <button type="button" data-corcho-open-share="${escapeHtml(item.id)}" data-tip="Compartir" aria-label="Compartir ficha"
+            class="w-7 h-7 rounded-md text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
+            <span data-icon="share-2" data-icon-size="w-3.5 h-3.5"></span>
+          </button>
+          <button type="button" data-corcho-open-move="${escapeHtml(item.id)}" data-tip="Mover a OT o Tarea" aria-label="Mover ficha a OT o Tarea"
+            class="w-7 h-7 rounded-md text-[#8C8C8C] hover:text-obsidian-amber hover:bg-obsidian-elevated flex items-center justify-center transition-colors cursor-pointer">
+            <span data-icon="folder-input" data-icon-size="w-3.5 h-3.5"></span>
+          </button>
           ${isArchived
             ? `<button type="button" data-corcho-restore="${escapeHtml(item.id)}" data-tip="Restaurar a Activos" aria-label="Restaurar ficha"
                  class="px-2 py-1 rounded-lg bg-[#202020] hover:bg-obsidian-elevated border border-obsidian-border text-[10.5px] text-emerald-400 inline-flex items-center gap-1 transition-colors cursor-pointer">
@@ -221,6 +345,8 @@ export function renderCorchoPreviewHtml(item, { notesExpanded = true, feedbackMs
           ${escapeHtml(feedbackMsg)}
         </div>
       ` : ''}
+
+      ${drawerHtml}
 
       <!-- Cuerpo: Visor principal + Apuntes privados -->
       <div class="flex-1 min-h-0 flex ${splitLayout ? 'flex-col lg:flex-row' : 'flex-col'} gap-3 overflow-hidden">
