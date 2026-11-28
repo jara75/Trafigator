@@ -42,8 +42,11 @@ import {
   renderPrioritiesQuadrant,
 } from './desktop-calendar.js';
 import { renderStatsQuadrant } from './desktop-stats-panel.js';
+import { hydrateIcons } from '../client/icons.js';
 import {
   DND_MIME_SLOT,
+  applyViewerAction,
+  createDefaultViewerState,
   renderViewerQuadrant,
 } from './desktop-viewer.js';
 import {
@@ -74,6 +77,8 @@ let inspIdleTab = 'messages'; // 'messages' | 'activity' | 'drill'
 let selectedContextOtId = null;
 let selectedContextTaskIdx = null;
 let selectedMediaIndex = null;
+let viewerState = createDefaultViewerState();
+let lastViewerContextKey = '';
 
 const QUADRANT_STORAGE_KEY = 'trafigator_desktop_quadrants_v1';
 const DESKTOP_SCOPE_STORAGE_KEY = 'trafigator_desktop_scope_v1';
@@ -446,6 +451,11 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         rightActionBtns,
       });
     } else {
+      const nextViewerCtxKey = selectedContextOt ? `${selectedContextOt.id}:${selectedMediaIndex ?? 0}` : '';
+      if (nextViewerCtxKey !== lastViewerContextKey) {
+        lastViewerContextKey = nextViewerCtxKey;
+        viewerState = createDefaultViewerState();
+      }
       innerHtml = renderViewerQuadrant({
         lightboxChartIdx,
         lastPillBoard,
@@ -453,6 +463,7 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
         selectedContextTask,
         selectedContextTaskIdx,
         selectedMediaIndex,
+        viewerState,
         dragHandleHtml,
         rightActionBtns,
       });
@@ -563,6 +574,8 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
       `
     }
   `;
+
+  hydrateIcons(container);
 
   // Render Inspector mini-calendar pinned at the bottom
   renderInspectorMiniCalendar({
@@ -1051,13 +1064,21 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
   container.querySelectorAll('[data-dk-select-media]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
-      selectedMediaIndex = Number(btn.dataset.dkSelectMedia);
+      const nextIdx = Number(btn.dataset.dkSelectMedia);
+      if (nextIdx !== selectedMediaIndex) {
+        selectedMediaIndex = nextIdx;
+        viewerState = createDefaultViewerState();
+      }
       rerender();
     });
     btn.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       e.preventDefault();
-      selectedMediaIndex = Number(btn.dataset.dkSelectMedia);
+      const nextIdx = Number(btn.dataset.dkSelectMedia);
+      if (nextIdx !== selectedMediaIndex) {
+        selectedMediaIndex = nextIdx;
+        viewerState = createDefaultViewerState();
+      }
       rerender();
     });
     btn.addEventListener('dblclick', (e) => {
@@ -1066,9 +1087,51 @@ export function renderDesktopOverview(onGoToTraffic, opts = {}) {
     });
   });
 
-  container.querySelector('[data-dk-open-review]')?.addEventListener('click', (e) => {
-    const idx = Number(e.currentTarget.dataset.dkOpenReview);
-    if (!Number.isNaN(idx)) openMediaReview(idx);
+  // Sync live <video>/<audio> properties & bind C04 file-type controls
+  const viewerMediaEl = container.querySelector('[data-dk-viewer-media-el]');
+  if (viewerMediaEl) {
+    viewerMediaEl.loop = Boolean(viewerState.videoLoop);
+    viewerMediaEl.muted = Boolean(viewerState.videoMuted);
+    try {
+      viewerMediaEl.playbackRate = viewerState.videoSpeed || 1;
+    } catch {
+      // ignore unsupported playbackRate
+    }
+  }
+
+  container.querySelectorAll('[data-dk-viewer-action]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = btn.dataset.dkViewerAction;
+      if (!action) return;
+      if (action === 'video-play' && viewerMediaEl) {
+        if (viewerMediaEl.paused) {
+          viewerMediaEl.play?.().catch(() => {});
+          viewerState.videoPlaying = true;
+        } else {
+          viewerMediaEl.pause?.();
+          viewerState.videoPlaying = false;
+        }
+        rerender();
+        return;
+      }
+      if (action === 'doc-copy' && selectedContextOt) {
+        const media = (selectedContextOt.mediaFiles || [])[selectedMediaIndex ?? 0];
+        if (media && navigator?.clipboard?.writeText) {
+          navigator.clipboard.writeText(`${media.name || ''}${media.meta ? ` — ${media.meta}` : ''}`).catch(() => {});
+        }
+      }
+      applyViewerAction(viewerState, action);
+      rerender();
+    });
+  });
+
+  container.querySelectorAll('[data-dk-open-review]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = Number(e.currentTarget.dataset.dkOpenReview);
+      if (!Number.isNaN(idx)) openMediaReview(idx);
+    });
   });
 
   // OT cards -> Inspector + C04 contextual gallery
