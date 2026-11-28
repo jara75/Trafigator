@@ -7,6 +7,23 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+export function isPathInsideDir(targetPath: string, baseDir: string): boolean {
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedTarget = path.resolve(targetPath);
+  return resolvedTarget.startsWith(resolvedBase + path.sep);
+}
+
+export function getDirectorySizeBytes(dirPath: string): number {
+  if (!fs.existsSync(dirPath)) return 0;
+  let total = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const full = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) total += getDirectorySizeBytes(full);
+    else if (entry.isFile()) total += fs.statSync(full).size;
+  }
+  return total;
+}
+
 const CODE_EXTS = [
   'html', 'htm', 'js', 'mjs', 'jsx', 'ts', 'tsx', 'css', 'scss', 'sass', 'json',
   'py', 'sh', 'bash', 'zsh', 'sql', 'xml', 'yaml', 'yml', 'php', 'rb', 'go', 'rs',
@@ -31,22 +48,25 @@ export interface SavedUploadResult {
 }
 
 /**
- * Persiste un archivo recibido en multipart/form-data dentro de ./uploads/<otId>/
- * y extrae su vista previa si corresponde a una suite nativa o documento compatible.
+ * Persiste un archivo recibido en multipart/form-data dentro de ./uploads/<organizationId>/<otId>/
+ * (o ./uploads/<otId>/ si no se indica organizationId) y extrae su vista previa.
  */
 export async function saveUploadedFileForOt(
   rawOtId: string,
   file: File,
-  versionMeta?: { versionGroupId?: string; versionNumber?: number; reviewStatus?: string }
+  versionMeta?: { versionGroupId?: string; versionNumber?: number; reviewStatus?: string; organizationId?: string }
 ): Promise<SavedUploadResult> {
   const otId = String(rawOtId || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '');
+  const safeOrgId = versionMeta?.organizationId
+    ? String(versionMeta.organizationId).replace(/[^a-zA-Z0-9_-]/g, '')
+    : '';
   const origName = file.name || 'archivo';
   const ext = path.extname(origName).toLowerCase().replace(/^\./, '');
   const safeBase = path.basename(origName, path.extname(origName)).replace(/[^a-zA-Z0-9._-]/g, '_');
   const uniquePrefix = Date.now() + '_' + Math.random().toString(36).substring(2, 6);
   const destFileName = `${uniquePrefix}_${safeBase}${ext ? '.' + ext : ''}`;
 
-  const otDir = path.join(uploadsDir, otId);
+  const otDir = safeOrgId ? path.join(uploadsDir, safeOrgId, otId) : path.join(uploadsDir, otId);
   if (!fs.existsSync(otDir)) {
     fs.mkdirSync(otDir, { recursive: true });
   }
@@ -56,7 +76,8 @@ export async function saveUploadedFileForOt(
   const buffer = Buffer.from(arrayBuffer);
   fs.writeFileSync(destPath, buffer);
 
-  const relUrl = `/uploads/${otId}/${destFileName}`;
+  const urlPrefix = safeOrgId ? `/uploads/${safeOrgId}/${otId}` : `/uploads/${otId}`;
+  const relUrl = `${urlPrefix}/${destFileName}`;
   const preview = extractServerPreview(destPath, ext, otDir, destFileName);
 
   let textContent: string | null = null;
@@ -86,9 +107,9 @@ export async function saveUploadedFileForOt(
     ext,
     size: (buffer.length / (1024 * 1024)).toFixed(2) + ' MB',
     date: `${dd}/${mm}/${yyyy} ${hh}:${min}`,
-    url: preview ? `/uploads/${otId}/${preview.file}` : relUrl,
+    url: preview ? `${urlPrefix}/${preview.file}` : relUrl,
     originalUrl: relUrl,
-    previewUrl: preview ? `/uploads/${otId}/${preview.file}` : null,
+    previewUrl: preview ? `${urlPrefix}/${preview.file}` : null,
     previewKind: preview ? preview.kind : null,
     content: textContent,
     versionGroupId: versionMeta?.versionGroupId || ('vg-' + Date.now() + Math.random().toString(36).substring(2, 6)),

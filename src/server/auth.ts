@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { betterAuth } from 'better-auth';
 import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -7,9 +8,22 @@ import { db, sqlite } from './db';
 import * as schema from './db/schema';
 import { sendTeamInvitationEmail } from './services/mailer';
 
+function resolveAuthSecret(): string {
+  const configured = process.env.BETTER_AUTH_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('BETTER_AUTH_SECRET es obligatorio en producción.');
+  }
+  const ephemeral = crypto.randomBytes(32).toString('hex');
+  if (!process.env.IS_TEST) {
+    console.warn('[Auth] BETTER_AUTH_SECRET no definida; usando secreto efímero solo para desarrollo.');
+  }
+  return ephemeral;
+}
+
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
-  secret: process.env.BETTER_AUTH_SECRET || 'el_marcante_super_secret_key_2026_traffic_control_998877',
+  secret: resolveAuthSecret(),
   database: drizzleAdapter(db, {
     provider: 'sqlite',
     schema: {

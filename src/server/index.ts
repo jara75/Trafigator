@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { eq } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { db, sqlite, initDatabaseAndSeed } from './db';
@@ -17,7 +18,8 @@ import {
   sharedReviews,
 } from './db/schema';
 import { auth } from './auth';
-import { saveUploadedFileForOt, uploadsDir } from './services/upload-helper';
+import { getDirectorySizeBytes, isPathInsideDir, saveUploadedFileForOt, uploadsDir } from './services/upload-helper';
+import { isOrderAuthorizedForUser, isOrderRowAuthorizedForUser, parseUserDepartments, resolveAllowedClientName } from './services/rbac';
 import { studioReviewRoutes, publicReviewRoutes } from './routes/reviews';
 
 initDatabaseAndSeed();
@@ -111,24 +113,45 @@ app.get('/api/public/invite/:id', (c) => {
   });
 });
 
-// 3.1 ENDPOINT WEBHOOK DE FACTURACIÓN (BOLD COLOMBIA)
-app.post('/api/billing/webhook', async (c) => {
-  const expectedSecret = process.env.BOLD_WEBHOOK_SECRET;
-  if (expectedSecret) {
-    const receivedSecret =
-      c.req.header('x-bold-signature') ||
-      c.req.header('x-webhook-secret') ||
-      c.req.header('authorization')?.replace('Bearer ', '');
+// 3.1 ENDPOINT WEBHOOK DE FACTURACIÓN (BOLD COLOMBIA — FAIL-CLOSED + HMAC)
+function safeEqualString(a: string, b: string): boolean {
+  const hashA = crypto.createHash('sha256').update(a).digest();
+  const hashB = crypto.createHash('sha256').update(b).digest();
+  return crypto.timingSafeEqual(hashA, hashB);
+}
 
-    if (receivedSecret !== expectedSecret) {
-      console.warn('[Billing Webhook] Intento de webhook no autorizado');
-      return c.json({ ok: false, error: 'unauthorized', message: 'Secreto de webhook inválido' }, 401);
-    }
+app.post('/api/billing/webhook', async (c) => {
+  const expectedSecret = process.env.BOLD_WEBHOOK_SECRET?.trim();
+  if (!expectedSecret) {
+    console.warn('[Billing Webhook] BOLD_WEBHOOK_SECRET no configurado; petición rechazada (fail-closed).');
+    return c.json(
+      { ok: false, error: 'webhook_not_configured', message: 'Webhook de facturación no configurado.' },
+      503
+    );
+  }
+
+  const rawBody = await c.req.text();
+  const boldSigHeader = (c.req.header('x-bold-signature') || '').trim().replace(/^sha256=/i, '');
+  const altSecretHeader = (
+    c.req.header('x-webhook-secret') ||
+    c.req.header('authorization')?.replace(/^Bearer\s+/i, '') ||
+    ''
+  ).trim();
+
+  const expectedHmac = crypto.createHmac('sha256', expectedSecret).update(rawBody).digest('hex');
+  const isValidHmac = Boolean(boldSigHeader) && safeEqualString(boldSigHeader.toLowerCase(), expectedHmac.toLowerCase());
+  const isValidDirectSecret =
+    (Boolean(boldSigHeader) && safeEqualString(boldSigHeader, expectedSecret)) ||
+    (Boolean(altSecretHeader) && safeEqualString(altSecretHeader, expectedSecret));
+
+  if (!isValidHmac && !isValidDirectSecret) {
+    console.warn('[Billing Webhook] Intento de webhook no autorizado');
+    return c.json({ ok: false, error: 'unauthorized', message: 'Firma o secreto de webhook inválido' }, 401);
   }
 
   let body: any = null;
   try {
-    body = await c.req.json();
+    body = JSON.parse(rawBody);
   } catch (_) {
     return c.json({ ok: false, error: 'invalid_json', message: 'Cuerpo de petición inválido' }, 400);
   }
@@ -293,83 +316,10 @@ app.use('/api/studio/*', async (c, next) => {
   await next();
 });
 
-function resolveAllowedClientName(organizationId: string, allowedClientId: string): string | null {
-  if (!allowedClientId || allowedClientId === '*') return null;
-  const row = sqlite
-    .prepare('SELECT name FROM clients WHERE organization_id = ? AND (id = ? OR lower(name) = lower(?)) LIMIT 1')
-    .get(organizationId, allowedClientId, allowedClientId) as { name: string } | undefined;
-  return row?.name || allowedClientId;
-}
-
-function parseUserDepartments(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw.map((d) => String(d).trim().toLowerCase()).filter(Boolean);
-  if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.map((d) => String(d).trim().toLowerCase()).filter(Boolean);
-    } catch (_) {
-      return raw.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
-    }
-  }
-  return [];
-}
-
 const TERMINAL_OT_STATUSES = ['Cerrado', 'Cancelado', 'Archivada', 'Aprobado'] as const;
 
 function isTerminalOtStatus(val: unknown): boolean {
   return typeof val === 'string' && (TERMINAL_OT_STATUSES as readonly string[]).includes(val.trim());
-}
-
-function isOrderAuthorizedForUser(params: {
-  organizationId: string;
-  memberRole: 'owner' | 'member' | 'client';
-  allowedClientId: string;
-  userDepts: string[];
-  userIdentifiers: string[];
-  clientName?: string | null;
-  sign?: string | null;
-  routes?: Array<{ from?: string; to?: string; fromDept?: string; toDept?: string; sign?: string }>;
-}): boolean {
-  const { organizationId, memberRole, allowedClientId, userDepts, userIdentifiers, clientName, sign, routes } = params;
-  if (memberRole === 'owner') return true;
-
-  const allowedName = resolveAllowedClientName(organizationId, allowedClientId);
-  const otClient = (clientName || '').trim().toLowerCase();
-
-  if (memberRole === 'client') {
-    if (!allowedName) return false;
-    return otClient === allowedName.trim().toLowerCase();
-  }
-
-  // member
-  if (allowedClientId === '*') return true;
-  if (allowedName && otClient === allowedName.trim().toLowerCase()) return true;
-
-  const signLower = (sign || '').trim().toLowerCase();
-  if (signLower && userIdentifiers.includes(signLower)) return true;
-
-  if (Array.isArray(routes)) {
-    for (const r of routes) {
-      const fromDept = (r.from || r.fromDept || '').trim().toLowerCase();
-      const toDept = (r.to || r.toDept || '').trim().toLowerCase();
-      const sign = (r.sign || '').trim().toLowerCase();
-      if (fromDept && userDepts.includes(fromDept)) return true;
-      if (toDept && userDepts.includes(toDept)) return true;
-      if (sign && userIdentifiers.includes(sign)) return true;
-    }
-  }
-  return false;
-}
-
-function getDirectorySizeBytes(dirPath: string): number {
-  if (!fs.existsSync(dirPath)) return 0;
-  let total = 0;
-  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-    const full = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) total += getDirectorySizeBytes(full);
-    else total += fs.statSync(full).size;
-  }
-  return total;
 }
 
 // 5. CARGA COMPLETA DEL ESTUDIO DESDE SQLITE (BOOTSTRAP)
@@ -829,7 +779,10 @@ app.post('/api/studio/sync', async (c) => {
   const memberRole = c.get('memberRole');
   const allowedClientId = c.get('allowedClientId');
   const user = c.get('user');
-  const body = await c.req.json();
+  const body = await c.req.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return c.json({ ok: false, error: 'invalid_json', message: 'Cuerpo JSON inválido.' }, 400);
+  }
   const now = new Date().toISOString();
 
   if (!organizationId) {
@@ -877,15 +830,72 @@ app.post('/api/studio/sync', async (c) => {
       if (!authorized) {
         return c.json({ ok: false, error: 'forbidden', message: `No autorizado para sincronizar la orden ${ot.id}.` }, 403);
       }
+
+      if (Array.isArray(ot.mediaFiles)) {
+        for (const mf of ot.mediaFiles) {
+          if (!mf || !mf.id) continue;
+          const existingMedia = sqlite
+            .prepare('SELECT organization_id FROM media_files WHERE id = ?')
+            .get(String(mf.id)) as { organization_id: string | null } | undefined;
+          if (existingMedia && existingMedia.organization_id && existingMedia.organization_id !== organizationId) {
+            return c.json({ ok: false, error: 'forbidden', message: `Archivo ${mf.id} pertenece a otro estudio.` }, 403);
+          }
+        }
+      }
+    }
+  }
+
+  if (memberRole === 'owner' && Array.isArray(body.clients)) {
+    for (const cl of body.clients) {
+      if (!cl || !cl.id) continue;
+      const existingClient = sqlite
+        .prepare('SELECT organization_id FROM clients WHERE id = ?')
+        .get(String(cl.id)) as { organization_id: string | null } | undefined;
+      if (existingClient && existingClient.organization_id && existingClient.organization_id !== organizationId) {
+        return c.json({ ok: false, error: 'forbidden', message: `Cliente ${cl.id} pertenece a otro estudio.` }, 403);
+      }
+    }
+  }
+
+  if (memberRole === 'owner' && Array.isArray(body.statuses)) {
+    for (const st of body.statuses) {
+      if (!st || !st.id) continue;
+      const existingStatus = sqlite
+        .prepare('SELECT organization_id FROM statuses WHERE id = ?')
+        .get(String(st.id)) as { organization_id: string | null } | undefined;
+      if (existingStatus && existingStatus.organization_id && existingStatus.organization_id !== organizationId) {
+        return c.json({ ok: false, error: 'forbidden', message: `Estado ${st.id} pertenece a otro estudio.` }, 403);
+      }
+    }
+  }
+
+  if (body.stripboard && typeof body.stripboard === 'object') {
+    for (const strips of Object.values(body.stripboard)) {
+      if (!Array.isArray(strips)) continue;
+      for (const st of strips as any[]) {
+        if (!st || !st.id) continue;
+        const existingStrip = sqlite
+          .prepare('SELECT organization_id FROM stripboard_strips WHERE id = ?')
+          .get(String(st.id)) as { organization_id: string | null } | undefined;
+        if (existingStrip && existingStrip.organization_id && existingStrip.organization_id !== organizationId) {
+          return c.json({ ok: false, error: 'forbidden', message: `Strip ${st.id} pertenece a otro estudio.` }, 403);
+        }
+      }
     }
   }
 
   const syncTx = sqlite.transaction(() => {
     if (memberRole === 'owner' && Array.isArray(body.clients)) {
       sqlite.prepare('DELETE FROM clients WHERE organization_id = ?').run(organizationId);
-      const insClient = sqlite.prepare(
-        'INSERT OR REPLACE INTO clients (id, organization_id, name, color, brands_json, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-      );
+      const insClient = sqlite.prepare(`
+        INSERT INTO clients (id, organization_id, name, color, brands_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          color = excluded.color,
+          brands_json = excluded.brands_json
+        WHERE clients.organization_id = excluded.organization_id
+      `);
       for (const cl of body.clients) {
         insClient.run(
           cl.id || 'c-' + Date.now() + Math.random(),
@@ -900,9 +910,15 @@ app.post('/api/studio/sync', async (c) => {
 
     if (memberRole === 'owner' && Array.isArray(body.statuses)) {
       sqlite.prepare('DELETE FROM statuses WHERE organization_id = ?').run(organizationId);
-      const insStatus = sqlite.prepare(
-        'INSERT OR REPLACE INTO statuses (id, organization_id, name, color, sort_order) VALUES (?, ?, ?, ?, ?)'
-      );
+      const insStatus = sqlite.prepare(`
+        INSERT INTO statuses (id, organization_id, name, color, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          color = excluded.color,
+          sort_order = excluded.sort_order
+        WHERE statuses.organization_id = excluded.organization_id
+      `);
       body.statuses.forEach((st: any, idx: number) => {
         insStatus.run(st.id || 'st-' + idx, organizationId, st.name, st.color || 'amber', idx);
       });
@@ -929,6 +945,7 @@ app.post('/api/studio/sync', async (c) => {
           legal_text = excluded.legal_text,
           reopen_reason = COALESCE(excluded.reopen_reason, work_orders.reopen_reason),
           updated_at = excluded.updated_at
+        WHERE work_orders.organization_id = excluded.organization_id
       `);
       const insRoute = sqlite.prepare(`
         INSERT INTO route_entries (organization_id, ot_id, line_number, from_dept, to_dept, task, entry_date, delivery_date, sign, notes, stamp, locked, created_by_user_id, created_at)
@@ -952,15 +969,18 @@ app.post('/api/studio/sync', async (c) => {
           version_group_id = COALESCE(?, media_files.version_group_id),
           version_number = COALESCE(?, media_files.version_number),
           review_status = COALESCE(?, media_files.review_status)
+        WHERE media_files.organization_id = excluded.organization_id
       `);
 
       for (const ot of body.orders) {
         if (!ot || !ot.id) continue;
 
         const existingOtRow = sqlite
-          .prepare('SELECT responsible_dept, ot_status, reopen_reason FROM work_orders WHERE id = ? AND organization_id = ?')
-          .get(ot.id, organizationId) as { responsible_dept?: string; ot_status?: string; reopen_reason?: string | null } | undefined;
+          .prepare('SELECT client, responsible_dept, ot_status, reopen_reason FROM work_orders WHERE id = ? AND organization_id = ?')
+          .get(ot.id, organizationId) as { client?: string; responsible_dept?: string; ot_status?: string; reopen_reason?: string | null } | undefined;
 
+        const effectiveClient =
+          memberRole === 'client' && existingOtRow?.client ? existingOtRow.client : (ot.client || '');
         const effectiveOtStatus =
           memberRole !== 'owner' && existingOtRow?.ot_status === 'Archivada'
             ? 'Archivada'
@@ -976,7 +996,7 @@ app.post('/api/studio/sync', async (c) => {
           ot.parentOtId || null,
           ot.ref || '',
           ot.discipline || 'advertising',
-          ot.client || '',
+          effectiveClient,
           ot.brand || ot.product || '',
           ot.product || '',
           ot.title || '',
@@ -1120,8 +1140,23 @@ app.post('/api/studio/sync', async (c) => {
           .run(organizationId, user.id);
       }
       const insStrip = sqlite.prepare(`
-        INSERT OR REPLACE INTO stripboard_strips (id, organization_id, user_id, date_str, sort_order, type, ot_id, title, client, brand, product, time_slot, task, assignee, shift_status)
+        INSERT INTO stripboard_strips (id, organization_id, user_id, date_str, sort_order, type, ot_id, title, client, brand, product, time_slot, task, assignee, shift_status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
+          date_str = excluded.date_str,
+          sort_order = excluded.sort_order,
+          type = excluded.type,
+          ot_id = excluded.ot_id,
+          title = excluded.title,
+          client = excluded.client,
+          brand = excluded.brand,
+          product = excluded.product,
+          time_slot = excluded.time_slot,
+          task = excluded.task,
+          assignee = excluded.assignee,
+          shift_status = excluded.shift_status
+        WHERE stripboard_strips.organization_id = excluded.organization_id
       `);
 
       for (const [dateStr, strips] of Object.entries(body.stripboard)) {
@@ -1218,12 +1253,42 @@ app.delete('/api/studio/stripboard/:id', async (c) => {
 // 7. SUBIDA FÍSICA DE ARCHIVOS AL SERVIDOR + EXTRACTOR DE PREVIEW (AISLADO POR ORGANIZACIÓN Y CUOTA)
 app.post('/api/studio/upload', async (c) => {
   const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+  const allowedClientId = c.get('allowedClientId');
+  const user = c.get('user');
+
+  if (memberRole === 'client') {
+    return c.json({ ok: false, error: 'forbidden', message: 'Solo integrantes del estudio pueden subir archivos.' }, 403);
+  }
+
   const body = await c.req.parseBody();
   const otId = String(body['ot_id'] || 'GENERAL').replace(/[^a-zA-Z0-9_-]/g, '');
   const file = body['file'];
 
   if (!file || typeof file === 'string') {
     return c.json({ ok: false, error: 'No se recibió un archivo válido.' }, 400);
+  }
+
+  if (otId && otId !== 'GENERAL') {
+    const existingOt = sqlite
+      .prepare('SELECT id, organization_id, client, sign FROM work_orders WHERE id = ?')
+      .get(otId) as { id: string; organization_id: string | null; client?: string; sign?: string } | undefined;
+
+    if (existingOt && existingOt.organization_id && existingOt.organization_id !== organizationId) {
+      return c.json({ ok: false, error: 'forbidden', message: `Orden ${otId} pertenece a otro estudio.` }, 403);
+    }
+
+    if (existingOt && !isOrderRowAuthorizedForUser({
+      organizationId,
+      memberRole,
+      allowedClientId,
+      user,
+      otId: existingOt.id,
+      clientName: existingOt.client,
+      sign: existingOt.sign,
+    })) {
+      return c.json({ ok: false, error: 'forbidden', message: `No autorizado para subir archivos en la orden ${otId}.` }, 403);
+    }
   }
 
   const maxOrgBytes = Number(process.env.MAX_ORG_UPLOAD_BYTES || 500 * 1024 * 1024);
@@ -1236,29 +1301,7 @@ app.post('/api/studio/upload', async (c) => {
     );
   }
 
-  const mediaItem = await saveUploadedFileForOt(otId, file);
-  const orgOtDir = path.join(orgUploadsDir, otId);
-  if (!fs.existsSync(orgOtDir)) {
-    fs.mkdirSync(orgOtDir, { recursive: true });
-  }
-
-  const moveIntoOrgDir = (rawUrl: string | null): string | null => {
-    if (!rawUrl) return rawUrl;
-    const prefix = `/uploads/${otId}/`;
-    if (!rawUrl.startsWith(prefix)) return rawUrl;
-    const fileName = rawUrl.slice(prefix.length);
-    const srcPath = path.join(uploadsDir, otId, fileName);
-    const destPath = path.join(orgOtDir, fileName);
-    if (fs.existsSync(srcPath)) {
-      fs.renameSync(srcPath, destPath);
-    }
-    return `/uploads/${organizationId}/${otId}/${fileName}`;
-  };
-
-  mediaItem.originalUrl = moveIntoOrgDir(mediaItem.originalUrl) || mediaItem.originalUrl;
-  mediaItem.previewUrl = moveIntoOrgDir(mediaItem.previewUrl);
-  mediaItem.url = moveIntoOrgDir(mediaItem.url) || mediaItem.url;
-
+  const mediaItem = await saveUploadedFileForOt(otId, file, { organizationId });
   return c.json({ ok: true, mediaItem });
 });
 
@@ -1267,16 +1310,37 @@ app.route('/api/studio/reviews', studioReviewRoutes);
 
 // ABRIR ARCHIVO DIRECTAMENTE EN SU APLICACIÓN NATIVA DE MACOS (AFFINITY, ADOBE, IWORK)
 app.post('/api/studio/open-native', async (c) => {
-  const { fileUrl } = await c.req.json();
+  const organizationId = c.get('organizationId');
+  const memberRole = c.get('memberRole');
+
+  if (memberRole === 'client') {
+    return c.json({ ok: false, error: 'forbidden', message: 'Solo integrantes del estudio pueden abrir archivos nativos.' }, 403);
+  }
+
+  const body = await c.req.json().catch(() => null);
+  const fileUrl = body?.fileUrl;
   if (!fileUrl || typeof fileUrl !== 'string') {
     return c.json({ ok: false, error: 'Ruta inválida' }, 400);
   }
-  const cleanRel = decodeURIComponent(fileUrl)
-    .replace(/^\/+/, '')
-    .replace(/\.preview\.(png|jpe?g|pdf)$/i, '');
 
+  let cleanRel = '';
+  try {
+    cleanRel = decodeURIComponent(fileUrl.split('?')[0])
+      .replace(/^\/+/, '')
+      .replace(/\.preview\.(png|jpe?g|pdf)$/i, '');
+  } catch {
+    return c.json({ ok: false, error: 'Ruta inválida' }, 400);
+  }
+
+  const orgUploadsDir = path.join(uploadsDir, organizationId);
   const fullPath = path.resolve('./', cleanRel);
-  if (!fullPath.startsWith(uploadsDir) || !fs.existsSync(fullPath)) {
+  if (!isPathInsideDir(fullPath, uploadsDir)) {
+    return c.json({ ok: false, error: 'forbidden', message: 'Ruta fuera del directorio de uploads.' }, 403);
+  }
+  if (!isPathInsideDir(fullPath, orgUploadsDir)) {
+    return c.json({ ok: false, error: 'forbidden', message: 'El archivo no pertenece a tu estudio.' }, 403);
+  }
+  if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
     return c.json({ ok: false, error: 'Archivo original no encontrado: ' + cleanRel }, 404);
   }
   const { execFile } = await import('node:child_process');
@@ -1648,11 +1712,159 @@ app.post('/api/studio/team/member/reassign-and-delete', async (c) => {
   });
 });
 
-// 8. SERVIR ARCHIVOS SUBIDOS, ASSETS E INYECTAR EL PUENTE EN EL PROTOTIPO MAESTRO
-app.use('/uploads/*', serveStatic({ root: './' }));
+// 8. SERVIR ARCHIVOS SUBIDOS (AUTENTICADOS POR SESIÓN O TOKEN DE REVISIÓN) Y ASSETS PÚBLICOS
+const UPLOAD_MIME_BY_EXT: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  pdf: 'application/pdf',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  m4v: 'video/x-m4v',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  m4a: 'audio/mp4',
+  ogg: 'audio/ogg',
+  txt: 'text/plain; charset=utf-8',
+  md: 'text/markdown; charset=utf-8',
+  csv: 'text/csv; charset=utf-8',
+  json: 'application/json; charset=utf-8',
+  zip: 'application/zip',
+};
+const FORCE_DOWNLOAD_EXTS = new Set(['svg', 'html', 'htm', 'xhtml', 'js', 'mjs', 'cjs', 'xml']);
+
+app.get('/uploads/*', async (c) => {
+  let reqPath = '';
+  try {
+    reqPath = decodeURIComponent(c.req.path);
+  } catch {
+    return c.json({ ok: false, error: 'Ruta inválida' }, 400);
+  }
+
+  if (!reqPath.startsWith('/uploads/') || reqPath.includes('\0')) {
+    return c.json({ ok: false, error: 'Ruta inválida' }, 400);
+  }
+
+  const relInsideUploads = reqPath.slice('/uploads/'.length);
+  const fullPath = path.resolve(uploadsDir, relInsideUploads);
+  if (!isPathInsideDir(fullPath, uploadsDir)) {
+    return c.json({ ok: false, error: 'forbidden' }, 403);
+  }
+
+  // Determinar autorización: (A) sesión activa del estudio, o (B) token de revisión público válido
+  let authorized = false;
+  let hadCredentials = false;
+
+  const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
+  if (session?.user) {
+    hadCredentials = true;
+    const memberships = sqlite
+      .prepare("SELECT organization_id, role, allowed_client_id FROM members WHERE user_id = ? AND status != 'deactivated'")
+      .all(session.user.id) as Array<{ organization_id: string; role?: string; allowed_client_id?: string }>;
+
+    const activeOrgId = (session.session as any)?.activeOrganizationId as string | undefined;
+    const segments = relInsideUploads.split('/').filter(Boolean);
+    const firstSegment = segments[0] || '';
+
+    const matchingOrgMembership = memberships.find((m) => m.organization_id === firstSegment);
+    const mediaRow = sqlite
+      .prepare('SELECT id, organization_id, ot_id FROM media_files WHERE url = ? OR preview_url = ? LIMIT 1')
+      .get(reqPath, reqPath) as { id: string; organization_id: string | null; ot_id: string } | undefined;
+
+    const targetOrgId = matchingOrgMembership?.organization_id || mediaRow?.organization_id || null;
+    const membership = targetOrgId
+      ? memberships.find((m) => m.organization_id === targetOrgId && (!activeOrgId || m.organization_id === activeOrgId || Boolean(matchingOrgMembership)))
+      : undefined;
+
+    if (membership && targetOrgId) {
+      const role: 'owner' | 'member' | 'client' =
+        membership.role === 'owner' ? 'owner' : membership.role === 'client' ? 'client' : 'member';
+      if (role === 'owner') {
+        authorized = true;
+      } else if (mediaRow?.ot_id) {
+        const order = sqlite
+          .prepare('SELECT id, client, sign FROM work_orders WHERE id = ? AND organization_id = ?')
+          .get(mediaRow.ot_id, targetOrgId) as { id: string; client?: string; sign?: string } | undefined;
+        authorized = order
+          ? isOrderRowAuthorizedForUser({
+              organizationId: targetOrgId,
+              memberRole: role,
+              allowedClientId: membership.allowed_client_id || '*',
+              user: session.user,
+              otId: order.id,
+              clientName: order.client,
+              sign: order.sign,
+            })
+          : role === 'member';
+      } else {
+        authorized = role === 'member';
+      }
+    }
+  }
+
+  if (!authorized) {
+    const queryToken = c.req.query('reviewToken')?.trim() || '';
+    const referer = c.req.header('referer') || '';
+    const refererMatch = referer.match(/\/review\/([a-zA-Z0-9_-]+)/);
+    const reviewToken = queryToken || (refererMatch ? refererMatch[1] : '');
+
+    if (reviewToken) {
+      hadCredentials = true;
+      const share = sqlite
+        .prepare('SELECT * FROM shared_reviews WHERE token = ? AND revoked = 0')
+        .get(reviewToken) as any;
+
+      const notExpired = !share?.expires_at || Date.now() <= new Date(share.expires_at).getTime();
+      if (share && notExpired) {
+        const sharedMedia = share.media_file_id
+          ? (sqlite.prepare('SELECT id, version_group_id, url, preview_url FROM media_files WHERE id = ?').get(share.media_file_id) as any)
+          : null;
+
+        let allowedMediaRows: Array<{ url?: string | null; preview_url?: string | null }> = [];
+        if (sharedMedia?.version_group_id) {
+          allowedMediaRows = sqlite
+            .prepare("SELECT url, preview_url FROM media_files WHERE ot_id = ? AND version_group_id = ? AND COALESCE(review_status, 'in_review') != 'draft'")
+            .all(share.ot_id, sharedMedia.version_group_id) as any[];
+        } else if (sharedMedia) {
+          allowedMediaRows = [sharedMedia];
+        }
+
+        authorized = allowedMediaRows.some((r) => r.url === reqPath || r.preview_url === reqPath);
+      }
+    }
+  }
+
+  if (!authorized) {
+    return c.json({ ok: false, error: hadCredentials ? 'forbidden' : 'unauthorized' }, hadCredentials ? 403 : 401);
+  }
+
+  if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
+    return c.json({ ok: false, error: 'Archivo no encontrado' }, 404);
+  }
+
+  const ext = path.extname(fullPath).toLowerCase().replace(/^\./, '');
+  const contentType = UPLOAD_MIME_BY_EXT[ext] || 'application/octet-stream';
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, max-age=300',
+  };
+  if (FORCE_DOWNLOAD_EXTS.has(ext)) {
+    headers['Content-Disposition'] = `attachment; filename="${path.basename(fullPath).replace(/"/g, '')}"`;
+  }
+
+  const buffer = fs.readFileSync(fullPath);
+  return c.body(buffer, 200, headers);
+});
+
 app.use('/assets/*', serveStatic({ root: './dist' }));
 app.use('/assets/*', serveStatic({ root: './' }));
-app.use('/src/*', serveStatic({ root: './' }));
 app.get('/favicon.ico', (c) => {
   const iconPath = path.resolve('./assets/favicon-32x32.png');
   if (fs.existsSync(iconPath)) {

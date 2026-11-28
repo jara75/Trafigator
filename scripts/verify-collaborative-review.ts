@@ -252,8 +252,8 @@ assert.equal(approveRes.status, 200);
 assert.equal(approveRes.json.orderStatus, 'Aprobado');
 assert.equal(approveRes.json.routeEntry.stamp, 'APROBADO');
 
-const orderRow = sqlite.prepare('SELECT status FROM work_orders WHERE id = ?').get('OT-RV-001') as { status: string };
-assert.equal(orderRow.status, 'Aprobado');
+const orderRow = sqlite.prepare('SELECT ot_status FROM work_orders WHERE id = ?').get('OT-RV-001') as { ot_status: string };
+assert.equal(orderRow.ot_status, 'Aprobado');
 const routeCount = sqlite.prepare('SELECT COUNT(*) AS c FROM route_entries WHERE ot_id = ?').get('OT-RV-001') as { c: number };
 assert.equal(routeCount.c, 2, 'Deben haberse asentado 2 movimientos automáticos en route_entries');
 console.log('[6] Cierre automático en route_entries (AJUSTES / APROBADO) y work_orders.status OK');
