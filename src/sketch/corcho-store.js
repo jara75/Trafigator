@@ -333,3 +333,148 @@ export async function addCorchoFile(file) {
   }
   return { ok: true, item };
 }
+
+export function getCorchoItemById(id) {
+  if (!id) return null;
+  return loadCorchoItems().find((it) => it.id === id) || null;
+}
+
+export function updateCorchoItem(id, patch = {}) {
+  if (!id) return { ok: false, error: 'Ficha no especificada.' };
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  const current = items[idx];
+  const next = {
+    ...current,
+    updatedAt: new Date().toISOString(),
+  };
+  if (typeof patch.title === 'string') {
+    const cleanTitle = patch.title.trim();
+    if (cleanTitle) next.title = cleanTitle.slice(0, 140);
+  }
+  if (typeof patch.content === 'string') {
+    next.content = patch.content;
+  }
+  items[idx] = next;
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: next };
+}
+
+export function addCorchoPrivateNote(id, rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) return { ok: false, error: 'Escribe un apunte antes de guardar.' };
+
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  const note = {
+    id: `pn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    text,
+    at: new Date().toISOString(),
+  };
+  const nextNotes = [note, ...(items[idx].privateNotes || [])];
+  items[idx] = {
+    ...items[idx],
+    privateNotes: nextNotes,
+    updatedAt: new Date().toISOString(),
+  };
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: items[idx], note };
+}
+
+export function deleteCorchoPrivateNote(id, noteId) {
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  items[idx] = {
+    ...items[idx],
+    privateNotes: (items[idx].privateNotes || []).filter((n) => n.id !== noteId),
+    updatedAt: new Date().toISOString(),
+  };
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: items[idx] };
+}
+
+export function archiveCorchoItem(id) {
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  const nowIso = new Date().toISOString();
+  items[idx] = {
+    ...items[idx],
+    status: 'archived',
+    archivedAt: nowIso,
+    updatedAt: nowIso,
+  };
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: items[idx] };
+}
+
+export function restoreCorchoItem(id) {
+  const items = loadCorchoItems();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx === -1) return { ok: false, error: 'Ficha no encontrada.' };
+
+  items[idx] = {
+    ...items[idx],
+    status: 'active',
+    archivedAt: null,
+    updatedAt: new Date().toISOString(),
+  };
+  const saved = saveCorchoItems(items);
+  if (!saved.ok) return saved;
+  return { ok: true, item: items[idx] };
+}
+
+export async function deleteCorchoItem(id) {
+  const items = loadCorchoItems();
+  const target = items.find((it) => it.id === id);
+  if (!target) return { ok: false, error: 'Ficha no encontrada.' };
+
+  const nextItems = items.filter((it) => it.id !== id);
+  const saved = saveCorchoItems(nextItems);
+  if (!saved.ok) return saved;
+
+  const hasPromotedRefs = Array.isArray(target.promotedOtIds) && target.promotedOtIds.length > 0;
+  if (target.fileMeta?.blobId && !hasPromotedRefs) {
+    await deleteBlob(target.fileMeta.blobId).catch(() => {});
+  }
+  return { ok: true, deletedId: id };
+}
+
+export function buildCorchoMarkdownExport(item) {
+  if (!item) return { fileName: 'corcho.md', content: '' };
+  const safeBase = String(item.title || 'ficha-corcho')
+    .toLowerCase()
+    .replace(/[^a-z0-9áéíóúñ_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'ficha-corcho';
+
+  const lines = [`# ${item.title || 'Sin título'}`, ''];
+  if (item.type === 'link' && item.url) {
+    lines.push(`Enlace: ${item.url}`, '');
+  }
+  if (item.content) {
+    lines.push(item.content, '');
+  }
+  if (Array.isArray(item.privateNotes) && item.privateNotes.length) {
+    lines.push('## Apuntes privados', '');
+    item.privateNotes.forEach((n) => {
+      lines.push(`- ${n.text}`);
+    });
+    lines.push('');
+  }
+  return {
+    fileName: `${safeBase}.md`,
+    content: lines.join('\n'),
+  };
+}
